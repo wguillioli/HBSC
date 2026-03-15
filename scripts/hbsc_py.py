@@ -3,7 +3,7 @@
 import pandas as pd
 import os
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
 # set working directory
@@ -68,7 +68,61 @@ def recode_vice(col2convert):
     
     return col_converted
 
+# function that takes column, recodes and prints xtabs to corroborate
+def recode_bullying(col2convert):
+    
+    col_converted = col2convert.replace({'1' : 'Havent',
+                                        '2' : 'OnceTwice',
+                                        '3' : '2-3XPerMonth',
+                                        '4' : 'OnceWeek',
+                                        '5' : 'SeveralWeek',
+                                        ' ' : np.nan})
+    
+    return col_converted    
 
+def recode_fight(col2convert):
+    
+    col_converted = col2convert.replace({
+        '1' : '0x',
+        '2' : '1x',
+        '3' : '2x',
+        '4' : '3x',
+        '5' : '+4x',
+        ' ' : np.nan
+        })
+    
+    return col_converted
+
+def recode_friends(col2convert):
+    
+    col_converted = col2convert.replace({
+        '1' : '1StrongDisagree',
+        '2' : '2Disagree',
+        '3' : '3SomewhatDisagree',
+        '4' : '4Neutral',
+        '5' : '5SomewhatAgree',
+        '6' : '6Agree',
+        '7' : '7StrongAgree',
+        ' ' : np.nan
+        })
+    
+    return col_converted
+    
+def recode_onlinecomms(col2convert):
+    
+    col_converted = col2convert.replace({
+        '1' : 'DontKnow/NA',
+        '2' : 'Never/AlmostNever',
+        '3' : 'Weekly',
+        '4' : 'Daily',
+        '5' : 'SeveralDaily',
+        '6' : 'AllTheTime',
+        ' ' : np.nan
+        })
+    
+    return col_converted
+      
+ 
 # load data
 dat_file_path = "C:\\MisLocalFiles\\Github\\HBSC\\data\\HBSC2018OAed1.1.csv"
 hbsc2018 = pd.read_csv(dat_file_path, decimal=',', sep=';')
@@ -77,6 +131,12 @@ hbsc2018 = pd.read_csv(dat_file_path, decimal=',', sep=';')
 hbsc2018.shape #244097, 120
 
 hbsc2018.info()
+
+# output columns to csv
+cols_hbsc2018 = hbsc2018.columns
+cols_hbsc2018 = pd.DataFrame(cols_hbsc2018)
+cols_hbsc2018.to_csv("./other/cols_hbsc2018.csv")
+
 
 # make working copy
 d = hbsc2018.copy()
@@ -162,6 +222,9 @@ d['region'].value_counts(dropna = False) #don't seem to add value, country is be
 
 # 'id1', 'id2', 'id3', 'id4'
 d['id1'].value_counts(dropna = False) #these are just number Ids that don't seem to mean anything
+
+# DO 2 TO 4
+
 
 # 'weight' weight of dataset. what is this?
 d['weight']
@@ -456,44 +519,192 @@ d['alcltm_recoded'] = recode_vice(d['alcltm'])
 # alc30d_2: #days drank last 30 days
 d['alc30d_2_recoded'] = recode_vice(d['alc30d_2'])
 
-# vars to do EDA
-#'drunkltm', 'drunk30d', 'cannabisltm_2', 
-#'cannabis30d_2', 'bodyweight', 'bodyheight', 'likeschool', 'schoolpressure', , 
-#'bulliedothers', 'beenbullied', 'cbulliedothers', 'cbeenbullied', 'fight12m', 'injured12m', 'friendhelp', 
-#'friendcounton', 'friendshare', 'friendtalk', 'emconlfreq1', 'emconlfreq2', 'emconlfreq3', 
-#'emconlfreq4', 'emconlpref1', 'emconlpref2', 'emconlpref3', 'emcsocmed1', 'emcsocmed2', 'emcsocmed3', 
-#'emcsocmed4', 'emcsocmed5', 'emcsocmed6', 'emcsocmed7', 'emcsocmed8', 'emcsocmed9', 'hadsex', 
-#'agesex', 'contraceptcondom', 'contraceptpill', 'countryborn', 'countrybornmo', 'countrybornfa', 
+# drunkltm: Have you ever had so much alcohol that you were really drunk? in lifetime
+d['drunkltm'].value_counts(dropna=False)
+
+d['drunkltm_recoded'] = d['drunkltm'].replace({'1' : "Never", 
+                                             '2' : "Once",
+                                             '3' : "2-3x",
+                                             '4' : "4-10x",
+                                             '5' : "MoreThan10",
+                                             '-99' : "InconsistentAnswer",
+                                             ' ' : np.nan})
+
+pd.crosstab(d['drunkltm'], d['drunkltm_recoded'], dropna=False)
+
+# drunk30d; really drunk past 30 days
+d['drunk30d_recoded'] = d['drunk30d'].replace({'1' : "Never", 
+                                             '2' : "Once",
+                                             '3' : "2-3x",
+                                             '4' : "4-10x",
+                                             '5' : "MoreThan10",
+                                             '-99' : "InconsistentAnswer",
+                                             ' ' : np.nan})
+
+pd.crosstab(d['drunk30d'], d['drunk30d_recoded'], dropna=False)
+
+# cannabisltm_2: Cannabis life time
+d['cannabisltm_2_recoded'] = d['cannabisltm_2'].replace({'1' : "Never", 
+                                             '2' : "1-2Days",
+                                             '3' : "3-5Days",
+                                             '4' : "6-9Days",
+                                             '5' : "10-19Days",
+                                             '6' : "20-29Days",
+                                             '7' : "30DaysOrMore",
+                                             ' ' : np.nan})
+
+pd.crosstab(d['cannabisltm_2'], d['cannabisltm_2_recoded'], dropna=False)
+
+# cannabis30d_2: Cannabis last 30 days
+d['cannabis30d_2_recoded'] = d['cannabis30d_2'].replace({'1' : "Never", 
+                                             '2' : "1-2Days",
+                                             '3' : "3-5Days",
+                                             '4' : "6-9Days",
+                                             '5' : "10-19Days",
+                                             '6' : "20-29Days",
+                                             '7' : "30DaysOrMore",
+                                             ' ' : np.nan})
+
+pd.crosstab(d['cannabis30d_2'], d['cannabis30d_2_recoded'], dropna=False)
+
+# bodyweight, weight without clothes- how much you weight? Kilo
+d['bodyweight'].replace(' ', np.nan).astype(float).describe()
+
+d['bodyweight_recoded'] = d['bodyweight'].replace(' ', np.nan).astype(float)
+
+#bodyheight, how tall? cm no shoes
+d['bodyheight'].replace(' ', np.nan).astype(float).describe()
+
+d['bodyheight_recoded'] = d['bodyheight'].replace(' ', np.nan).astype(float)
+
+# likeschool, How do you feel about school at present?
+d['likeschool_recoded'] = d['likeschool'].replace({'1' : 'ALot',
+                                                  '2' : 'ABit',
+                                                  '3' : 'NotMuch',
+                                                  '4' : 'NotAtAll',
+                                                  ' ' : np.nan})
+
+print(pd.crosstab(d['likeschool'], d['likeschool_recoded'], dropna=False))
+
+# schoolpressure: How pressured do you feel by the schoolwork you have to do?
+d['schoolpressure_recoded'] = d['schoolpressure'].replace({'1' : 'NotAtAll',
+                                                  '2' : 'ALittle',
+                                                  '3' : 'Some',
+                                                  '4' : 'ALot',
+                                                  ' ' : np.nan})
+
+print(pd.crosstab(d['schoolpressure'], d['schoolpressure_recoded'], dropna=False))
+
+# bulliedothers
+d['bulliedothers_recoded'] = recode_bullying(d['bulliedothers'])
+
+print(pd.crosstab(d['bulliedothers_recoded'], d['bulliedothers']))
+
+
+# beenbullied
+d['beenbullied_recoded'] = recode_bullying(d['beenbullied'])
+
+print(pd.crosstab(d['beenbullied_recoded'], d['beenbullied']))
+
+# cbulliedothers
+d['cbulliedothers_recoded'] = recode_bullying(d['cbulliedothers'])
+
+print(pd.crosstab(d['cbulliedothers_recoded'], d['cbulliedothers']))
+
+# cbeenbullied
+d['cbeenbullied_recoded'] = recode_bullying(d['cbeenbullied'])
+
+print(pd.crosstab(d['cbeenbullied_recoded'], d['cbeenbullied']))
+
+# fight12m, #During the past 12 months, how many times were you in a physical fight?
+d['fight12m_recoded'] = recode_fight(d['fight12m'])
+
+print(pd.crosstab(d['fight12m_recoded'], d['fight12m']))
+    
+# injured12m, During the past 12 months, how many times were you injured and had to be treated
+#by a doctor or nurse
+d['injured12m_recoded'] = recode_fight(d['injured12m'])
+
+print(pd.crosstab(d['injured12m_recoded'], d['injured12m']))
+
+# friendhelp: Literal question My friends really try to help me
+d['friendhelp_recoded'] = recode_friends(d['friendhelp'])
+
+pd.crosstab(d['friendhelp_recoded'], d['friendhelp'], dropna=False)
+
+# friendcounton: I can count on my friends when things go wrong
+d['friendcounton_recoded'] = recode_friends(d['friendcounton'])
+
+pd.crosstab(d['friendcounton_recoded'], d['friendcounton'], dropna=False)
+
+# friendshare: I have friends with whom I can share my joys and sorrows
+d['friendshare_recoded'] = recode_friends(d['friendshare'])
+
+pd.crosstab(d['friendshare_recoded'], d['friendshare'], dropna=False)
+
+# friendtalk: I can talk about my problems with my friends
+d['friendtalk_recoded'] = recode_friends(d['friendtalk'])
+
+pd.crosstab(d['friendtalk_recoded'], d['friendtalk'], dropna=False)
+
+#emconlfreq1: Onl contact close friends
+d['emconlfreq1_recoded'] = recode_onlinecomms(d['emconlfreq1'])
+
+pd.crosstab(d['emconlfreq1_recoded'], d['emconlfreq1'], dropna=False)
+
+# emconlfreq2: Onl contact larger friend group
+d['emconlfreq2_recoded'] = recode_onlinecomms(d['emconlfreq2'])
+
+pd.crosstab(d['emconlfreq2_recoded'], d['emconlfreq2'], dropna=False)
+
+# emconlfreq3: Onl contact online friends
+d['emconlfreq3_recoded'] = recode_onlinecomms(d['emconlfreq3'])
+
+pd.crosstab(d['emconlfreq3_recoded'], d['emconlfreq3'], dropna=False)
+
+# emconlfreq4: Onl contact other
+d['emconlfreq4_recoded'] = recode_onlinecomms(d['emconlfreq4'])
+
+pd.crosstab(d['emconlfreq4_recoded'], d['emconlfreq4'], dropna=False)
+
+
+#'', 'emconlpref1', 'emconlpref2', 'emconlpref3', #
+#'emcsocmed1', 'emcsocmed2', 'emcsocmed3', 
+#'emcsocmed4', 'emcsocmed5', 'emcsocmed6', 'emcsocmed7', 'emcsocmed8', 'emcsocmed9', 
+#'hadsex', 'agesex', 'contraceptcondom', 'contraceptpill', 'countryborn', 'countrybornmo', 'countrybornfa', 
 #'motherhome1', 'fatherhome1', 'stepmohome1', 'stepfahome1', 'fosterhome1', 'elsehome1_2', 
 #'employfa', 'employmo', 'employnotfa', 'employnotmo', 'talkfather', 'talkstepfa', 'talkmother', 
-#'talkstepmo', 'famhelp', 'famsup', 'famtalk', 'famdec', 'MBMI', 'IRFAS', 'IRRELFAS_LMH', #'IOTF4', 'oweight_who']
+#'talkstepmo', 'famhelp', 'famsup', 'famtalk', 'famdec', 
+#'MBMI', 'IRFAS', 'IRRELFAS_LMH', #'IOTF4', 'oweight_who']
 
 
 # to dos
 # explicit NA when reading file csv
 # remove useless vars after redoding... ir 1x1
 # order factors like this https://bitl.to/5k99
+#df_sorted = df.sort_index(axis=1)
+
 # feature eng: 
     #continent
 
 
 
-# playground / dump
+# # playground / dump
 
-# just a test
-# plot teacher trust distribution by country
-x = d[['country','teachertrust_recoded']]
+# # just a test
+# # plot teacher trust distribution by country
+# x = d[['country','teachertrust_recoded']]
 
-xagg = d.groupby(['country','teachertrust_recoded']).size().reset_index(name='Count')
-xagg
+# xagg = d.groupby(['country','teachertrust_recoded']).size().reset_index(name='Count')
+# xagg
 
-xagg2 = pd.crosstab(d['country'],d['teachertrust_recoded']) 
-xagg2['country'] = xagg2.index
+# xagg2 = pd.crosstab(d['country'],d['teachertrust_recoded']) 
+# xagg2['country'] = xagg2.index
 
-xagg2.plot(x='country', kind='barh', stacked=True,
-        title='Stacked Bar Graph by dataframe')
+# xagg2.plot(x='country', kind='barh', stacked=True,
+#         title='Stacked Bar Graph by dataframe')
 
-plt.show()
+# plt.show()
 
 
 
