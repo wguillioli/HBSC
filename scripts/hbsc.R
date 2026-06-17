@@ -2,14 +2,14 @@
 
 rm(list = ls())
 
-setwd("C:/GitHub/HBSC/")
+setwd("C:/MisLocalFiles/Github/HBSC/")
 
 require(tidyverse)
 
-hbsc2018 <- read_delim("./data/HBSC2018OAed1.1.csv",
+hbsc2018 <- read_delim("./data/raw/HBSC2018OAed1.1.csv",
                        delim = ";",
                        na = c("", " "))
-problems(hbsc2018)
+#problems(hbsc2018)
 dim(hbsc2018) #244097    120
 summary(hbsc2018)
 glimpse(hbsc2018)
@@ -73,9 +73,9 @@ dat <- dat %>%
 
 dat <- dat %>%
   mutate(pmsu_lbl = case_when(
-    between(pmsu, 0, 1) ~ "L",
-    between(pmsu, 2, 5) ~ "M",
-    between(pmsu, 6, 9) ~ "H",
+    between(pmsu, 0, 1) ~ "Low",
+    between(pmsu, 2, 5) ~ "Med",
+    between(pmsu, 6, 9) ~ "High",
     TRUE ~ "_ERROR"
   ))
 
@@ -93,9 +93,9 @@ dat <- dat %>%
                         + famsup
                         + famtalk) %>%
   mutate(famsup_MSPSS_lbl = case_when(
-    between(famsup_MSPSS, 3, 8) ~ "L",
-    between(famsup_MSPSS, 9, 14) ~ "M",
-    between(famsup_MSPSS, 15, 21) ~ "H",
+    between(famsup_MSPSS, 3, 8) ~ "Low",
+    between(famsup_MSPSS, 9, 14) ~ "Med",
+    between(famsup_MSPSS, 15, 21) ~ "High",
     TRUE ~ "_ERROR"
   ))
 
@@ -118,9 +118,9 @@ summary(dat$IRRELFAS_LMH)
 # for now, keep breaks as provided. but wondering if relative to each population?
 dat <- dat %>%
   mutate(IRRELFAS_LMH_lbl = case_when(
-    IRRELFAS_LMH == 1 ~ "L",
-    IRRELFAS_LMH == 2 ~ "M",
-    IRRELFAS_LMH == 3 ~ "H",
+    IRRELFAS_LMH == 1 ~ "Low",
+    IRRELFAS_LMH == 2 ~ "Med",
+    IRRELFAS_LMH == 3 ~ "High",
     TRUE ~ "_ERROR"
   ))
 
@@ -129,5 +129,48 @@ table(dat$IRRELFAS_LMH_lbl)
 # for now, keep only complete obs
 dat <- dat %>%
   filter(IRRELFAS_LMH_lbl != "_ERROR") 
+
+# prep Y (emotional health)
+vars_mental_health <- c("headache",
+                        "stomachache",
+                        "backache",
+                        "feellow",
+                        "irritable",
+                        "nervous",
+                        "sleepdificulty",
+                        "dizzy"
+)
+
+lapply(dat[,vars_mental_health], 
+       table, useNA = "always")
+
+dat$mental_health <- rowMeans(dat[,vars_mental_health],
+                              na.rm = TRUE)
+
+summary(dat$mental_health)
+
+# inventing for now; hoping to find somebody doing it
+dat <- dat %>%
+  mutate(mental_health_lbl = case_when(
+  between(mental_health,1,3.375) ~ "Low", #Q1
+  between(mental_health, 3.375, 4.625) ~ "Med", #Q3
+  between(mental_health, 4.625, 5) ~ "High",
+  TRUE ~ "_ERROR"
+  ))
+
+table(dat$mental_health_lbl, useNA = "always")
+
+# for now, only keep complete obs
+dat <- dat %>%
+  filter(mental_health_lbl != "_ERROR")
+
+head(dat[,c(vars_mental_health, "mental_health", "mental_health_lbl")], 10)
+
+write_csv(dat, 
+          "./data/processed/dat_HBSC2018_20260616.csv"
+          )
+
+
+
 
 
