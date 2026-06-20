@@ -40,6 +40,15 @@ recode_pmsu <- function(col){
     )
 }
 
+# function that flags if a psycosomatic issue is frequent
+is_psycosom_frequent <- function(col){
+  col_recoded <- case_when(
+    between(col,1,3) ~ 1,
+    between(col,4,5) ~ 0,
+    TRUE ~ col
+  )
+}
+
 vars_pmsu <- c()
 vars_pmsu_r <- c()
 
@@ -166,9 +175,76 @@ dat <- dat %>%
 
 head(dat[,c(vars_mental_health, "mental_health", "mental_health_lbl")], 10)
 
+# from Subjective health and well-being of children and adolescents 
+# in Germany – Cross-sectional results of the 2017/18 HBSC study
+# create Y index of wellbeing from 3 parts: health, life sat, psycosomatic
+
+table(dat$health, useNA = "always")
+
+table(dat$lifesat, useNA = "always")
+
+lapply(dat[,vars_mental_health], 
+       table, useNA = "always")
+
+dat <- dat %>%
+  mutate(health_r = case_when(
+    health %in% c(1,2) ~ "Good",
+    health %in% c(3,4) ~ "Poor",
+    TRUE ~ "_ERROR" #NAs
+  ),
+  lifesat_r = case_when(
+    between(lifesat,0,5) ~ "Low",
+    between(lifesat,6,10) ~ "High",
+    TRUE ~ "_ERROR" #NAs
+  )
+  )
+
+lapply(dat[,vars_mental_health], 
+       table, useNA = "always")
+
+vars_mental_health_r <- paste0(vars_mental_health, "_r")
+
+dat <- dat %>%
+  mutate(
+    headache_r = is_psycosom_frequent(headache), #frequent if 1-3, 
+    stomachache_r = is_psycosom_frequent(stomachache),
+    backache_r = is_psycosom_frequent(backache),
+    feellow_r = is_psycosom_frequent(feellow),
+    irritable_r = is_psycosom_frequent(irritable),
+    nervous_r = is_psycosom_frequent(nervous),
+    sleepdificulty_r = is_psycosom_frequent(sleepdificulty),
+    dizzy_r = is_psycosom_frequent(dizzy)
+  ) 
+
+dat$num_psycosom <- rowSums(dat[,vars_mental_health_r])
+
+dat$frequent_physocom <- ifelse(dat$num_psycosom >= 2, 1, 0) # per paper
+
+table(dat$health_r)
+table(dat$lifesat_r)
+table(dat$frequent_physocom)
+
+# clean NAs for now
+dat <- dat %>%
+  filter(health_r != "_ERROR") %>%
+  filter(lifesat_r != "_ERROR") %>%
+  filter(!is.na(frequent_physocom))
+
+dat %>%
+  group_by(health_r, lifesat_r, frequent_physocom) %>%
+  tally()
+
+dat <- dat %>% 
+  mutate(good_wellbeing_index = case_when(
+    health_r == "Good" & lifesat_r == "High" & frequent_physocom == 0 ~ 1,
+    TRUE ~ 0
+  ))
+
+table(dat$good_wellbeing_index, useNA = "always")
+
 write_csv(dat, 
-          "./data/processed/dat_HBSC2018_20260616.csv"
-          )
+           "./data/processed/dat_HBSC2018_20260619.csv"
+           )
 
 
 
