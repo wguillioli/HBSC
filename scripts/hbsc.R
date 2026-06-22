@@ -49,6 +49,20 @@ is_psycosom_frequent <- function(col){
   )
 }
 
+# function gets a column and returns reversed values recoded
+reverse_school <- function(col){
+  recoded_col <- case_match(
+    col,
+    5 ~ 0,
+    4 ~ 1,
+    3 ~ 2,
+    2 ~ 3,
+    1 ~ 4,
+    TRUE ~ NA
+  )
+  return(recoded_col)
+}
+
 vars_pmsu <- c()
 vars_pmsu_r <- c()
 
@@ -241,6 +255,52 @@ dat <- dat %>%
   ))
 
 table(dat$good_wellbeing_index, useNA = "always")
+
+# family support from italy paper
+vars_famsup <- c("famhelp",
+                 "famsup",
+                 "famtalk",
+                 "famdec")
+
+dat$fam_support_avg <- rowSums(dat[,vars_famsup]) / 4
+dat$fam_support_lbl <- ifelse(dat$fam_support_avg < 5.5, "Low", "High")
+
+# peer support from italy paper
+vars_peersup <- c("friendhelp",
+                 "friendcounton",
+                 "friendshare",
+                 "friendtalk")
+
+dat$peer_support_avg <- rowSums(dat[,vars_peersup]) / 4
+dat$peer_support_lbl <- ifelse(dat$peer_support_avg < 5.5, "Low", "High")
+
+# school support
+# from teacher and classmate support
+
+# vars_teacher <- c("teacheraccept",
+#                   "teachercare",
+#                   "teachertrust")
+
+# vars_classmates <- c("studtogether",
+#                      "studhelpful",
+#                      "studaccept")
+
+dat <- dat %>%
+  mutate(teacheraccept_r = reverse_school(teacheraccept),
+         teachercare_r = reverse_school(teachercare),
+         teachertrust_r = reverse_school(teachertrust),
+         studtogether_r = reverse_school(studtogether),
+         studhelpful_r = reverse_school(studhelpful),
+         studaccept_r = reverse_school(studaccept)
+         ) %>%
+  mutate(teacher_support_avg = (teacheraccept_r + teachercare_r + teachertrust_r)/3,
+         stud_support_avg = (studtogether_r + studhelpful_r + studaccept_r)/3
+  ) %>%
+  mutate(school_support_sum = teacher_support_avg + stud_support_avg) %>%
+  mutate(school_support_avg = school_support_sum / 2) %>%
+  mutate(school_support_lbl = ifelse(school_support_avg < 2.5, "Low", "High")) #median or 2.5 as in paper?
+
+
 
 write_csv(dat, 
            "./data/processed/dat_HBSC2018_20260619.csv"
