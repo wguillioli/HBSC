@@ -1,44 +1,188 @@
 # HBSC dataset prep
 
+#backlog
+#fix how age is read due to , . issue
+
+# ---------------------------------------------------------
+# project setup
+# ---------------------------------------------------------
+
 rm(list = ls())
 
 setwd("C:/MisLocalFiles/Github/HBSC/")
 
 require(tidyverse)
 
+# ---------------------------------------------------------
+# load dataset
+# ---------------------------------------------------------
+
 hbsc2018 <- read_delim("./data/raw/HBSC2018OAed1.1.csv",
                        delim = ";",
                        na = c("", " "))
-#problems(hbsc2018)
 dim(hbsc2018) #244097    120
+
+
+# ---------------------------------------------------------
+# prep data for modeling
+# ---------------------------------------------------------
+
+vars_health_physical <- c("headache", "stomachache", "backache", "dizzy")
+vars_health_mental <- c("feellow", "irritable", "nervous", "sleepdificulty")
+vars_emcsocmed <- paste0("emcsocmed", seq(1,9,1))
+vars_emcsocmed_r <- paste0("emcsocmed", seq(1,9,1), "_r")
+vars_family_support <- c("famhelp", "famsup", "famtalk", "famdec")
+
+# filter to one country and select variables to use
+canada <- hbsc2018 %>%
+  filter(countryno == 124000) %>% #129,50
+  select(# personal info
+         seqno_int,
+         #age,
+         agecat,
+         #grade,
+         sex,
+         # 
+         lifesat,
+         all_of(vars_health_physical),
+         all_of(vars_health_mental),
+         all_of(vars_emcsocmed),
+         all_of(vars_family_support)
+         )
+
+# recode lifesat
+canada <- canada %>%
+  mutate(
+    #lifesat as binary
+    lifesat_low = case_when(
+      between(lifesat, 0, 5) ~ 1,
+      between(lifesat, 6, 10) ~ 0,
+      TRUE ~ NA))
+
+# recode proportions with multiple (two or more) health complaints more than once a week
+canada <- canada %>%
+  # 8 health complaints into binary if more than once/week
+  mutate(
+    headache_frequent = ifelse(headache <= 2, 1, 0),
+    stomachache_frequent = ifelse(stomachache <= 2, 1, 0),
+    backache_frequent = ifelse(backache <= 2, 1, 0),
+    dizzy_frequent = ifelse(dizzy <= 2, 1, 0),
+    feellow_frequent = ifelse(feellow <= 2, 1, 0),
+    irritable_frequent = ifelse(irritable <= 2, 1, 0),
+    nervous_frequent = ifelse(nervous <= 2, 1, 0),
+    sleepdificulty_frequent = ifelse(sleepdificulty <= 2, 1, 0)
+  ) %>%
+  # add the frequency of complaints
+  mutate(
+    mental_complaints_sum = feellow_frequent +
+                           irritable_frequent +
+                           nervous_frequent +
+                           sleepdificulty_frequent,
+    physical_complaints_sum = headache_frequent +
+                              stomachache_frequent +
+                              backache_frequent + 
+                              dizzy_frequent
+  ) %>%
+  # derive index based on sum
+  mutate(
+      multiple_mental_complaints = ifelse(mental_complaints_sum >=2, 1, 0),
+      multiple_health_complaints = 
+        ifelse((mental_complaints_sum + physical_complaints_sum) >=2, 1, 0)
+      ) 
+
+# recode invidual vars
+canada <- canada %>%
+  mutate(
+    age_recoded = case_match(agecat,
+                             1 ~ 11,
+                             2 ~ 13,
+                             3 ~ 15,
+                             .default = NA
+                             ),
+    sex_recoded = case_match(sex,
+                             1 ~ "boy",
+                             2 ~ "girl",
+                             .default = NA)
+  )
+
+# recode emcsocmed to 0/1
+recode_emcsocmed <- function(old_col){
+  new_col <- case_when(
+    old_col == 1 ~ 0,
+    old_col == 2 ~ 1,
+    TRUE ~ NA #99?
+  )
+  return(new_col)
+}
+
+# recode pmsu into YN and LMH
+canada <- canada %>%
+  mutate(emcsocmed1_r = recode_emcsocmed(emcsocmed1),
+         emcsocmed2_r = recode_emcsocmed(emcsocmed2),
+         emcsocmed3_r = recode_emcsocmed(emcsocmed3),
+         emcsocmed4_r = recode_emcsocmed(emcsocmed4),
+         emcsocmed5_r = recode_emcsocmed(emcsocmed5),
+         emcsocmed6_r = recode_emcsocmed(emcsocmed6),
+         emcsocmed7_r = recode_emcsocmed(emcsocmed7),
+         emcsocmed8_r = recode_emcsocmed(emcsocmed8),
+         emcsocmed9_r = recode_emcsocmed(emcsocmed9)
+         ) 
+
+canada <- canada %>%
+  mutate(emcsocmed_sum = rowSums(canada[,vars_emcsocmed_r])) %>%
+  mutate(
+    pmsu_yn = case_when(
+      between(emcsocmed_sum,6,9) ~ 1,
+      between(emcsocmed_sum,0,5) ~ 0,
+      TRUE ~ NA
+    ),
+    pmsu_lmh = case_when(
+      between(emcsocmed_sum,6,9) ~ "high",
+      between(emcsocmed_sum,2,5) ~ "med",
+      between(emcsocmed_sum,0,1) ~ "low",
+      TRUE ~ NA
+    )
+  )
+  
+table(canada$pmsu_lmh, canada$pmsu_yn, useNA = "always")
+
+# recode family support as yn and hml
+canada <- canada %>%
+  select(all_of(vars_family_support)) %>%
+  mutate(family_support_avg = rowMeans(.),
+         family_support_sum = rowSums(.)
+         ) %>%
+  mutate(family_support_high = case_when(
+           family_support_avg >= 1 & family_support_avg < 5.5 ~ 0,
+           family_support_avg >= 5.5 & family_support_avg <= 7 ~ 1,
+           TRUE ~ NA)) %>%
+  mutate(family_support_hml = case_when(
+           family_support_sum >= 4 & family_support_sum <= 11 ~ "low",
+           family_support_sum >= 12 & family_support_sum <= 19 ~ "med",
+           family_support_sum >= 20 & family_support_sum <= 28 ~ "high",
+           TRUE ~ NA))
+
+table(canada$family_support_high, canada$family_support_hml, useNA = "always")
+table(canada$family_support_high, useNA = "always")
+table(canada$family_support_hml, useNA = "always")
+# need to decide; won't match diff cutoffs
+
+summary(canada)
+
+
+
+
+
+# write_csv(canada,
+#           "canada.csv")
+
+
+# from before
 summary(hbsc2018)
 glimpse(hbsc2018)
 
 dat <- hbsc2018
 
-# pmsu (problematic social media use) recoding
-#PSMU was assessed using the Social Media Disorder Scale which assesses symptoms 
-#of PSMU through nine items (preoccupation, tolerance, withdrawal, 
-#persistence, escape, conflict, neglect of other activities, and difficulties 
-#in other life areas) with dichotomous (No/Yes) answers [11]. 
-#Internal consistency was high (Cronbach’s α = 0.75). 
-#Based on prior research, respondents with a sum score of 6 to 9 were 
-#identified as having PSMU. Those with a sum score between 2 and 5 were 
-#considered to be at moderate risk of PSMU, while a sum score of 0 to 1 
-#indicated a low risk of PSMU
-
-# function gets a pmsu column, recodes and returns a new column
-recode_pmsu <- function(col){
-  # 1 No 156598 78.0%
-  # 2 Yes 44267 22.0%
-  # 99 Missing due to skip pattern 11259
-  # Sysmiss 31973
-  col_recoded <- case_when(
-      col == 1 ~ 0,
-      col == 2 ~ 1,
-      TRUE ~ col
-    )
-}
 
 # function that flags if a psycosomatic issue is frequent
 is_psycosom_frequent <- function(col){
@@ -63,46 +207,6 @@ reverse_school <- function(col){
   return(recoded_col)
 }
 
-vars_pmsu <- c()
-vars_pmsu_r <- c()
-
-for (i in 1:9){
-  vars_pmsu <- c(vars_pmsu, paste0("emcsocmed",i))
-  vars_pmsu_r <- c(vars_pmsu_r, paste0("emcsocmed",i,"_r"))
-}
-
-dat <- dat %>%
-  mutate(emcsocmed1_r = recode_pmsu(emcsocmed1),
-         emcsocmed2_r = recode_pmsu(emcsocmed2),
-         emcsocmed3_r = recode_pmsu(emcsocmed3),
-         emcsocmed4_r = recode_pmsu(emcsocmed4),
-         emcsocmed5_r = recode_pmsu(emcsocmed5),
-         emcsocmed6_r = recode_pmsu(emcsocmed6),
-         emcsocmed7_r = recode_pmsu(emcsocmed7),
-         emcsocmed8_r = recode_pmsu(emcsocmed8),
-         emcsocmed9_r = recode_pmsu(emcsocmed9)
-         ) 
-
-dat <- dat %>%
-  mutate(pmsu = rowSums(dat[,vars_pmsu_r]))
-
-summary(dat[,c(vars_pmsu, vars_pmsu_r, "pmsu")])
-
-lapply(dat[, c(vars_pmsu, vars_pmsu_r, "pmsu")], table, useNA = "always")
-
-# for now, keep only complete observations for pmsu
-dat <- dat %>%
-  filter(pmsu >= 0 & pmsu <= 9)
-
-dat <- dat %>%
-  mutate(pmsu_lbl = case_when(
-    between(pmsu, 0, 1) ~ "Low",
-    between(pmsu, 2, 5) ~ "Med",
-    between(pmsu, 6, 9) ~ "High",
-    TRUE ~ "_ERROR"
-  ))
-
-table(dat$pmsu_lbl, useNA = "always")
 
 #Family support was assessed using three items from the Multidimensional Scale of 
 #Perceived Social Support (MSPSS) [32] tapping into emotional support: 
@@ -153,16 +257,7 @@ table(dat$IRRELFAS_LMH_lbl)
 dat <- dat %>%
   filter(IRRELFAS_LMH_lbl != "_ERROR") 
 
-# prep Y (emotional health)
-vars_mental_health <- c("headache",
-                        "stomachache",
-                        "backache",
-                        "feellow",
-                        "irritable",
-                        "nervous",
-                        "sleepdificulty",
-                        "dizzy"
-)
+
 
 lapply(dat[,vars_mental_health], 
        table, useNA = "always")
@@ -301,9 +396,20 @@ dat <- dat %>%
   mutate(school_support_lbl = ifelse(school_support_avg < 2.5, "Low", "High")) #median or 2.5 as in paper?
 
 
+# from 07 Social media threats and health among adolescents: 
+# evidence from the health behaviour in school-aged children study
+
+#pmsu as binary
+dat <- dat %>%
+  mutate(is_pmsu_problematic = case_when(
+    pmsu >= 6 ~ 1,
+    pmsu >= 0 ~ 0,
+    TRUE ~ -999
+  ))
+
 
 write_csv(dat, 
-           "./data/processed/dat_HBSC2018_20260619.csv"
+           "./data/processed/dat_HBSC2018_20260623.csv"
            )
 
 
