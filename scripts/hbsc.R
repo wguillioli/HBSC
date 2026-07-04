@@ -1,30 +1,33 @@
 # HBSC dataset prep
 
-#backlog
-#fix how age is read due to , . issue
-
 # ---------------------------------------------------------
 # project setup
 # ---------------------------------------------------------
 
 rm(list = ls())
 
-setwd("C:/MisLocalFiles/Github/HBSC/")
+setwd("C:/MisLocalFiles/Github/HBSC/scripts")
+project_folder <- "C:/MisLocalFiles/Github/HBSC/"
 
 require(tidyverse)
+require(caret)
+library(broom)
 
 # ---------------------------------------------------------
 # load dataset
 # ---------------------------------------------------------
 
-hbsc2018 <- read_delim("./data/raw/HBSC2018OAed1.1.csv",
+hbsc2018_file_full_path <- paste0(project_folder,
+                                  "/data/raw/HBSC2018OAed1.1.csv")
+  
+hbsc2018 <- read_delim(hbsc2018_file_full_path,
                        delim = ";",
                        na = c("", " "))
 dim(hbsc2018) #244097    120
 
 
 # ---------------------------------------------------------
-# prep data for modeling
+# recode variables
 # ---------------------------------------------------------
 
 vars_health_physical <- c("headache", "stomachache", "backache", "dizzy")
@@ -32,36 +35,101 @@ vars_health_mental <- c("feellow", "irritable", "nervous", "sleepdificulty")
 vars_emcsocmed <- paste0("emcsocmed", seq(1,9,1))
 vars_emcsocmed_r <- paste0("emcsocmed", seq(1,9,1), "_r")
 vars_family_support <- c("famhelp", "famsup", "famtalk", "famdec")
+vars_friends_support <- c("friendhelp", "friendcounton", "friendshare", "friendtalk")
+vars_school <- c("teacheraccept", "teachercare", "teachertrust",
+                 "studtogether", "studhelpful", "studaccept")
+vars_online_comms <- paste0("emconlfreq",seq(1,4,1))
+vars_online_share <- paste0("emconlpref",seq(1,3,1))
 
-# filter to one country and select variables to use
-canada <- hbsc2018 %>%
-  filter(countryno == 124000) %>% #129,50
-  select(# personal info
+# select variables i will use
+dat <- hbsc2018 %>%
+  select(countryno,
          seqno_int,
-         #age,
          agecat,
-         #grade,
          sex,
-         # 
          lifesat,
          all_of(vars_health_physical),
          all_of(vars_health_mental),
          all_of(vars_emcsocmed),
-         all_of(vars_family_support)
+         all_of(vars_family_support),
+         all_of(vars_friends_support),
+         all_of(vars_school),
+         IRRELFAS_LMH,
+         talkfather,
+         talkmother,
+         beenbullied,
+         cbeenbullied,
+         all_of(vars_online_comms),
+         all_of(vars_online_share)
          )
 
+# recode to country name
+recode_map <- c(
+  "8000"   = "Albania",
+  "31000"  = "Azerbaijan",
+  "40000"  = "Austria",
+  "51000"  = "Armenia",
+  "56001"  = "Belgium (Flemish)",
+  "56002"  = "Belgium (French)",
+  "100000" = "Bulgaria",
+  "124000" = "Canada",
+  "191000" = "Croatia",
+  "203000" = "Czech Republic",
+  "208000" = "Denmark",
+  "233000" = "Estonia",
+  "246000" = "Finland",
+  "250000" = "France",
+  "268000" = "Georgia",
+  "276000" = "Germany",
+  "300000" = "Greece",
+  "304000" = "Greenland",
+  "348000" = "Hungary",
+  "352000" = "Iceland",
+  "372000" = "Ireland",
+  "376000" = "Israel",
+  "380000" = "Italy",
+  "398000" = "Kazakhstan",
+  "428000" = "Latvia",
+  "440000" = "Lithuania",
+  "442000" = "Luxembourg",
+  "470000" = "Malta",
+  "498000" = "Republic of Moldova",
+  "528000" = "Netherlands",
+  "578000" = "Norway",
+  "616000" = "Poland",
+  "620000" = "Portugal",
+  "642000" = "Romania",
+  "643000" = "Russia",
+  "688000" = "Serbia",
+  "703000" = "Slovakia",
+  "705000" = "Slovenia",
+  "724000" = "Spain",
+  "752000" = "Sweden",
+  "756000" = "Switzerland",
+  "792000" = "Turkey",
+  "804000" = "Ukraine",
+  "807000" = "Macedonia",
+  "826001" = "England",
+  "826002" = "Scotland",
+  "826003" = "Wales",
+  "826004" = "Northern Ireland",
+  "840000" = "USA"
+)
+
+dat$country_name <- recode_map[as.character(dat$countryno)]
+
 # recode lifesat
-canada <- canada %>%
+dat <- dat %>%
   mutate(
-    #lifesat as binary
     lifesat_low = case_when(
       between(lifesat, 0, 5) ~ 1,
       between(lifesat, 6, 10) ~ 0,
       TRUE ~ NA))
 
+table(dat$lifesat_low, dat$lifesat, useNA = "always")
+
 # recode proportions with multiple (two or more) health complaints more than once a week
-canada <- canada %>%
-  # 8 health complaints into binary if more than once/week
+dat <- dat %>%
   mutate(
     headache_frequent = ifelse(headache <= 2, 1, 0),
     stomachache_frequent = ifelse(stomachache <= 2, 1, 0),
@@ -85,27 +153,30 @@ canada <- canada %>%
   ) %>%
   # derive index based on sum
   mutate(
-      multiple_mental_complaints = ifelse(mental_complaints_sum >=2, 1, 0),
-      multiple_health_complaints = 
+      mental_complaintsY = ifelse(mental_complaints_sum >=2, 1, 0),
+      health_complaintsY = 
         ifelse((mental_complaints_sum + physical_complaints_sum) >=2, 1, 0)
       ) 
 
-# recode invidual vars
-canada <- canada %>%
+# recode age and sex
+dat <- dat %>%
   mutate(
-    age_recoded = case_match(agecat,
+    age_r = case_match(agecat,
                              1 ~ 11,
                              2 ~ 13,
                              3 ~ 15,
                              .default = NA
                              ),
-    sex_recoded = case_match(sex,
+    sex_r = case_match(sex,
                              1 ~ "boy",
                              2 ~ "girl",
                              .default = NA)
   )
 
-# recode emcsocmed to 0/1
+table(dat$agecat, dat$age_r, useNA = "always")
+table(dat$sex, dat$sex_r, useNA = "always")
+
+# recode emcsocmed to 0/1 from 1/2
 recode_emcsocmed <- function(old_col){
   new_col <- case_when(
     old_col == 1 ~ 0,
@@ -116,7 +187,7 @@ recode_emcsocmed <- function(old_col){
 }
 
 # recode pmsu into YN and LMH
-canada <- canada %>%
+dat <- dat %>%
   mutate(emcsocmed1_r = recode_emcsocmed(emcsocmed1),
          emcsocmed2_r = recode_emcsocmed(emcsocmed2),
          emcsocmed3_r = recode_emcsocmed(emcsocmed3),
@@ -128,8 +199,8 @@ canada <- canada %>%
          emcsocmed9_r = recode_emcsocmed(emcsocmed9)
          ) 
 
-canada <- canada %>%
-  mutate(emcsocmed_sum = rowSums(canada[,vars_emcsocmed_r])) %>%
+dat <- dat %>%
+  mutate(emcsocmed_sum = rowSums(dat[,vars_emcsocmed_r])) %>%
   mutate(
     pmsu_yn = case_when(
       between(emcsocmed_sum,6,9) ~ 1,
@@ -144,275 +215,311 @@ canada <- canada %>%
     )
   )
   
-table(canada$pmsu_lmh, canada$pmsu_yn, useNA = "always")
+table(dat$pmsu_lmh, dat$pmsu_yn, useNA = "always")
 
 # recode family support as yn and hml
-canada <- canada %>%
-  select(all_of(vars_family_support)) %>%
-  mutate(family_support_avg = rowMeans(.),
-         family_support_sum = rowSums(.)
-         ) %>%
-  mutate(family_support_high = case_when(
-           family_support_avg >= 1 & family_support_avg < 5.5 ~ 0,
-           family_support_avg >= 5.5 & family_support_avg <= 7 ~ 1,
-           TRUE ~ NA)) %>%
-  mutate(family_support_hml = case_when(
-           family_support_sum >= 4 & family_support_sum <= 11 ~ "low",
-           family_support_sum >= 12 & family_support_sum <= 19 ~ "med",
-           family_support_sum >= 20 & family_support_sum <= 28 ~ "high",
-           TRUE ~ NA))
+dat <- dat %>%
+   mutate(family_support_avg = rowMeans(dat[,vars_family_support]),
+          family_support_sum = rowSums(dat[,vars_family_support])
+          ) %>%
+   mutate(family_support_high = case_when(
+            family_support_avg >= 1 & family_support_avg < 5.5 ~ 0,
+            family_support_avg >= 5.5 & family_support_avg <= 7 ~ 1,
+            TRUE ~ NA)) %>%
+   mutate(family_support_hml = case_when(
+            family_support_sum >= 4 & family_support_sum <= 11 ~ "low",
+            family_support_sum >= 12 & family_support_sum <= 19 ~ "med",
+            family_support_sum >= 20 & family_support_sum <= 28 ~ "high",
+            TRUE ~ NA))
+ 
+table(dat$family_support_high, dat$family_support_hml, useNA = "always")
+table(dat$family_support_high, useNA = "always")
+table(dat$family_support_hml, useNA = "always")
 
-table(canada$family_support_high, canada$family_support_hml, useNA = "always")
-table(canada$family_support_high, useNA = "always")
-table(canada$family_support_hml, useNA = "always")
-# need to decide; won't match diff cutoffs
+# recode friends/peer support as yn and hml
+dat <- dat %>%
+  mutate(friends_support_avg = rowMeans(dat[,vars_friends_support]),
+         friends_support_sum = rowSums(dat[,vars_friends_support])
+  ) %>%
+  mutate(friends_support_high = case_when(
+    friends_support_avg >= 1 & friends_support_avg < 5.5 ~ 0,
+    friends_support_avg >= 5.5 & friends_support_avg <= 7 ~ 1,
+    TRUE ~ NA)) %>%
+  mutate(friends_support_hml = case_when(
+    friends_support_sum >= 4 & friends_support_sum <= 11 ~ "low",
+    friends_support_sum >= 12 & friends_support_sum <= 19 ~ "med",
+    friends_support_sum >= 20 & friends_support_sum <= 28 ~ "high",
+    TRUE ~ NA))
 
-summary(canada)
+table(dat$friends_support_high, dat$friends_support_hml, useNA = "always")
+table(dat$friends_support_high, useNA = "always")
+table(dat$friends_support_hml, useNA = "always")
 
-
-
-
-
-# write_csv(canada,
-#           "canada.csv")
-
-
-# from before
-summary(hbsc2018)
-glimpse(hbsc2018)
-
-dat <- hbsc2018
-
-
-# function that flags if a psycosomatic issue is frequent
-is_psycosom_frequent <- function(col){
-  col_recoded <- case_when(
-    between(col,1,3) ~ 1,
-    between(col,4,5) ~ 0,
-    TRUE ~ col
-  )
-}
-
-# function gets a column and returns reversed values recoded
-reverse_school <- function(col){
-  recoded_col <- case_match(
-    col,
-    5 ~ 0,
-    4 ~ 1,
-    3 ~ 2,
-    2 ~ 3,
-    1 ~ 4,
+# recode school support in 3 parts: teach (3), classmates (2), belonging (2)
+# Then combines all 3 and does low/high based on 2.5
+# recodes from 1-5 to 0-4 (06-italy)
+recode_school_vars <- function(old_values){
+  
+  new_values <- case_when(
+    old_values == 5 ~ 1,
+    old_values == 4 ~ 2,
+    old_values == 3 ~ 3,
+    old_values == 2 ~ 4,
+    old_values == 1 ~ 5,
     TRUE ~ NA
   )
-  return(recoded_col)
+  
+  return(new_values)
+  
 }
 
-
-#Family support was assessed using three items from the Multidimensional Scale of 
-#Perceived Social Support (MSPSS) [32] tapping into emotional support: 
-#“My family really tries to help me”, “I receive the emotional help and support 
-#I need from my family”, and “I can discuss my problems with my family”. 
-# famhelp: Family tries to help
-# famsup: Get emotional help
-#famtalk: Talk about problems
 dat <- dat %>%
-  mutate(famsup_MSPSS = famhelp
-                        + famsup
-                        + famtalk) %>%
-  mutate(famsup_MSPSS_lbl = case_when(
-    between(famsup_MSPSS, 3, 8) ~ "Low",
-    between(famsup_MSPSS, 9, 14) ~ "Med",
-    between(famsup_MSPSS, 15, 21) ~ "High",
-    TRUE ~ "_ERROR"
-  ))
-
-summary(dat$famsup_MSPSS)
-table(dat$famsup_MSPSS_lbl, useNA = "always")
-
-# for now, keep only observations with complete fam support data
-dat <- dat %>%
-  filter(famsup_MSPSS_lbl != "_ERROR") 
-
-#Family affluence was then categorized into three levels based on relative measures:
-#the lowest 20%, the middle 60%, and the highest 20%.
-## IRFAS: Family affluence scale III - continuous
-# IRRELFAS_LMH: Relative family affluence categorical
-#1 Lowest 20 pct 45818 19.8%
-#2 Medium 60 pct 142148 61.4%
-#3 Highest 20 pct
-summary(dat$IRRELFAS_LMH)
-
-# for now, keep breaks as provided. but wondering if relative to each population?
-dat <- dat %>%
-  mutate(IRRELFAS_LMH_lbl = case_when(
-    IRRELFAS_LMH == 1 ~ "Low",
-    IRRELFAS_LMH == 2 ~ "Med",
-    IRRELFAS_LMH == 3 ~ "High",
-    TRUE ~ "_ERROR"
-  ))
-
-table(dat$IRRELFAS_LMH_lbl)
-
-# for now, keep only complete obs
-dat <- dat %>%
-  filter(IRRELFAS_LMH_lbl != "_ERROR") 
-
-
-
-lapply(dat[,vars_mental_health], 
-       table, useNA = "always")
-
-dat$mental_health <- rowMeans(dat[,vars_mental_health],
-                              na.rm = TRUE)
-
-summary(dat$mental_health)
-
-# inventing for now; hoping to find somebody doing it
-dat <- dat %>%
-  mutate(mental_health_lbl = case_when(
-  between(mental_health,1,3.375) ~ "Low", #Q1
-  between(mental_health, 3.375, 4.625) ~ "Med", #Q3
-  between(mental_health, 4.625, 5) ~ "High",
-  TRUE ~ "_ERROR"
-  ))
-
-table(dat$mental_health_lbl, useNA = "always")
-
-# for now, only keep complete obs
-dat <- dat %>%
-  filter(mental_health_lbl != "_ERROR")
-
-head(dat[,c(vars_mental_health, "mental_health", "mental_health_lbl")], 10)
-
-# from Subjective health and well-being of children and adolescents 
-# in Germany – Cross-sectional results of the 2017/18 HBSC study
-# create Y index of wellbeing from 3 parts: health, life sat, psycosomatic
-
-table(dat$health, useNA = "always")
-
-table(dat$lifesat, useNA = "always")
-
-lapply(dat[,vars_mental_health], 
-       table, useNA = "always")
-
-dat <- dat %>%
-  mutate(health_r = case_when(
-    health %in% c(1,2) ~ "Good",
-    health %in% c(3,4) ~ "Poor",
-    TRUE ~ "_ERROR" #NAs
-  ),
-  lifesat_r = case_when(
-    between(lifesat,0,5) ~ "Low",
-    between(lifesat,6,10) ~ "High",
-    TRUE ~ "_ERROR" #NAs
-  )
-  )
-
-lapply(dat[,vars_mental_health], 
-       table, useNA = "always")
-
-vars_mental_health_r <- paste0(vars_mental_health, "_r")
-
-dat <- dat %>%
-  mutate(
-    headache_r = is_psycosom_frequent(headache), #frequent if 1-3, 
-    stomachache_r = is_psycosom_frequent(stomachache),
-    backache_r = is_psycosom_frequent(backache),
-    feellow_r = is_psycosom_frequent(feellow),
-    irritable_r = is_psycosom_frequent(irritable),
-    nervous_r = is_psycosom_frequent(nervous),
-    sleepdificulty_r = is_psycosom_frequent(sleepdificulty),
-    dizzy_r = is_psycosom_frequent(dizzy)
-  ) 
-
-dat$num_psycosom <- rowSums(dat[,vars_mental_health_r])
-
-dat$frequent_physocom <- ifelse(dat$num_psycosom >= 2, 1, 0) # per paper
-
-table(dat$health_r)
-table(dat$lifesat_r)
-table(dat$frequent_physocom)
-
-# clean NAs for now
-dat <- dat %>%
-  filter(health_r != "_ERROR") %>%
-  filter(lifesat_r != "_ERROR") %>%
-  filter(!is.na(frequent_physocom))
-
-dat %>%
-  group_by(health_r, lifesat_r, frequent_physocom) %>%
-  tally()
-
-dat <- dat %>% 
-  mutate(good_wellbeing_index = case_when(
-    health_r == "Good" & lifesat_r == "High" & frequent_physocom == 0 ~ 1,
-    TRUE ~ 0
-  ))
-
-table(dat$good_wellbeing_index, useNA = "always")
-
-# family support from italy paper
-vars_famsup <- c("famhelp",
-                 "famsup",
-                 "famtalk",
-                 "famdec")
-
-dat$fam_support_avg <- rowSums(dat[,vars_famsup]) / 4
-dat$fam_support_lbl <- ifelse(dat$fam_support_avg < 5.5, "Low", "High")
-
-# peer support from italy paper
-vars_peersup <- c("friendhelp",
-                 "friendcounton",
-                 "friendshare",
-                 "friendtalk")
-
-dat$peer_support_avg <- rowSums(dat[,vars_peersup]) / 4
-dat$peer_support_lbl <- ifelse(dat$peer_support_avg < 5.5, "Low", "High")
-
-# school support
-# from teacher and classmate support
-
-# vars_teacher <- c("teacheraccept",
-#                   "teachercare",
-#                   "teachertrust")
-
-# vars_classmates <- c("studtogether",
-#                      "studhelpful",
-#                      "studaccept")
-
-dat <- dat %>%
-  mutate(teacheraccept_r = reverse_school(teacheraccept),
-         teachercare_r = reverse_school(teachercare),
-         teachertrust_r = reverse_school(teachertrust),
-         studtogether_r = reverse_school(studtogether),
-         studhelpful_r = reverse_school(studhelpful),
-         studaccept_r = reverse_school(studaccept)
+  # recode they can be added
+  mutate(teacheraccept_r = recode_school_vars(teacheraccept),
+         teachercare_r = recode_school_vars(teachercare),
+         teachertrust_r = recode_school_vars(teachertrust),
+         studtogether_r = recode_school_vars(studtogether),
+         studhelpful_r = recode_school_vars(studhelpful),
+         studaccept_r = recode_school_vars(studaccept)
          ) %>%
-  mutate(teacher_support_avg = (teacheraccept_r + teachercare_r + teachertrust_r)/3,
-         stud_support_avg = (studtogether_r + studhelpful_r + studaccept_r)/3
-  ) %>%
-  mutate(school_support_sum = teacher_support_avg + stud_support_avg) %>%
-  mutate(school_support_avg = school_support_sum / 2) %>%
-  mutate(school_support_lbl = ifelse(school_support_avg < 2.5, "Low", "High")) #median or 2.5 as in paper?
+  # derive avg by teacher/student
+  mutate(teacher_support_avg = (teacheraccept_r 
+                               + teachercare_r
+                               + teachertrust_r) / 3,
+         student_support_avg = (studtogether_r
+                                + studhelpful_r
+                                + studaccept_r) / 3,
+         # just for fun combine and try
+         school_support_avg = (teacheraccept_r 
+                                + teachercare_r
+                                + teachertrust_r
+                                + studtogether_r
+                                + studhelpful_r
+                                + studaccept_r) / 6,
+         ) %>%
+  # derive support yn based on hbsc
+  mutate(
+    teacher_support_high = case_when(
+      teacher_support_avg >= 4 ~ 1,
+      teacher_support_avg < 4 ~ 0,
+      TRUE ~ NA),
+      student_support_high = case_when(
+        student_support_avg >= 4 ~ 1,
+        student_support_avg < 4 ~ 0,
+        TRUE ~ NA),
+      school_support_high = case_when(
+        school_support_avg >= 4 ~ 1,
+        school_support_avg < 4 ~ 0,
+      TRUE ~ NA)
+  )
+ 
+# family affluence
+# irfas_quants <- quantile(canada$IRFAS, 
+#                          probs = c(.2,.8,1), na.rm = TRUE)
 
-
-# from 07 Social media threats and health among adolescents: 
-# evidence from the health behaviour in school-aged children study
-
-#pmsu as binary
 dat <- dat %>%
-  mutate(is_pmsu_problematic = case_when(
-    pmsu >= 6 ~ 1,
-    pmsu >= 0 ~ 0,
-    TRUE ~ -999
-  ))
+  mutate(IRRELFAS_LMH_r = 
+           case_when(IRRELFAS_LMH == 1 ~ "low20",
+                     IRRELFAS_LMH == 2 ~ "med60",
+                     IRRELFAS_LMH == 3 ~ "high20",
+                     TRUE ~ NA)
+  )
 
+# recode talkfather and talkmother
+# from 1 (very easy) to 5 (don't)
+dat <- dat %>%
+  mutate(talkfatherYes = 
+           case_when(talkfather %in% c(1,2) ~ 1,
+                     talkfather %in% c(3,4,5) ~ 0,
+                     TRUE ~ NA),
+         talkmotherYes = 
+           case_when(talkmother %in% c(1,2) ~ 1,
+                     talkmother %in% c(3,4,5) ~ 0,
+                     TRUE ~ NA)
+         )
 
-write_csv(dat, 
-           "./data/processed/dat_HBSC2018_20260623.csv"
+table(dat$talkfatherYes, dat$talkfather, useNA = "always")
+table(dat$talkmotherYes, dat$talkmother, useNA = "always")
+
+# recode bullying vars
+# cbeenbullied: Been cyber bullied
+# beenbullied: Been bullied past months from 1 (no) to 5 (several/week)
+dat <- dat %>%
+  mutate(beenbulliedYes = 
+           case_when(beenbullied == 1 ~ 0,
+                     between(beenbullied, 2, 5) ~ 1,
+                     TRUE ~ NA),
+         cbeenbulliedYes = 
+           case_when(cbeenbullied == 1 ~ 0,
+                     between(cbeenbullied, 2, 5) ~ 1,
+                     TRUE ~ NA)
            )
 
+table(dat$beenbulliedYes, dat$beenbullied, useNA = "always")
+table(dat$cbeenbulliedYes, dat$cbeenbullied, useNA = "always")
+
+# online comms/friends
+# emconlfreq1: Onl contact close friends from 1 never to 6 all the time()
+# emconlfreq2: Onl contact larger friend group
+# emconlfreq3: Onl contact online friends
+# emconlfreq4: Onl contact other
+# hbsc says yes if any of the 4 is always (6)
+dat <- dat %>%
+  mutate(emconlfreqYes = case_when(
+    (emconlfreq1 == 6 | emconlfreq2 == 6 | emconlfreq3 == 6 | emconlfreq4 == 6) ~ 1,
+    (!is.na(emconlfreq1) | !is.na(emconlfreq2) | !is.na(emconlfreq3) | !is.na(emconlfreq4)) ~ 0,
+    TRUE ~ NA
+  )) 
+#still need to do something with 99
+
+table(dat$emconlfreqYes, useNA = "always")
 
 
+# -----------------------------------------------------------------------
+# remove vars that are not needed anymore
+# -----------------------------------------------------------------------
+
+dat <- dat %>%
+  select(-c(
+    countryno,
+    lifesat,
+    ends_with("frequent"),
+    mental_complaints_sum,
+    physical_complaints_sum,
+    all_of(vars_health_physical),
+    all_of(vars_health_mental),
+    agecat, 
+    sex,
+    all_of(vars_emcsocmed),
+    emcsocmed_sum,
+    family_support_avg,
+    family_support_sum,
+    friends_support_avg,
+    friends_support_sum,
+    all_of(vars_school),
+    teacher_support_avg,
+    student_support_avg,
+    school_support_avg,
+    IRRELFAS_LMH,
+    talkfather,
+    talkmother,
+    beenbullied,
+    cbeenbullied,
+    all_of(vars_online_comms)
+  ))
+
+
+#output
+out_csv_full_name <- paste0(project_folder,
+                            "data/processed/dat_",
+                            Sys.Date(),
+                            ".csv")
+write_csv(dat,
+          out_csv_full_name)
+
+
+
+  
+  
+
+# # -----------------------------------------------------------------------
+# # final touches of dataset for modeling
+# # -----------------------------------------------------------------------
+# 
+# dat <- dat %>%
+#   select(sort(names(.)))
+# 
+# #columns for modeling
+# dat_mdl <- dat %>%
+#   select(seqno_int,
+#          countryno,
+#          ,lifesat_low
+#          ,multiple_mental_complaints
+#          ,multiple_health_complaints
+#          ,age_recoded
+#          ,sex_recoded
+#          ,pmsu_yn
+#          ,pmsu_lmh
+#          ,family_support_high
+#          ,family_support_hml
+#          ,friends_support_high
+#          ,friends_support_hml
+#          ,teacher_support_high
+#          ,student_support_high
+#          ,school_support_high
+#          ,IRRELFAS_LMH_r
+#   )
+# 
+# canada_mdl <- dat_mdl %>%
+#   filter(countryno == 124000) 
+# 
+# canada_mdl <- canada_mdl[complete.cases(canada_mdl),]
+# 
+# #lapply(canada_mdl[,-1], table, useNA = "always")
+# 
+# summary(canada_mdl)
+# glimpse(canada_mdl)
+# 
+# set.seed(93446)
+# train_index <- sample(seq_len(nrow(canada_mdl)), size = 0.7 * nrow(canada_mdl))
+# canada_train <- canada_mdl[train_index, ]
+# canada_test  <- canada_mdl[-train_index, ]
+# 
+# canada_train$pmsu_lmh <- factor(canada_train$pmsu_lmh)
+# canada_train$pmsu_lmh <- relevel(canada_train$pmsu_lmh, ref = "low")
+# 
+# canada_train$family_support_high <- factor(canada_train$family_support_high)
+# canada_train$canada_train$family_support_high <- relevel(canada_train$family_support_high, ref = "1")
+# 
+# #canada_train$lifesat_low <- ifelse(canada_train$lifesat_high == 1, 0, 1)
+# #table(canada_train$lifesat_low, canada_train$lifesat_high)
+# 
+# mdl1 <- glm(multiple_health_complaints ~ pmsu_lmh,
+#              data = canada_train,
+#              family = binomial)
+# 
+# mdl1 <- glm(lifesat_low ~ pmsu_lmh,
+#             data = canada_train,
+#             family = binomial)
+# 
+# mdl1 <- glm(as.factor(multiple_mental_complaints) ~ pmsu_yn,
+#             data = canada_train,
+#             family = binomial)
+# 
+# mdl1 <- glm(as.factor(multiple_mental_complaints) ~ pmsu_yn * family_support_high,
+#             data = canada_train,
+#             family = binomial)
+# 
+# summary(mdl1)
+# 
+# (out <- tidy(mdl1, exponentiate = TRUE, conf.int = TRUE))
+# (ref_level <- levels(canada_train$pmsu_lmh)[1])   # whatever R used as reference
+# (ref_row <- data.frame(
+#   term = paste0("pmsu_lmh(", ref_level, ")"),
+#   estimate = 1,
+#   conf.low = 1,
+#   conf.high = 1,
+#   p.value = NA
+# ))
+# (full_results <- bind_rows(ref_row, out))
+
+#exp(cbind(OR = coef(mdl1), confint(mdl1)))
+
+# canada_test$pred_prob <- predict(mdl1, newdata = canada_test, type = "response")
+# canada_test$pred_class <- ifelse(canada_test$pred_prob >= 0.5, 1, 0)
+# 
+# confusionMatrix(
+#   factor(canada_test$pred_class, levels = c(0,1)),
+#   factor(canada_test$lifesat_high, levels = c(0,1))
+# )
+
+
+#backlog
+#fix how age is read due to , . issue
+# toca borrar las vars que ya no serviran
+# recode online friends for later
+# # emconlpref1: Secrets, more easily online from 1 disagree to 5 strong agree
+# emconlpref2: Feelings, more easily online
+# emconlpref3: Concerns, more easily online
 
 
