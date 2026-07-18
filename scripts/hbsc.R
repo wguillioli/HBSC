@@ -1,4 +1,14 @@
 # HBSC dataset prep
+# Updated: 2026-07-17
+
+#backlog
+#fix how age is read due to , . issue
+# toca borrar las vars que ya no serviran
+# recode online friends for later
+# # emconlpref1: Secrets, more easily online from 1 disagree to 5 strong agree
+# emconlpref2: Feelings, more easily online
+# emconlpref3: Concerns, more easily online
+
 
 # ---------------------------------------------------------
 # project setup
@@ -10,7 +20,6 @@ setwd("C:/MisLocalFiles/Github/HBSC/scripts")
 project_folder <- "C:/MisLocalFiles/Github/HBSC/"
 
 require(tidyverse)
-require(caret)
 library(broom)
 
 # ---------------------------------------------------------
@@ -41,7 +50,7 @@ vars_school <- c("teacheraccept", "teachercare", "teachertrust",
 vars_online_comms <- paste0("emconlfreq",seq(1,4,1))
 vars_online_share <- paste0("emconlpref",seq(1,3,1))
 
-# select variables i will use
+# select variables of interest
 dat <- hbsc2018 %>%
   select(countryno,
          seqno_int,
@@ -63,7 +72,7 @@ dat <- hbsc2018 %>%
          all_of(vars_online_share)
          )
 
-# recode to country name
+# recode country name
 recode_map <- c(
   "8000"   = "Albania",
   "31000"  = "Azerbaijan",
@@ -409,117 +418,15 @@ dat <- dat %>%
   ))
 
 
-#output
+# -----------------------------------------------------------------------
+# output data
+# -----------------------------------------------------------------------
+
 out_csv_full_name <- paste0(project_folder,
                             "data/processed/dat_",
                             Sys.Date(),
                             ".csv")
 write_csv(dat,
           out_csv_full_name)
-
-
-
-  
-  
-
-# # -----------------------------------------------------------------------
-# # final touches of dataset for modeling
-# # -----------------------------------------------------------------------
-# 
-# dat <- dat %>%
-#   select(sort(names(.)))
-# 
-# #columns for modeling
-# dat_mdl <- dat %>%
-#   select(seqno_int,
-#          countryno,
-#          ,lifesat_low
-#          ,multiple_mental_complaints
-#          ,multiple_health_complaints
-#          ,age_recoded
-#          ,sex_recoded
-#          ,pmsu_yn
-#          ,pmsu_lmh
-#          ,family_support_high
-#          ,family_support_hml
-#          ,friends_support_high
-#          ,friends_support_hml
-#          ,teacher_support_high
-#          ,student_support_high
-#          ,school_support_high
-#          ,IRRELFAS_LMH_r
-#   )
-# 
-# canada_mdl <- dat_mdl %>%
-#   filter(countryno == 124000) 
-# 
-# canada_mdl <- canada_mdl[complete.cases(canada_mdl),]
-# 
-# #lapply(canada_mdl[,-1], table, useNA = "always")
-# 
-# summary(canada_mdl)
-# glimpse(canada_mdl)
-# 
-# set.seed(93446)
-# train_index <- sample(seq_len(nrow(canada_mdl)), size = 0.7 * nrow(canada_mdl))
-# canada_train <- canada_mdl[train_index, ]
-# canada_test  <- canada_mdl[-train_index, ]
-# 
-# canada_train$pmsu_lmh <- factor(canada_train$pmsu_lmh)
-# canada_train$pmsu_lmh <- relevel(canada_train$pmsu_lmh, ref = "low")
-# 
-# canada_train$family_support_high <- factor(canada_train$family_support_high)
-# canada_train$canada_train$family_support_high <- relevel(canada_train$family_support_high, ref = "1")
-# 
-# #canada_train$lifesat_low <- ifelse(canada_train$lifesat_high == 1, 0, 1)
-# #table(canada_train$lifesat_low, canada_train$lifesat_high)
-# 
-# mdl1 <- glm(multiple_health_complaints ~ pmsu_lmh,
-#              data = canada_train,
-#              family = binomial)
-# 
-# mdl1 <- glm(lifesat_low ~ pmsu_lmh,
-#             data = canada_train,
-#             family = binomial)
-# 
-# mdl1 <- glm(as.factor(multiple_mental_complaints) ~ pmsu_yn,
-#             data = canada_train,
-#             family = binomial)
-# 
-# mdl1 <- glm(as.factor(multiple_mental_complaints) ~ pmsu_yn * family_support_high,
-#             data = canada_train,
-#             family = binomial)
-# 
-# summary(mdl1)
-# 
-# (out <- tidy(mdl1, exponentiate = TRUE, conf.int = TRUE))
-# (ref_level <- levels(canada_train$pmsu_lmh)[1])   # whatever R used as reference
-# (ref_row <- data.frame(
-#   term = paste0("pmsu_lmh(", ref_level, ")"),
-#   estimate = 1,
-#   conf.low = 1,
-#   conf.high = 1,
-#   p.value = NA
-# ))
-# (full_results <- bind_rows(ref_row, out))
-
-#exp(cbind(OR = coef(mdl1), confint(mdl1)))
-
-# canada_test$pred_prob <- predict(mdl1, newdata = canada_test, type = "response")
-# canada_test$pred_class <- ifelse(canada_test$pred_prob >= 0.5, 1, 0)
-# 
-# confusionMatrix(
-#   factor(canada_test$pred_class, levels = c(0,1)),
-#   factor(canada_test$lifesat_high, levels = c(0,1))
-# )
-
-
-#backlog
-#fix how age is read due to , . issue
-# toca borrar las vars que ya no serviran
-# recode online friends for later
-# # emconlpref1: Secrets, more easily online from 1 disagree to 5 strong agree
-# emconlpref2: Feelings, more easily online
-# emconlpref3: Concerns, more easily online
 
 
