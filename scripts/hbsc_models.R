@@ -63,6 +63,20 @@ dat %>%
   print(n = Inf)
 # worst turkey at 52%; NL p-3 17%
 
+# factor recoding
+dat <- dat %>%
+  mutate(lifesat_low = factor(lifesat_low, 
+                              levels = c("0", "1")),
+         pmsu_lmh = factor(pmsu_lmh, 
+                           levels = c("low", "med", "high")),
+         mental_complaintsY = factor(mental_complaintsY, 
+                           levels = c("0", "1")),
+         IRRELFAS_LMH_r = factor(IRRELFAS_LMH_r,
+                                 levels = c("high20", "med60", "low20")),
+         family_support_high = factor(family_support_high, 
+                                     levels = c("1", "0"))
+  )
+
 
 # ------------------------------------------------------------------------
 # Turkey base lifesat_low models
@@ -70,35 +84,86 @@ dat %>%
 
 turkey <- dat %>%
   filter(country_name == "Turkey") %>%
-  select(seqno_int, lifesat_low, mental_complaintsY, pmsu_yn, pmsu_lmh, sex_r)
+  select(seqno_int, lifesat_low, mental_complaintsY, pmsu_yn, pmsu_lmh, sex_r, IRRELFAS_LMH_r,
+         family_support_high)
 
 turkey <- na.omit(turkey)
 
-# canada_train$pmsu_lmh <- factor(canada_train$pmsu_lmh)
-# canada_train$pmsu_lmh <- relevel(canada_train$pmsu_lmh, ref = "low")
+netherlands <- dat %>%
+  filter(country_name == "Netherlands") %>%
+  select(seqno_int, lifesat_low, mental_complaintsY, pmsu_yn, pmsu_lmh, sex_r, IRRELFAS_LMH_r,
+         family_support_high)
 
-turkey$lifesat_low <- factor(turkey$lifesat_low, levels = c("0", "1"))
-turkey$pmsu_lmh <- factor(turkey$pmsu_lmh, levels = c("low", "med", "high"))
+netherlands <- na.omit(netherlands)
 
-mdl1 <- glm(lifesat_low ~ pmsu_lmh,
-              data = turkey,
-              family = binomial)
+# turkey
+mdl <- glm(lifesat_low ~ pmsu_lmh,
+           data = turkey,
+           family = binomial)
 
-summary(mdl1)
+mdl <- glm(mental_complaintsY ~ pmsu_lmh,
+           data = turkey,
+           family = binomial)
 
-exp(cbind(OR = coef(mdl1), confint(mdl1)))
+# netherlands
+mdl <- glm(lifesat_low ~ pmsu_lmh,
+           data = netherlands,
+           family = binomial)
 
-(out <- tidy(mdl1, exponentiate = TRUE, conf.int = TRUE))
-(ref_level <- levels(turkey$pmsu_lmh)[1])   # whatever R used as reference
-(ref_row <- data.frame(
-  term = paste0("pmsu_lmh(", ref_level, ")"),
-   estimate = 1,
-   conf.low = 1,
-   conf.high = 1,
-   p.value = NA
-))
-(full_results <- bind_rows(ref_row, out))
+mdl <- glm(mental_complaintsY ~ pmsu_lmh,
+           data = netherlands,
+           family = binomial)
 
+# netherlands with interactions
+mdl <- glm(mental_complaintsY ~ pmsu_lmh * IRRELFAS_LMH_r,
+           data = netherlands,
+           family = binomial)
+
+mdl <- glm(mental_complaintsY ~ pmsu_lmh * family_support_high,
+           data = netherlands,
+           family = binomial)
+
+summary(mdl)
+
+tidy(mdl, exponentiate = TRUE, conf.int = TRUE)
+
+# plot NL interations pmsu_lmh * IRRELFAS_LMH_r
+newdata <- expand.grid(
+  pmsu_lmh = levels(netherlands$pmsu_lmh),
+  IRRELFAS_LMH_r = levels(netherlands$IRRELFAS_LMH_r)
+)
+
+
+newdata$pred_prob <- predict(mdl, newdata = newdata, type = "response")
+
+ggplot(newdata, aes(x = pmsu_lmh, y = pred_prob,
+                    color = IRRELFAS_LMH_r, group = IRRELFAS_LMH_r)) +
+  geom_point(size = 3) +
+  geom_line(size = 1.2) +
+  labs(title = "Interaction: PMSU × IRRELFAS",
+       x = "PMSU Level",
+       y = "Predicted Probability of Mental Complaints") +
+  theme_minimal(base_size = 14)
+
+# plot interaction pmsu_lmh * family_support_high
+newdata <- expand.grid(
+  pmsu_lmh = levels(netherlands$pmsu_lmh),
+  family_support_high = c(0, 1)
+) %>%
+  mutate(family_support_high = factor(family_support_high))
+
+newdata$pred_prob <- predict(mdl, newdata = newdata, type = "response")
+
+ggplot(newdata, aes(x = pmsu_lmh, y = pred_prob,
+                    color = factor(family_support_high),
+                    group = family_support_high)) +
+  geom_point(size = 3) +
+  geom_line(size = 1.2) +
+  labs(title = "Interaction: PMSU × Family Support",
+       x = "Problematic Social Media Use",
+       y = "Predicted Probability of Mental Complaints",
+       color = "Family Support\n(0 = low, 1 = high)") +
+  theme_minimal(base_size = 14)
 
 
 # set.seed(93446)
