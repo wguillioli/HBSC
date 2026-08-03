@@ -1,0 +1,179 @@
+---
+title: "HBSC: Modeling"
+date: "Updated: `r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  pdf_document: default
+  word_document: default
+  html_notebook: default
+urlcolor: blue
+---
+
+```{r project_setup, include=FALSE}
+
+rm(list = ls())
+
+setwd("C:/MisLocalFiles/Github/HBSC/scripts")
+project_folder <- "C:/MisLocalFiles/Github/HBSC/"
+
+require(tidyverse)
+require(caret)
+require(broom)
+
+```
+
+## Data Overview
+This data is prepared in hbsc.rmd file. It's dimensions are:
+
+```{r, echo=FALSE}
+# ---------------------------------------------------------
+# load dataset
+# ---------------------------------------------------------
+
+d <- read_csv(paste0(project_folder, "data/processed/dat_2026-08-02.csv"))
+
+dim(d) #244097     17
+
+```
+## Univariate Exploration and Preparation  
+
+The list of vars and it's type is:
+
+```{r, echo=FALSE}
+
+glimpse(d)
+
+```
+We now look one by one and will:  
+1. Coerce to correct var type for modeling (mostly factors)
+2. Note potential of prediction
+
+### Coerce first  
+For modeling, many vars need to be coerced so I start there before univ EDA.
+
+```{r}
+
+d <- d %>%
+  mutate(lifesat_low = factor(lifesat_low, levels = c("0","1")),
+         mental_complaintsY = factor(mental_complaintsY, levels = c("0","1")),
+         pmsu_lmh = factor(pmsu_lmh, levels = c("low", "med", "high")),
+         pmsu_yn = factor(pmsu_yn, levels = c("0", "1")),
+         family_support_high = factor(family_support_high, levels = c("0", "1")),
+         family_support_hml = factor(family_support_hml, levels = c("low", "med", "high")),
+         friends_support_high = factor(friends_support_high, levels = c("0", "1")),
+         friends_support_hml = factor(friends_support_hml, levels = c("low", "med", "high")),
+         IRRELFAS_LMH_r = factor(IRRELFAS_LMH_r, levels = c("Low20", "Med60", "High20")),
+         talkfatherYes = factor(talkfatherYes, levels = c("0", "1")),
+         talkmotherYes = factor(talkmotherYes, levels = c("0", "1")),
+         beenbulliedYes = factor(beenbulliedYes, levels = c("0", "1")),
+         cbeenbulliedYes = factor(cbeenbulliedYes, levels = c("0", "1")),
+         age_r = factor(age_r, levels = c("11", "13", "15")),
+         sex_r = factor(sex_r)
+         )
+
+```
+
+### seqno_int  
+Children id and confirmed it's unique.
+
+```{r}
+
+length(unique(d$seqno_int)) == nrow(d)
+
+```
+
+###$ lifesat_low
+13% report having low satisfaction and still ~2% of NAs that need to be fixed. 
+
+```{r, echo=FALSE}
+
+d %>%
+  group_by(lifesat_low) %>%
+  tally() %>%
+  mutate (pct = round(n/sum(n),3))
+
+```
+
+###mental_complaintsY
+26% report mental health issues with ~5% of NAs that need to be fixed. 
+
+```{r, echo=FALSE}
+
+d %>%
+  group_by(mental_complaintsY) %>%
+  tally() %>%
+  mutate (pct = round(n/sum(n),3))
+
+```
+
+### country_name
+By country, we look at % of children with low lifesat and mental health issues.
+xxxxxxxxxxxxxxxxx voy
+
+```{r, echo=FALSE}
+
+d %>%
+  group_by(country_name) %>%
+  tally() %>%
+  mutate (pct = round(n/sum(n),3))
+
+```
+
+
+###$ pmsu_lmh             <chr> "med", "med", "high", "med", "med", "low", "med", "low", "low", NA, "med", NA, "lo…
+#voy, is this right?
+
+```{r}
+
+d <- d %>%
+  mutate(pmsu_lmh = factor(pmsu_lmh, 
+                           levels = c("Low", "Med", "High")))
+
+d %>%
+  filter(!is.na(lifesat_low)
+         #& !is.na(pmsu_lmh)
+         ) %>%
+  group_by(pmsu_lmh,
+           lifesat_low) %>%
+  summarise(n = n()) %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_low_") %>%
+  mutate(n = lifesat_low_1 + lifesat_low_0) %>%
+  mutate(lifesat_low_1_pct = round(lifesat_low_1 / n,3))
+
+```
+
+
+###$ pmsu_yn              <dbl> 0, 0, 1, 0, 0, 0, 0, 0, 0, NA, 0, NA, 0, 0, NA, 0, 0, NA, 0, 0, 0, NA, 0, 0, 0, 0,…
+
+###$ family_support_high  <dbl> 1, 1, 1, 1, 0, 1, 1, NA, 1, 1, NA, NA, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1…
+
+###$ family_support_hml   <chr> "high", "high", "high", "high", "low", "high", "high", NA, "high", "high", NA, NA,…
+
+###$ friends_support_high <dbl> 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, NA, 0, 1, 1, 1, 0, 1, NA, 1, 0, 1, 1, 0, 0, 0, 1, NA…
+
+###$ friends_support_hml  <chr> "high", "high", "med", "high", "high", "high", "high", "high", "high", "high", NA,…
+
+###$ IRRELFAS_LMH_r       <chr> "Med60", NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, "Med60", NA, "Med60", "Med60"…
+
+###$ talkfatherYes        <dbl> 1, 1, 1, 1, 0, 0, 1, NA, NA, 1, NA, NA, 1, NA, 1, 1, 1, NA, 1, 0, 1, 1, 1, 1, 1, 1…
+
+###$ talkmotherYes        <dbl> 1, 1, 1, 1, 1, 1, 1, NA, NA, 1, NA, NA, 1, NA, NA, 1, 1, NA, NA, 0, 1, 1, 1, 1, 1,…
+
+###$ beenbulliedYes       <dbl> 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0…
+
+###$ cbeenbulliedYes      <dbl> 1, 1, 1, 0, 0, 0, 0, 0, NA, 0, 0, 0, 0, NA, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0,…
+
+###$ age_r                <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
+
+###$ sex_r  
+
+
+for later:
+keep complete obs only
+model like a rusian doll
+
+
+
+
+
