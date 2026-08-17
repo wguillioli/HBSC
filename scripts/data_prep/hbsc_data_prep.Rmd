@@ -932,27 +932,88 @@ table(dat$lives_online %/% 1,
 
 ```
 
+# timeexe: Vigorous physical activity frequency
+Question is Outside school hours: how often do you usually exercise in your free time so much
+that you get out of breath or sweat? Answers go from 1 (every day) to 7 never. 
 
-## VOY!!!!!!!!!!!!! Dataset for Modeling  
+HBSC shows proportions of those that do three or more times per week. But that is 2022 data,
+in our case we do 2-3 times per week or more.
+
+```{r}
+
+dat <- dat %>%
+  mutate(timeexe_r = case_when(
+    between(timeexe, 1, 3) ~ 1,
+    between(timeexe, 4, 7) ~ 0,
+    TRUE ~ NA
+  ))
+
+print(
+table(dat$timeexe,
+      dat$timeexe_r,
+      useNA = "ifany")
+)
+
+```
+
+# alc30d_2: Alcohol use last 30 days
+Question is  On how many days (if any) have you drunk alcohol?
+Answers are binned and go from 1 (never) to 7 (30 days or more).
+HBSC dichotomizes as Never vs Yes so I will do the same.
+
+```{r}
+
+dat <- dat %>%
+  mutate(alc30d_YN = case_when(
+    alc30d_2 == 1 ~ 0,
+    alc30d_2 != 1 ~ 1,
+    TRUE ~ NA
+  ))
+
+print(
+  table(dat$alc30d_2,
+        dat$alc30d_YN,
+        useNA = "ifany")
+)
+
+```
+
+
+## Dataset for Modeling  
 Only the relevant and prepared variables are exported to a csv so I can start the 
 modeling process with those. File goes to "data/processed/" and includes date.
 
-```{r, echo=FALSE}
+```{r}
 
 dat_out <- dat %>%
   select(seqno_int,
          country_name,
          lifesat_low, 
          mental_complaintsY, 
-         #health_complaintsY, 
-         pmsu_lmh, pmsu_yn, 
-         family_support_high, family_support_hml, 
-         friends_support_high, friends_support_hml, 
+         health_complaintsY, 
+         pmsu_lmh, 
+         pmsu_yn, 
+         family_support_high, 
+         family_support_hml, 
+         friends_support_high, 
+         friends_support_hml, 
+         teacher_support_high,
+         student_support_high,
+         school_support_high,
          IRRELFAS_LMH_r, 
-         talkfatherYes, talkmotherYes, 
-         beenbulliedYes, cbeenbulliedYes, 
-         age_r, sex_r
+         talkfatherYes, 
+         talkmotherYes, 
+         beenbulliedYes, 
+         cbeenbulliedYes, 
+         age_r, 
+         sex_r,
+         emconlfreqYes,
+         lives_onlineYN,
+         timeexe_r,
+         alc30d_YN
          )
+
+summary(dat_out)
 
 dat_out_filename <- paste0(project_folder,
                            "data/processed/",

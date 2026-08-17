@@ -8,7 +8,7 @@ output:
 urlcolor: blue
 ---
 
-```{r project_setup, include=FALSE}
+```{r}
 
 rm(list = ls())
 
@@ -21,56 +21,274 @@ require(broom)
 
 ```
 
-## Data Overview
+# Data Overview
 This data is prepared in hbsc.rmd file. It's dimensions are:
 
-```{r, echo=FALSE}
+```{r}
 # ---------------------------------------------------------
 # load dataset
 # ---------------------------------------------------------
 
-d <- read_csv(paste0(project_folder, "data/processed/dat_2026-08-02.csv"))
+d <- read_csv(paste0(project_folder, "data/processed/dat_2026-08-16.csv"))
 
-dim(d) #244097     17
+dim(d) #244097     25
 
 ```
-## Univariate Exploration and Preparation  
 
 The list of vars and it's type is:
 
-```{r, echo=FALSE}
+```{r}
 
 glimpse(d)
 
 ```
-We now look one by one and will:  
-1. Coerce to correct var type for modeling (mostly factors)
-2. Note potential of prediction
 
-### Coerce first  
+# Missing Values
+Most features have missing values. 
+
+```{r}
+
+summary(d)
+
+```
+
+For now, I will just keep complete observations to simplify my life. 
+But as can be seen some countries are very afected. Netherlands is a good option.
+
+```{r}
+
+d <- d %>% 
+  mutate(any_na = if_any(everything(), is.na))
+
+d %>%
+  group_by(country_name, any_na) %>%
+  tally() %>%
+  pivot_wider(names_from = any_na,
+              names_prefix = "na_",
+              values_from = n,
+              values_fill = 0) %>%
+  mutate(n = na_FALSE + na_TRUE) %>%
+  mutate(pct_complete = round(na_FALSE / n,3)) %>%
+  select(n, na_FALSE, pct_complete) %>%
+  arrange(desc(pct_complete))-> tbl_nas_country
+
+kable(tbl_nas_country)
+
+dc <- d[complete.cases(d),]
+
+```
+
+# Check if Dataset if balanced based on vars to predict
+
+## lifesat_low
+For lifesat_low I like Canada and Netherlands in the extremes. Could be good to compare
+if we opt for two countries. For now, I will go with Canada due to big %.
+
+```{r}
+
+dc %>%
+  group_by(country_name, lifesat_low) %>%
+  tally() %>%
+  pivot_wider(names_from = lifesat_low,
+              names_prefix = "is_",
+              values_from = n,
+              values_fill = 0) %>%
+  mutate(n = is_0 + is_1) %>%
+  mutate(lifesat_low_pct = round(is_1/n,3)) %>%
+  select(country_name, n, lifesat_low_pct) %>%
+  arrange(desc(lifesat_low_pct)) -> lifesat_low_pct_country
+
+kable(lifesat_low_pct_country)
+
+#mental_complaintsY   
+
+```
+
+## mental_complaintsY
+For mental_complaintsY, Netherlads is still good. But Canada is more halfway,
+while other countries like Italy are at top. Israel is at top of list on both
+so could try that. 
+
+```{r}
+
+dc %>%
+  group_by(country_name, mental_complaintsY) %>%
+  tally() %>%
+  pivot_wider(names_from = mental_complaintsY,
+              names_prefix = "is_",
+              values_from = n,
+              values_fill = 0) %>%
+  mutate(n = is_0 + is_1) %>%
+  mutate(mental_complaintsY_pct = round(is_1/n,3)) %>%
+  select(country_name, n, mental_complaintsY_pct) %>%
+  arrange(desc(mental_complaintsY_pct)) -> mental_complaintsY_pct_country
+
+kable(mental_complaintsY_pct_country)
+
+```
+
+Well, ok. I need to make a call for now. So I will pick Italy first since 
+it has the highest % of mental health complaints. And if I decide to compare
+we can do it with Spain or Netherlands.  
+
+# Logical grouping of variables
+I group logically in themes the 25 vars as follows:
+
+Vars to Predict:
+- lifesat_low
+- mental_complaintsY (or maybe health_complaintsY)
+
+Key Predictors to Study (in this order):
+
+Problematic social media use: 
+- pmsu_lmh (over pmsu_yn)
+
+Other concerning online stuff:
+- emconlfreqYes (too much online comms)
+- lives_onlineYN (prefer online vulnerability)
+
+Bulling:
+- beenbulliedYes
+- cbeenbulliedYes
+
+Youth support system:
+- family_support_high (over family_support_hml)
+- friends_support_high (over friends_support_hml)
+- school_support_high (over teacher_support_high:student_support_high)
+
+Parental support:
+- talkfatherYes x talkmotherYes
+
+Habits good/bad:
+- timeexe_r (exercise)
+- alc30d_YN
+
+Covariates:
+- age_r
+- sex_r
+- IRRELFAS_LMH_r
+
+Other:
+- seqno_int
+- country_name
+
+# Coercions of Data Types
 For modeling, many vars need to be coerced so I start there before univ EDA.
 
 ```{r}
 
-d <- d %>%
+dc <- dc %>%
   mutate(lifesat_low = factor(lifesat_low, levels = c("0","1")),
          mental_complaintsY = factor(mental_complaintsY, levels = c("0","1")),
-         pmsu_lmh = factor(pmsu_lmh, levels = c("low", "med", "high")),
+         health_complaintsY = factor(health_complaintsY, levels = c("0", "1")),
+         pmsu_lmh = factor(pmsu_lmh, levels = c("Low", "Med", "High")),
          pmsu_yn = factor(pmsu_yn, levels = c("0", "1")),
          family_support_high = factor(family_support_high, levels = c("0", "1")),
          family_support_hml = factor(family_support_hml, levels = c("low", "med", "high")),
          friends_support_high = factor(friends_support_high, levels = c("0", "1")),
          friends_support_hml = factor(friends_support_hml, levels = c("low", "med", "high")),
+         teacher_support_high = factor(teacher_support_high, levels = c("0", "1")),
+         student_support_high = factor(student_support_high, levels = c("0", "1")),
+         school_support_high = factor(school_support_high, levels = c("0", "1")),
          IRRELFAS_LMH_r = factor(IRRELFAS_LMH_r, levels = c("Low20", "Med60", "High20")),
          talkfatherYes = factor(talkfatherYes, levels = c("0", "1")),
          talkmotherYes = factor(talkmotherYes, levels = c("0", "1")),
          beenbulliedYes = factor(beenbulliedYes, levels = c("0", "1")),
          cbeenbulliedYes = factor(cbeenbulliedYes, levels = c("0", "1")),
          age_r = factor(age_r, levels = c("11", "13", "15")),
-         sex_r = factor(sex_r)
+         sex_r = factor(sex_r),
+         emconlfreqYes = factor(emconlfreqYes, levels = c("0","1")),       
+         lives_onlineYN = factor(lives_onlineYN, levels = c("0","1")),    
+         timeexe_r = factor(timeexe_r, levels = c("0","1")),    
+         alc30d_YN = factor(alc30d_YN, levels = c("0","1"))          
          )
 
 ```
+
+# Univariate EDA
+Here for each var, I check it's distribution, summary stats and potential of prediction.
+
+## pmsu_lmh
+
+```{r}
+
+dc %>%
+  group_by(pmsu_lmh) %>%
+  tally()
+xxxx
+
+```
+
+
+Key Predictors to Study (in this order):
+
+Problematic social media use: 
+-  (over pmsu_yn)
+
+Other concerning online stuff:
+- emconlfreqYes (too much online comms)
+- lives_onlineYN (prefer online vulnerability)
+
+Bulling:
+- beenbulliedYes
+- cbeenbulliedYes
+
+Youth support system:
+- family_support_high (over family_support_hml)
+- friends_support_high (over friends_support_hml)
+- school_support_high (over teacher_support_high:student_support_high)
+
+Parental support:
+- talkfatherYes x talkmotherYes
+
+Habits good/bad:
+- timeexe_r (exercise)
+- alc30d_YN
+
+Covariates:
+- age_r
+- sex_r
+- IRRELFAS_LMH_r
+
+Other:
+- seqno_int
+- country_name
+
+Vars to Predict:
+- lifesat_low
+- mental_complaintsY (or maybe health_complaintsY)
+
+
+
+## ROADMAMP
+univ eda
+see potential of pred for each var
+get to know each var
+
+
+
+
+
+
+
+
+## Univariate Exploration and Preparation  
+
+
+
+
+
+
+
+
+
+
+
+We now look one by one and will:  
+1. Coerce to correct var type for modeling (mostly factors)
+2. Note potential of prediction
+
+
 
 ### seqno_int  
 Children id and confirmed it's unique.
