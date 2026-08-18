@@ -1,10 +1,12 @@
 ---
-title: "HBSC: Data Overview and Prep"
+title: 'HBSC: Data Overview and Prep'
 date: "Updated: `r format(Sys.time(), '%Y-%m-%d')`"
 output:
-  pdf_document: default
+  html_document:
+    df_print: paged
   word_document: default
   html_notebook: default
+  pdf_document: default
 urlcolor: blue
 ---
 
@@ -12,7 +14,7 @@ urlcolor: blue
 
 rm(list = ls())
 
-setwd("C:/MisLocalFiles/Github/HBSC/scripts")
+setwd("C:/MisLocalFiles/Github/HBSC/scripts/data_prep/")
 project_folder <- "C:/MisLocalFiles/Github/HBSC/"
 
 require(tidyverse)

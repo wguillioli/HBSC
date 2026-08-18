@@ -1,0 +1,935 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
+\documentclass[
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabularx}
+\usepackage{xltabular}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={HBSC: Modeling},
+  colorlinks=true,
+  linkcolor={Maroon},
+  filecolor={Maroon},
+  citecolor={Blue},
+  urlcolor={blue},
+  pdfcreator={LaTeX via pandoc}}
+
+\title{HBSC: Modeling}
+\author{}
+\date{\vspace{-2.5em}Updated: 2026-08-17}
+
+\begin{document}
+\maketitle
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{rm}\NormalTok{(}\AttributeTok{list =} \FunctionTok{ls}\NormalTok{())}
+
+\FunctionTok{setwd}\NormalTok{(}\StringTok{"C:/MisLocalFiles/Github/HBSC/scripts/modeling/"}\NormalTok{)}
+\NormalTok{project\_folder }\OtherTok{\textless{}{-}} \StringTok{"C:/MisLocalFiles/Github/HBSC/"}
+
+\FunctionTok{require}\NormalTok{(tidyverse)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: tidyverse
+\end{verbatim}
+
+\begin{verbatim}
+## -- Attaching core tidyverse packages ------------------------ tidyverse 2.0.0 --
+## v dplyr     1.1.4     v readr     2.1.5
+## v forcats   1.0.1     v stringr   1.6.0
+## v ggplot2   4.0.0     v tibble    3.3.0
+## v lubridate 1.9.4     v tidyr     1.3.1
+## v purrr     1.1.0     
+## -- Conflicts ------------------------------------------ tidyverse_conflicts() --
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()
+## i Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{require}\NormalTok{(caret)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: caret
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'caret' was built under R version 4.5.3
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: lattice
+## 
+## Attaching package: 'caret'
+## 
+## The following object is masked from 'package:purrr':
+## 
+##     lift
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{require}\NormalTok{(broom)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: broom
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{require}\NormalTok{(kableExtra)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: kableExtra
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'kableExtra' was built under R version 4.5.3
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'kableExtra'
+## 
+## The following object is masked from 'package:dplyr':
+## 
+##     group_rows
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(knitr)}
+\end{Highlighting}
+\end{Shaded}
+
+\section{Data Overview}\label{data-overview}
+
+This data is prepared in hbsc.rmd file. It's dimensions are:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# {-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+\CommentTok{\# load dataset}
+\CommentTok{\# {-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}{-}}
+
+\NormalTok{d }\OtherTok{\textless{}{-}} \FunctionTok{read\_csv}\NormalTok{(}\FunctionTok{paste0}\NormalTok{(project\_folder, }\StringTok{"data/processed/dat\_2026{-}08{-}16.csv"}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Rows: 244097 Columns: 25
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr  (6): country_name, pmsu_lmh, family_support_hml, friends_support_hml, I...
+## dbl (19): seqno_int, lifesat_low, mental_complaintsY, health_complaintsY, pm...
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{dim}\NormalTok{(d) }\CommentTok{\#244097     25}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 244097     25
+\end{verbatim}
+
+The list of vars and it's type is:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{glimpse}\NormalTok{(d)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Rows: 244,097
+## Columns: 25
+## $ seqno_int            <dbl> 100001, 100002, 100004, 100005, 100007, 100008, 1~
+## $ country_name         <chr> "Albania", "Albania", "Albania", "Albania", "Alba~
+## $ lifesat_low          <dbl> 0, 0, 0, NA, 0, 0, NA, 1, NA, NA, 0, 0, 0, 0, 0, ~
+## $ mental_complaintsY   <dbl> 1, 0, 0, 0, 1, 1, 0, NA, NA, 0, 0, NA, 0, 0, NA, ~
+## $ health_complaintsY   <dbl> 1, 0, 0, 0, 1, 1, 0, NA, NA, 0, 0, NA, 0, 0, NA, ~
+## $ pmsu_lmh             <chr> "Med", "Med", "High", "Med", "Med", "Low", "Med",~
+## $ pmsu_yn              <dbl> 0, 0, 1, 0, 0, 0, 0, 0, 0, NA, 0, NA, 0, 0, NA, 0~
+## $ family_support_high  <dbl> 1, 1, 1, 1, 0, 1, 1, NA, 1, 1, NA, NA, 1, 1, 1, 1~
+## $ family_support_hml   <chr> "High", "High", "High", "High", "Low", "High", "H~
+## $ friends_support_high <dbl> 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, NA, 0, 1, 1, 1, 0, ~
+## $ friends_support_hml  <chr> "High", "High", "Med", "High", "High", "High", "H~
+## $ teacher_support_high <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1~
+## $ student_support_high <dbl> 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1~
+## $ school_support_high  <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1~
+## $ IRRELFAS_LMH_r       <chr> "Med60", NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, ~
+## $ talkfatherYes        <dbl> 1, 1, 1, 1, 0, 0, 1, NA, NA, 1, NA, NA, 1, NA, 1,~
+## $ talkmotherYes        <dbl> 1, 1, 1, 1, 1, 1, 1, NA, NA, 1, NA, NA, 1, NA, NA~
+## $ beenbulliedYes       <dbl> 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0~
+## $ cbeenbulliedYes      <dbl> 1, 1, 1, 0, 0, 0, 0, 0, NA, 0, 0, 0, 0, NA, 0, 0,~
+## $ age_r                <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N~
+## $ sex_r                <chr> "Boy", "Boy", "Boy", "Boy", "Boy", "Boy", "Boy", ~
+## $ emconlfreqYes        <dbl> 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, NA, 0, 0, 1, 0, 0, ~
+## $ lives_onlineYN       <dbl> 0, 1, 0, 0, 0, 0, NA, 0, 0, 0, NA, 1, 0, 0, 0, 0,~
+## $ timeexe_r            <dbl> 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1~
+## $ alc30d_YN            <dbl> 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
+\end{verbatim}
+
+\section{Missing Values}\label{missing-values}
+
+Most features have missing values.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{summary}\NormalTok{(d)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##    seqno_int       country_name        lifesat_low     mental_complaintsY
+##  Min.   : 100001   Length:244097      Min.   :0.0000   Min.   :0.0000    
+##  1st Qu.:1013119   Class :character   1st Qu.:0.0000   1st Qu.:0.0000    
+##  Median :2301741   Mode  :character   Median :0.0000   Median :0.0000    
+##  Mean   :2390239                      Mean   :0.1327   Mean   :0.2774    
+##  3rd Qu.:3600677                      3rd Qu.:0.0000   3rd Qu.:1.0000    
+##  Max.   :4813535                      Max.   :1.0000   Max.   :1.0000    
+##                                       NA's   :4512     NA's   :12882     
+##  health_complaintsY   pmsu_lmh            pmsu_yn      family_support_high
+##  Min.   :0.0000     Length:244097      Min.   :0.000   Min.   :0.0000     
+##  1st Qu.:0.0000     Class :character   1st Qu.:0.000   1st Qu.:0.0000     
+##  Median :0.0000     Mode  :character   Median :0.000   Median :1.0000     
+##  Mean   :0.3667                        Mean   :0.073   Mean   :0.7038     
+##  3rd Qu.:1.0000                        3rd Qu.:0.000   3rd Qu.:1.0000     
+##  Max.   :1.0000                        Max.   :1.000   Max.   :1.0000     
+##  NA's   :14191                         NA's   :50910   NA's   :22353      
+##  family_support_hml friends_support_high friends_support_hml
+##  Length:244097      Min.   :0.0000       Length:244097      
+##  Class :character   1st Qu.:0.0000       Class :character   
+##  Mode  :character   Median :1.0000       Mode  :character   
+##                     Mean   :0.5856                          
+##                     3rd Qu.:1.0000                          
+##                     Max.   :1.0000                          
+##                     NA's   :12896                           
+##  teacher_support_high student_support_high school_support_high
+##  Min.   :0.000        Min.   :0.0000       Min.   :0.0000     
+##  1st Qu.:0.000        1st Qu.:0.0000       1st Qu.:0.0000     
+##  Median :1.000        Median :1.0000       Median :0.0000     
+##  Mean   :0.553        Mean   :0.5708       Mean   :0.4955     
+##  3rd Qu.:1.000        3rd Qu.:1.0000       3rd Qu.:1.0000     
+##  Max.   :1.000        Max.   :1.0000       Max.   :1.0000     
+##  NA's   :19761        NA's   :18798        NA's   :22626      
+##  IRRELFAS_LMH_r     talkfatherYes    talkmotherYes    beenbulliedYes 
+##  Length:244097      Min.   :0.0000   Min.   :0.0000   Min.   :0.000  
+##  Class :character   1st Qu.:0.0000   1st Qu.:1.0000   1st Qu.:0.000  
+##  Mode  :character   Median :1.0000   Median :1.0000   Median :0.000  
+##                     Mean   :0.6713   Mean   :0.8348   Mean   :0.268  
+##                     3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.000  
+##                     Max.   :1.0000   Max.   :1.0000   Max.   :1.000  
+##                     NA's   :17491    NA's   :15521    NA's   :16962  
+##  cbeenbulliedYes      age_r          sex_r           emconlfreqYes   
+##  Min.   :0.0000   Min.   :11.00   Length:244097      Min.   :0.0000  
+##  1st Qu.:0.0000   1st Qu.:11.00   Class :character   1st Qu.:0.0000  
+##  Median :0.0000   Median :13.00   Mode  :character   Median :0.0000  
+##  Mean   :0.1315   Mean   :12.96                      Mean   :0.3428  
+##  3rd Qu.:0.0000   3rd Qu.:15.00                      3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :15.00                      Max.   :1.0000  
+##  NA's   :15084    NA's   :1516                       NA's   :25614   
+##  lives_onlineYN    timeexe_r       alc30d_YN     
+##  Min.   :0.000   Min.   :0.000   Min.   :0.0000  
+##  1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.0000  
+##  Median :0.000   Median :1.000   Median :0.0000  
+##  Mean   :0.183   Mean   :0.711   Mean   :0.1904  
+##  3rd Qu.:0.000   3rd Qu.:1.000   3rd Qu.:0.0000  
+##  Max.   :1.000   Max.   :1.000   Max.   :1.0000  
+##  NA's   :31906   NA's   :4799    NA's   :19326
+\end{verbatim}
+
+For now, I will just keep complete observations to simplify my life. But
+as can be seen some countries are very afected. Netherlands is a good
+option.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{d }\OtherTok{\textless{}{-}}\NormalTok{ d }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{any\_na =} \FunctionTok{if\_any}\NormalTok{(}\FunctionTok{everything}\NormalTok{(), is.na))}
+
+\NormalTok{d }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(country\_name, any\_na) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{tally}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_wider}\NormalTok{(}\AttributeTok{names\_from =}\NormalTok{ any\_na,}
+              \AttributeTok{names\_prefix =} \StringTok{"na\_"}\NormalTok{,}
+              \AttributeTok{values\_from =}\NormalTok{ n,}
+              \AttributeTok{values\_fill =} \DecValTok{0}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{n =}\NormalTok{ na\_FALSE }\SpecialCharTok{+}\NormalTok{ na\_TRUE) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct\_complete =} \FunctionTok{round}\NormalTok{(na\_FALSE }\SpecialCharTok{/}\NormalTok{ n,}\DecValTok{3}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(n, na\_FALSE, pct\_complete) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{arrange}\NormalTok{(}\FunctionTok{desc}\NormalTok{(pct\_complete))}\OtherTok{{-}\textgreater{}}\NormalTok{ tbl\_nas\_country}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Adding missing grouping variables: `country_name`
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{kable}\NormalTok{(tbl\_nas\_country)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrrr@{}}
+\toprule\noalign{}
+country\_name & n & na\_FALSE & pct\_complete \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Netherlands & 4698 & 4248 & 0.904 \\
+Portugal & 6126 & 5109 & 0.834 \\
+Estonia & 4725 & 3864 & 0.818 \\
+Lithuania & 3797 & 3066 & 0.807 \\
+Italy & 4144 & 3314 & 0.800 \\
+Hungary & 3789 & 2957 & 0.780 \\
+Iceland & 6996 & 5395 & 0.771 \\
+Spain & 4320 & 3209 & 0.743 \\
+Slovenia & 5667 & 4161 & 0.734 \\
+Czech Republic & 11564 & 8420 & 0.728 \\
+Austria & 4129 & 3002 & 0.727 \\
+Belgium (Flemish) & 4333 & 3145 & 0.726 \\
+Romania & 4567 & 3264 & 0.715 \\
+Germany & 4347 & 3102 & 0.714 \\
+Scotland & 5021 & 3578 & 0.713 \\
+Serbia & 3933 & 2738 & 0.696 \\
+Republic of Moldova & 4686 & 3248 & 0.693 \\
+Ukraine & 6660 & 4612 & 0.692 \\
+England & 3397 & 2324 & 0.684 \\
+Sweden & 4185 & 2814 & 0.672 \\
+Ireland & 3833 & 2493 & 0.650 \\
+France & 9170 & 5858 & 0.639 \\
+Georgia & 4242 & 2694 & 0.635 \\
+Belgium (French) & 5578 & 3537 & 0.634 \\
+Albania & 1765 & 1115 & 0.632 \\
+Russia & 4281 & 2675 & 0.625 \\
+Luxembourg & 4070 & 2471 & 0.607 \\
+Israel & 7712 & 4509 & 0.585 \\
+Croatia & 5169 & 2985 & 0.577 \\
+Canada & 12950 & 7423 & 0.573 \\
+Finland & 3146 & 1737 & 0.552 \\
+Wales & 15951 & 8613 & 0.540 \\
+Kazakhstan & 4868 & 2328 & 0.478 \\
+Armenia & 4717 & 2163 & 0.459 \\
+Malta & 2576 & 1068 & 0.415 \\
+Norway & 3127 & 1005 & 0.321 \\
+Azerbaijan & 4586 & 0 & 0.000 \\
+Denmark & 3181 & 0 & 0.000 \\
+Greenland & 1243 & 0 & 0.000 \\
+Latvia & 4412 & 0 & 0.000 \\
+Macedonia & 4658 & 0 & 0.000 \\
+Poland & 5224 & 0 & 0.000 \\
+Slovakia & 4785 & 0 & 0.000 \\
+Switzerland & 7510 & 0 & 0.000 \\
+Turkey & 5848 & 0 & 0.000 \\
+NA & 8411 & 0 & 0.000 \\
+\end{longtable}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dc }\OtherTok{\textless{}{-}}\NormalTok{ d[}\FunctionTok{complete.cases}\NormalTok{(d),]}
+
+\FunctionTok{summary}\NormalTok{(dc)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##    seqno_int       country_name        lifesat_low     mental_complaintsY
+##  Min.   : 100065   Length:128244      Min.   :0.0000   Min.   :0.0000    
+##  1st Qu.:1300234   Class :character   1st Qu.:0.0000   1st Qu.:0.0000    
+##  Median :2400709   Mode  :character   Median :0.0000   Median :0.0000    
+##  Mean   :2381812                      Mean   :0.1191   Mean   :0.2696    
+##  3rd Qu.:3404863                      3rd Qu.:0.0000   3rd Qu.:1.0000    
+##  Max.   :4813535                      Max.   :1.0000   Max.   :1.0000    
+##  health_complaintsY   pmsu_lmh            pmsu_yn        family_support_high
+##  Min.   :0.0000     Length:128244      Min.   :0.00000   Min.   :0.0000     
+##  1st Qu.:0.0000     Class :character   1st Qu.:0.00000   1st Qu.:0.0000     
+##  Median :0.0000     Mode  :character   Median :0.00000   Median :1.0000     
+##  Mean   :0.3548                        Mean   :0.06985   Mean   :0.7151     
+##  3rd Qu.:1.0000                        3rd Qu.:0.00000   3rd Qu.:1.0000     
+##  Max.   :1.0000                        Max.   :1.00000   Max.   :1.0000     
+##  family_support_hml friends_support_high friends_support_hml
+##  Length:128244      Min.   :0.0000       Length:128244      
+##  Class :character   1st Qu.:0.0000       Class :character   
+##  Mode  :character   Median :1.0000       Mode  :character   
+##                     Mean   :0.6079                          
+##                     3rd Qu.:1.0000                          
+##                     Max.   :1.0000                          
+##  teacher_support_high student_support_high school_support_high
+##  Min.   :0.0000       Min.   :0.0000       Min.   :0.0000     
+##  1st Qu.:0.0000       1st Qu.:0.0000       1st Qu.:0.0000     
+##  Median :1.0000       Median :1.0000       Median :0.0000     
+##  Mean   :0.5309       Mean   :0.5653       Mean   :0.4778     
+##  3rd Qu.:1.0000       3rd Qu.:1.0000       3rd Qu.:1.0000     
+##  Max.   :1.0000       Max.   :1.0000       Max.   :1.0000     
+##  IRRELFAS_LMH_r     talkfatherYes    talkmotherYes    beenbulliedYes  
+##  Length:128244      Min.   :0.0000   Min.   :0.0000   Min.   :0.0000  
+##  Class :character   1st Qu.:0.0000   1st Qu.:1.0000   1st Qu.:0.0000  
+##  Mode  :character   Median :1.0000   Median :1.0000   Median :0.0000  
+##                     Mean   :0.6642   Mean   :0.8349   Mean   :0.2537  
+##                     3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000  
+##                     Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+##  cbeenbulliedYes      age_r          sex_r           emconlfreqYes   
+##  Min.   :0.0000   Min.   :11.00   Length:128244      Min.   :0.0000  
+##  1st Qu.:0.0000   1st Qu.:11.00   Class :character   1st Qu.:0.0000  
+##  Median :0.0000   Median :13.00   Mode  :character   Median :0.0000  
+##  Mean   :0.1247   Mean   :13.14                      Mean   :0.3623  
+##  3rd Qu.:0.0000   3rd Qu.:15.00                      3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :15.00                      Max.   :1.0000  
+##  lives_onlineYN     timeexe_r        alc30d_YN        any_na       
+##  Min.   :0.0000   Min.   :0.0000   Min.   :0.0000   Mode :logical  
+##  1st Qu.:0.0000   1st Qu.:0.0000   1st Qu.:0.0000   FALSE:128244   
+##  Median :0.0000   Median :1.0000   Median :0.0000                  
+##  Mean   :0.1426   Mean   :0.7162   Mean   :0.2014                  
+##  3rd Qu.:0.0000   3rd Qu.:1.0000   3rd Qu.:0.0000                  
+##  Max.   :1.0000   Max.   :1.0000   Max.   :1.0000
+\end{verbatim}
+
+\section{Check if Dataset if balanced based on vars to
+predict}\label{check-if-dataset-if-balanced-based-on-vars-to-predict}
+
+\subsection{lifesat\_low}\label{lifesat_low}
+
+For lifesat\_low I like Canada and Netherlands in the extremes. Could be
+good to compare if we opt for two countries. For now, I will go with
+Canada due to big \%.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dc }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(country\_name, lifesat\_low) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{tally}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_wider}\NormalTok{(}\AttributeTok{names\_from =}\NormalTok{ lifesat\_low,}
+              \AttributeTok{names\_prefix =} \StringTok{"is\_"}\NormalTok{,}
+              \AttributeTok{values\_from =}\NormalTok{ n,}
+              \AttributeTok{values\_fill =} \DecValTok{0}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{n =}\NormalTok{ is\_0 }\SpecialCharTok{+}\NormalTok{ is\_1) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{lifesat\_low\_pct =} \FunctionTok{round}\NormalTok{(is\_1}\SpecialCharTok{/}\NormalTok{n,}\DecValTok{3}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(country\_name, n, lifesat\_low\_pct) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{arrange}\NormalTok{(}\FunctionTok{desc}\NormalTok{(lifesat\_low\_pct)) }\OtherTok{{-}\textgreater{}}\NormalTok{ lifesat\_low\_pct\_country}
+
+\FunctionTok{kable}\NormalTok{(lifesat\_low\_pct\_country)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrr@{}}
+\toprule\noalign{}
+country\_name & n & lifesat\_low\_pct \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Canada & 7423 & 0.181 \\
+Russia & 2675 & 0.176 \\
+Israel & 4509 & 0.152 \\
+Malta & 1068 & 0.149 \\
+Hungary & 2957 & 0.147 \\
+Sweden & 2814 & 0.147 \\
+Austria & 3002 & 0.146 \\
+Ireland & 2493 & 0.142 \\
+England & 2324 & 0.136 \\
+Ukraine & 4612 & 0.136 \\
+Scotland & 3578 & 0.134 \\
+Georgia & 2694 & 0.133 \\
+Iceland & 5395 & 0.133 \\
+Norway & 1005 & 0.131 \\
+Belgium (French) & 3537 & 0.130 \\
+Estonia & 3864 & 0.124 \\
+France & 5858 & 0.123 \\
+Luxembourg & 2471 & 0.123 \\
+Wales & 8613 & 0.118 \\
+Italy & 3314 & 0.117 \\
+Finland & 1737 & 0.115 \\
+Germany & 3102 & 0.112 \\
+Lithuania & 3066 & 0.112 \\
+Czech Republic & 8420 & 0.107 \\
+Albania & 1115 & 0.105 \\
+Portugal & 5109 & 0.104 \\
+Croatia & 2985 & 0.097 \\
+Slovenia & 4161 & 0.090 \\
+Serbia & 2738 & 0.087 \\
+Armenia & 2163 & 0.086 \\
+Republic of Moldova & 3248 & 0.082 \\
+Spain & 3209 & 0.082 \\
+Kazakhstan & 2328 & 0.077 \\
+Netherlands & 4248 & 0.075 \\
+Romania & 3264 & 0.069 \\
+Belgium (Flemish) & 3145 & 0.064 \\
+\end{longtable}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#mental\_complaintsY   }
+\end{Highlighting}
+\end{Shaded}
+
+\subsection{mental\_complaintsY}\label{mental_complaintsy}
+
+For mental\_complaintsY, Netherlads is still good. But Canada is more
+halfway, while other countries like Italy are at top. Israel is at top
+of list on both so could try that.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dc }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(country\_name, mental\_complaintsY) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{tally}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_wider}\NormalTok{(}\AttributeTok{names\_from =}\NormalTok{ mental\_complaintsY,}
+              \AttributeTok{names\_prefix =} \StringTok{"is\_"}\NormalTok{,}
+              \AttributeTok{values\_from =}\NormalTok{ n,}
+              \AttributeTok{values\_fill =} \DecValTok{0}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{n =}\NormalTok{ is\_0 }\SpecialCharTok{+}\NormalTok{ is\_1) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{mental\_complaintsY\_pct =} \FunctionTok{round}\NormalTok{(is\_1}\SpecialCharTok{/}\NormalTok{n,}\DecValTok{3}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(country\_name, n, mental\_complaintsY\_pct) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{arrange}\NormalTok{(}\FunctionTok{desc}\NormalTok{(mental\_complaintsY\_pct)) }\OtherTok{{-}\textgreater{}}\NormalTok{ mental\_complaintsY\_pct\_country}
+
+\FunctionTok{kable}\NormalTok{(mental\_complaintsY\_pct\_country)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrr@{}}
+\toprule\noalign{}
+country\_name & n & mental\_complaintsY\_pct \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Italy & 3314 & 0.428 \\
+Israel & 4509 & 0.363 \\
+Malta & 1068 & 0.360 \\
+Belgium (French) & 3537 & 0.331 \\
+Ukraine & 4612 & 0.329 \\
+Sweden & 2814 & 0.327 \\
+Romania & 3264 & 0.323 \\
+England & 2324 & 0.319 \\
+France & 5858 & 0.306 \\
+Estonia & 3864 & 0.305 \\
+Armenia & 2163 & 0.297 \\
+Luxembourg & 2471 & 0.285 \\
+Wales & 8613 & 0.284 \\
+Finland & 1737 & 0.278 \\
+Hungary & 2957 & 0.278 \\
+Scotland & 3578 & 0.276 \\
+Czech Republic & 8420 & 0.274 \\
+Canada & 7423 & 0.266 \\
+Ireland & 2493 & 0.264 \\
+Republic of Moldova & 3248 & 0.260 \\
+Iceland & 5395 & 0.257 \\
+Albania & 1115 & 0.250 \\
+Portugal & 5109 & 0.243 \\
+Lithuania & 3066 & 0.242 \\
+Serbia & 2738 & 0.239 \\
+Croatia & 2985 & 0.229 \\
+Norway & 1005 & 0.226 \\
+Russia & 2675 & 0.225 \\
+Slovenia & 4161 & 0.222 \\
+Georgia & 2694 & 0.220 \\
+Austria & 3002 & 0.214 \\
+Belgium (Flemish) & 3145 & 0.209 \\
+Spain & 3209 & 0.186 \\
+Netherlands & 4248 & 0.181 \\
+Germany & 3102 & 0.174 \\
+Kazakhstan & 2328 & 0.150 \\
+\end{longtable}
+
+Well, ok. I need to make a call for now. So I will pick Italy first
+since it has the highest \% of mental health complaints. And if I decide
+to compare we can do it with Spain or Netherlands.
+
+\section{Coercions of Data Types}\label{coercions-of-data-types}
+
+For modeling, many vars need to be coerced so I start there before univ
+EDA.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dc }\OtherTok{\textless{}{-}}\NormalTok{ dc }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{lifesat\_low =} \FunctionTok{factor}\NormalTok{(lifesat\_low, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{,}\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{mental\_complaintsY =} \FunctionTok{factor}\NormalTok{(mental\_complaintsY, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{,}\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{health\_complaintsY =} \FunctionTok{factor}\NormalTok{(health\_complaintsY, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{pmsu\_lmh =} \FunctionTok{factor}\NormalTok{(pmsu\_lmh, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"Low"}\NormalTok{, }\StringTok{"Med"}\NormalTok{, }\StringTok{"High"}\NormalTok{)),}
+         \AttributeTok{pmsu\_yn =} \FunctionTok{factor}\NormalTok{(pmsu\_yn, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{family\_support\_high =} \FunctionTok{factor}\NormalTok{(family\_support\_high, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{family\_support\_hml =} \FunctionTok{factor}\NormalTok{(family\_support\_hml, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"Low"}\NormalTok{, }\StringTok{"Med"}\NormalTok{, }\StringTok{"High"}\NormalTok{)),}
+         \AttributeTok{friends\_support\_high =} \FunctionTok{factor}\NormalTok{(friends\_support\_high, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{friends\_support\_hml =} \FunctionTok{factor}\NormalTok{(friends\_support\_hml, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"Low"}\NormalTok{, }\StringTok{"Med"}\NormalTok{, }\StringTok{"High"}\NormalTok{)),}
+         \AttributeTok{teacher\_support\_high =} \FunctionTok{factor}\NormalTok{(teacher\_support\_high, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{student\_support\_high =} \FunctionTok{factor}\NormalTok{(student\_support\_high, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{school\_support\_high =} \FunctionTok{factor}\NormalTok{(school\_support\_high, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{IRRELFAS\_LMH\_r =} \FunctionTok{factor}\NormalTok{(IRRELFAS\_LMH\_r, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"Low20"}\NormalTok{, }\StringTok{"Med60"}\NormalTok{, }\StringTok{"High20"}\NormalTok{)),}
+         \AttributeTok{talkfatherYes =} \FunctionTok{factor}\NormalTok{(talkfatherYes, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{talkmotherYes =} \FunctionTok{factor}\NormalTok{(talkmotherYes, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{beenbulliedYes =} \FunctionTok{factor}\NormalTok{(beenbulliedYes, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{cbeenbulliedYes =} \FunctionTok{factor}\NormalTok{(cbeenbulliedYes, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"1"}\NormalTok{)),}
+         \AttributeTok{age\_r =} \FunctionTok{factor}\NormalTok{(age\_r, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"11"}\NormalTok{, }\StringTok{"13"}\NormalTok{, }\StringTok{"15"}\NormalTok{)),}
+         \AttributeTok{sex\_r =} \FunctionTok{factor}\NormalTok{(sex\_r),}
+         \AttributeTok{emconlfreqYes =} \FunctionTok{factor}\NormalTok{(emconlfreqYes, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{,}\StringTok{"1"}\NormalTok{)),       }
+         \AttributeTok{lives\_onlineYN =} \FunctionTok{factor}\NormalTok{(lives\_onlineYN, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{,}\StringTok{"1"}\NormalTok{)),    }
+         \AttributeTok{timeexe\_r =} \FunctionTok{factor}\NormalTok{(timeexe\_r, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{,}\StringTok{"1"}\NormalTok{)),    }
+         \AttributeTok{alc30d\_YN =} \FunctionTok{factor}\NormalTok{(alc30d\_YN, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{,}\StringTok{"1"}\NormalTok{))          }
+\NormalTok{         )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{italy }\OtherTok{\textless{}{-}}\NormalTok{ dc }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{filter}\NormalTok{(country\_name }\SpecialCharTok{==} \StringTok{"Italy"}\NormalTok{)}
+
+\FunctionTok{summary}\NormalTok{(italy)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##    seqno_int       country_name       lifesat_low mental_complaintsY
+##  Min.   :2900027   Length:3314        0:2927      0:1895            
+##  1st Qu.:2901195   Class :character   1: 387      1:1419            
+##  Median :2902378   Mode  :character                                 
+##  Mean   :2902400                                                    
+##  3rd Qu.:2903556                                                    
+##  Max.   :2904904                                                    
+##  health_complaintsY pmsu_lmh    pmsu_yn  family_support_high family_support_hml
+##  0:1570             Low :1346   0:2964   0: 772              Low : 164         
+##  1:1744             Med :1618   1: 350   1:2542              Med : 443         
+##                     High: 350                                High:2707         
+##                                                                                
+##                                                                                
+##                                                                                
+##  friends_support_high friends_support_hml teacher_support_high
+##  0:1060               Low : 197           0:1645              
+##  1:2254               Med : 598           1:1669              
+##                       High:2519                               
+##                                                               
+##                                                               
+##                                                               
+##  student_support_high school_support_high IRRELFAS_LMH_r talkfatherYes
+##  0:1270               0:1731              Low20 : 496    0:1282       
+##  1:2044               1:1583              Med60 :2117    1:2032       
+##                                           High20: 701                 
+##                                                                       
+##                                                                       
+##                                                                       
+##  talkmotherYes beenbulliedYes cbeenbulliedYes age_r      sex_r     
+##  0: 693        0:2893         0:3045          11:1043   Boy :1533  
+##  1:2621        1: 421         1: 269          13:1187   Girl:1781  
+##                                               15:1084              
+##                                                                    
+##                                                                    
+##                                                                    
+##  emconlfreqYes lives_onlineYN timeexe_r alc30d_YN   any_na       
+##  0:1665        0:3073         0:1019    0:2513    Mode :logical  
+##  1:1649        1: 241         1:2295    1: 801    FALSE:3314     
+##                                                                  
+##                                                                  
+##                                                                  
+## 
+\end{verbatim}
+
+\section{Logical grouping of
+variables}\label{logical-grouping-of-variables}
+
+I group logically in themes the 25 vars as follows:
+
+Vars to Predict: - lifesat\_low - mental\_complaintsY (or maybe
+health\_complaintsY)
+
+Key Predictors to Study (in this order):
+
+Problematic social media use: - pmsu\_lmh (over pmsu\_yn)
+
+Other concerning online stuff: - emconlfreqYes (too much online comms) -
+lives\_onlineYN (prefer online vulnerability)
+
+Bulling: - beenbulliedYes - cbeenbulliedYes
+
+Youth support system: - family\_support\_high (over
+family\_support\_hml) - friends\_support\_high (over
+friends\_support\_hml) - school\_support\_high (over
+teacher\_support\_high:student\_support\_high)
+
+Parental support: - talkfatherYes x talkmotherYes
+
+Habits good/bad: - timeexe\_r (exercise) - alc30d\_YN
+
+Covariates: - age\_r - sex\_r - IRRELFAS\_LMH\_r
+
+Other: - seqno\_int - country\_name
+
+\section{Univariate EDA}\label{univariate-eda}
+
+Here for each var, I check it's descriptive stats and potential of
+prediction.
+
+\subsection{pmsu\_lmh}\label{pmsu_lmh}
+
+Has potential based on higher prop of our Y vars based on pmsu.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{ (}\StringTok{"Frequence counts:"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Frequence counts:
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{italy }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(pmsu\_lmh) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{tally}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{prop =}\NormalTok{ n}\SpecialCharTok{/}\FunctionTok{sum}\NormalTok{(n))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 3 x 3
+##   pmsu_lmh     n  prop
+##   <fct>    <int> <dbl>
+## 1 Low       1346 0.406
+## 2 Med       1618 0.488
+## 3 High       350 0.106
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{ (}\StringTok{"Potential of prediction for mental\_complaints:"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Potential of prediction for mental_complaints:
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{italy }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(mental\_complaintsY, pmsu\_lmh) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{tally}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_wider}\NormalTok{(}\AttributeTok{values\_from =}\NormalTok{ n,}
+              \AttributeTok{names\_from =}\NormalTok{ mental\_complaintsY,}
+              \AttributeTok{names\_prefix =} \StringTok{"mental\_complaintsY"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{n =}\NormalTok{ mental\_complaintsY0 }\SpecialCharTok{+}\NormalTok{ mental\_complaintsY1,}
+         \AttributeTok{pct\_mental\_complaintsY1 =}\NormalTok{ mental\_complaintsY1 }\SpecialCharTok{/}\NormalTok{ n)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 3 x 5
+##   pmsu_lmh mental_complaintsY0 mental_complaintsY1     n pct_mental_complaintsY1
+##   <fct>                  <int>               <int> <int>                   <dbl>
+## 1 Low                      960                 386  1346                   0.287
+## 2 Med                      819                 799  1618                   0.494
+## 3 High                     116                 234   350                   0.669
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{ (}\StringTok{"Potential of prediction for lifesat\_low"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Potential of prediction for lifesat_low
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{italy }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(lifesat\_low, pmsu\_lmh) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{tally}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_wider}\NormalTok{(}\AttributeTok{values\_from =}\NormalTok{ n,}
+              \AttributeTok{names\_from =}\NormalTok{ lifesat\_low,}
+              \AttributeTok{names\_prefix =} \StringTok{"lifesat\_lowY"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{n =}\NormalTok{ lifesat\_lowY0 }\SpecialCharTok{+}\NormalTok{ lifesat\_lowY1,}
+         \AttributeTok{pct\_lifesat\_lowY1 =}\NormalTok{ lifesat\_lowY1 }\SpecialCharTok{/}\NormalTok{ n)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 3 x 5
+##   pmsu_lmh lifesat_lowY0 lifesat_lowY1     n pct_lifesat_lowY1
+##   <fct>            <int>         <int> <int>             <dbl>
+## 1 Low               1240           106  1346            0.0788
+## 2 Med               1420           198  1618            0.122 
+## 3 High               267            83   350            0.237
+\end{verbatim}
+
+\subsection{emconlfreqYes (too much online
+comms)}\label{emconlfreqyes-too-much-online-comms}
+
+\subsection{lives\_onlineYN (prefer online
+vulnerability)}\label{lives_onlineyn-prefer-online-vulnerability}
+
+\subsection{beenbulliedYes}\label{beenbulliedyes}
+
+\subsection{cbeenbulliedYes}\label{cbeenbulliedyes}
+
+\subsection{family\_support\_high (over
+family\_support\_hml)}\label{family_support_high-over-family_support_hml}
+
+\subsection{friends\_support\_high (over
+friends\_support\_hml)}\label{friends_support_high-over-friends_support_hml}
+
+\subsection{school\_support\_high (over
+teacher\_support\_high:student\_support\_high)}\label{school_support_high-over-teacher_support_highstudent_support_high}
+
+\subsection{talkfatherYes x
+talkmotherYes}\label{talkfatheryes-x-talkmotheryes}
+
+\subsection{timeexe\_r (exercise)}\label{timeexe_r-exercise}
+
+\subsection{alc30d\_YN}\label{alc30d_yn}
+
+\subsection{age\_r}\label{age_r}
+
+\subsection{sex\_r}\label{sex_r}
+
+\subsection{IRRELFAS\_LMH\_r}\label{irrelfas_lmh_r}
+
+\subsection{seqno\_int}\label{seqno_int}
+
+\subsection{country\_name}\label{country_name}
+
+\subsection{ROADMAMP}\label{roadmamp}
+
+univ eda see potential of pred for each var get to know each var
+
+\end{document}

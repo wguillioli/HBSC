@@ -1,10 +1,12 @@
 ---
-title: "HBSC: Modeling"
+title: 'HBSC: Modeling'
 date: "Updated: `r format(Sys.time(), '%Y-%m-%d')`"
 output:
   pdf_document: default
   word_document: default
   html_notebook: default
+  html_document:
+    df_print: paged
 urlcolor: blue
 ---
 
@@ -12,12 +14,17 @@ urlcolor: blue
 
 rm(list = ls())
 
-setwd("C:/MisLocalFiles/Github/HBSC/scripts")
+setwd("C:/MisLocalFiles/Github/HBSC/scripts/modeling/")
 project_folder <- "C:/MisLocalFiles/Github/HBSC/"
 
 require(tidyverse)
 require(caret)
 require(broom)
+require(kableExtra)
+library(knitr)
+require(coefplot)
+require(sjPlot)
+
 
 ```
 
@@ -76,6 +83,8 @@ kable(tbl_nas_country)
 
 dc <- d[complete.cases(d),]
 
+summary(dc)
+
 ```
 
 # Check if Dataset if balanced based on vars to predict
@@ -129,7 +138,51 @@ kable(mental_complaintsY_pct_country)
 
 Well, ok. I need to make a call for now. So I will pick Italy first since 
 it has the highest % of mental health complaints. And if I decide to compare
-we can do it with Spain or Netherlands.  
+we can do it with Spain or Netherlands. 
+
+# Coercions of Data Types
+For modeling, many vars need to be coerced so I start there before univ EDA.
+
+```{r}
+
+dc <- dc %>%
+  mutate(lifesat_low = factor(lifesat_low, levels = c("0","1")),
+         mental_complaintsY = factor(mental_complaintsY, levels = c("0","1")),
+         health_complaintsY = factor(health_complaintsY, levels = c("0", "1")),
+         pmsu_lmh = factor(pmsu_lmh, levels = c("Low", "Med", "High")),
+         pmsu_yn = factor(pmsu_yn, levels = c("0", "1")),
+         family_support_high = factor(family_support_high, levels = c("0", "1")),
+         family_support_hml = factor(family_support_hml, levels = c("Low", "Med", "High")),
+         friends_support_high = factor(friends_support_high, levels = c("0", "1")),
+         friends_support_hml = factor(friends_support_hml, levels = c("Low", "Med", "High")),
+         teacher_support_high = factor(teacher_support_high, levels = c("0", "1")),
+         student_support_high = factor(student_support_high, levels = c("0", "1")),
+         school_support_high = factor(school_support_high, levels = c("0", "1")),
+         IRRELFAS_LMH_r = factor(IRRELFAS_LMH_r, levels = c("Low20", "Med60", "High20")),
+         talkfatherYes = factor(talkfatherYes, levels = c("0", "1")),
+         talkmotherYes = factor(talkmotherYes, levels = c("0", "1")),
+         beenbulliedYes = factor(beenbulliedYes, levels = c("0", "1")),
+         cbeenbulliedYes = factor(cbeenbulliedYes, levels = c("0", "1")),
+         age_r = factor(age_r, levels = c("11", "13", "15")),
+         sex_r = factor(sex_r),
+         emconlfreqYes = factor(emconlfreqYes, levels = c("0","1")),       
+         lives_onlineYN = factor(lives_onlineYN, levels = c("0","1")),    
+         timeexe_r = factor(timeexe_r, levels = c("0","1")),    
+         alc30d_YN = factor(alc30d_YN, levels = c("0","1"))          
+         )
+
+```
+
+
+```{r}
+
+italy <- dc %>%
+  filter(country_name == "Italy")
+
+summary(italy)
+
+```
+
 
 # Logical grouping of variables
 I group logically in themes the 25 vars as follows:
@@ -172,224 +225,730 @@ Other:
 - seqno_int
 - country_name
 
-# Coercions of Data Types
-For modeling, many vars need to be coerced so I start there before univ EDA.
-
-```{r}
-
-dc <- dc %>%
-  mutate(lifesat_low = factor(lifesat_low, levels = c("0","1")),
-         mental_complaintsY = factor(mental_complaintsY, levels = c("0","1")),
-         health_complaintsY = factor(health_complaintsY, levels = c("0", "1")),
-         pmsu_lmh = factor(pmsu_lmh, levels = c("Low", "Med", "High")),
-         pmsu_yn = factor(pmsu_yn, levels = c("0", "1")),
-         family_support_high = factor(family_support_high, levels = c("0", "1")),
-         family_support_hml = factor(family_support_hml, levels = c("low", "med", "high")),
-         friends_support_high = factor(friends_support_high, levels = c("0", "1")),
-         friends_support_hml = factor(friends_support_hml, levels = c("low", "med", "high")),
-         teacher_support_high = factor(teacher_support_high, levels = c("0", "1")),
-         student_support_high = factor(student_support_high, levels = c("0", "1")),
-         school_support_high = factor(school_support_high, levels = c("0", "1")),
-         IRRELFAS_LMH_r = factor(IRRELFAS_LMH_r, levels = c("Low20", "Med60", "High20")),
-         talkfatherYes = factor(talkfatherYes, levels = c("0", "1")),
-         talkmotherYes = factor(talkmotherYes, levels = c("0", "1")),
-         beenbulliedYes = factor(beenbulliedYes, levels = c("0", "1")),
-         cbeenbulliedYes = factor(cbeenbulliedYes, levels = c("0", "1")),
-         age_r = factor(age_r, levels = c("11", "13", "15")),
-         sex_r = factor(sex_r),
-         emconlfreqYes = factor(emconlfreqYes, levels = c("0","1")),       
-         lives_onlineYN = factor(lives_onlineYN, levels = c("0","1")),    
-         timeexe_r = factor(timeexe_r, levels = c("0","1")),    
-         alc30d_YN = factor(alc30d_YN, levels = c("0","1"))          
-         )
-
-```
 
 # Univariate EDA
-Here for each var, I check it's distribution, summary stats and potential of prediction.
+Here for each var, I check it's descriptive stats and potential of prediction.
 
 ## pmsu_lmh
+Has potential based on higher prop of our Y vars based on pmsu.
 
 ```{r}
 
-dc %>%
+cat ("Frequence counts:")
+italy %>%
   group_by(pmsu_lmh) %>%
-  tally()
-xxxx
-
-```
-
-
-Key Predictors to Study (in this order):
-
-Problematic social media use: 
--  (over pmsu_yn)
-
-Other concerning online stuff:
-- emconlfreqYes (too much online comms)
-- lives_onlineYN (prefer online vulnerability)
-
-Bulling:
-- beenbulliedYes
-- cbeenbulliedYes
-
-Youth support system:
-- family_support_high (over family_support_hml)
-- friends_support_high (over friends_support_hml)
-- school_support_high (over teacher_support_high:student_support_high)
-
-Parental support:
-- talkfatherYes x talkmotherYes
-
-Habits good/bad:
-- timeexe_r (exercise)
-- alc30d_YN
-
-Covariates:
-- age_r
-- sex_r
-- IRRELFAS_LMH_r
-
-Other:
-- seqno_int
-- country_name
-
-Vars to Predict:
-- lifesat_low
-- mental_complaintsY (or maybe health_complaintsY)
-
-
-
-## ROADMAMP
-univ eda
-see potential of pred for each var
-get to know each var
-
-
-
-
-
-
-
-
-## Univariate Exploration and Preparation  
-
-
-
-
-
-
-
-
-
-
-
-We now look one by one and will:  
-1. Coerce to correct var type for modeling (mostly factors)
-2. Note potential of prediction
-
-
-
-### seqno_int  
-Children id and confirmed it's unique.
-
-```{r}
-
-length(unique(d$seqno_int)) == nrow(d)
-
-```
-
-###$ lifesat_low
-13% report having low satisfaction and still ~2% of NAs that need to be fixed. 
-
-```{r, echo=FALSE}
-
-d %>%
-  group_by(lifesat_low) %>%
   tally() %>%
-  mutate (pct = round(n/sum(n),3))
+  mutate(prop = n/sum(n))
 
-```
-
-###mental_complaintsY
-26% report mental health issues with ~5% of NAs that need to be fixed. 
-
-```{r, echo=FALSE}
-
-d %>%
-  group_by(mental_complaintsY) %>%
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, pmsu_lmh) %>%
   tally() %>%
-  mutate (pct = round(n/sum(n),3))
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
 
-```
-
-### country_name
-By country, we look at % of children with low lifesat and mental health issues.
-xxxxxxxxxxxxxxxxx voy
-
-```{r, echo=FALSE}
-
-d %>%
-  group_by(country_name) %>%
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, pmsu_lmh) %>%
   tally() %>%
-  mutate (pct = round(n/sum(n),3))
-
-```
-
-
-###$ pmsu_lmh             <chr> "med", "med", "high", "med", "med", "low", "med", "low", "low", NA, "med", NA, "lo…
-#voy, is this right?
-
-```{r}
-
-d <- d %>%
-  mutate(pmsu_lmh = factor(pmsu_lmh, 
-                           levels = c("Low", "Med", "High")))
-
-d %>%
-  filter(!is.na(lifesat_low)
-         #& !is.na(pmsu_lmh)
-         ) %>%
-  group_by(pmsu_lmh,
-           lifesat_low) %>%
-  summarise(n = n()) %>%
   pivot_wider(values_from = n,
               names_from = lifesat_low,
-              names_prefix = "lifesat_low_") %>%
-  mutate(n = lifesat_low_1 + lifesat_low_0) %>%
-  mutate(lifesat_low_1_pct = round(lifesat_low_1 / n,3))
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## emconlfreqYes (too much online comms)
+Has potential for mental issues but doesn't for lifesatlow.
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(emconlfreqYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, emconlfreqYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, emconlfreqYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## lives_onlineYN (prefer online vulnerability)
+Has potential for both vars. 
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(lives_onlineYN) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, lives_onlineYN) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, lives_onlineYN) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## beenbulliedYes
+Small % has been bullied and has strong potential for both vars. 
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(beenbulliedYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, beenbulliedYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, beenbulliedYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## cbeenbulliedYes
+Same as previous bullying metric. 
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(cbeenbulliedYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, cbeenbulliedYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, cbeenbulliedYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## family_support_high (over family_support_hml)
+Highest % have support and that certainly helps lower the predictions. 
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(family_support_high) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, family_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, family_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## friends_support_high (over friends_support_hml)
+Same as above. 
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(friends_support_high) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, friends_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, friends_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## school_support_high (over teacher_support_high:student_support_high)
+More balanced but having support helps.
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(school_support_high) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, school_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, school_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
 
 ```
 
 
-###$ pmsu_yn              <dbl> 0, 0, 1, 0, 0, 0, 0, 0, 0, NA, 0, NA, 0, 0, NA, 0, 0, NA, 0, 0, 0, NA, 0, 0, 0, 0,…
+## timeexe_r (exercise)
+Most exercise and seems to help a bit, not much but some. 
 
-###$ family_support_high  <dbl> 1, 1, 1, 1, 0, 1, 1, NA, 1, 1, NA, NA, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1…
+```{r}
 
-###$ family_support_hml   <chr> "high", "high", "high", "high", "low", "high", "high", NA, "high", "high", NA, NA,…
+cat ("Frequence counts:")
+italy %>%
+  group_by(timeexe_r) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
 
-###$ friends_support_high <dbl> 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, NA, 0, 1, 1, 1, 0, 1, NA, 1, 0, 1, 1, 0, 0, 0, 1, NA…
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, timeexe_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
 
-###$ friends_support_hml  <chr> "high", "high", "med", "high", "high", "high", "high", "high", "high", "high", NA,…
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, timeexe_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
 
-###$ IRRELFAS_LMH_r       <chr> "Med60", NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, "Med60", NA, "Med60", "Med60"…
+```
 
-###$ talkfatherYes        <dbl> 1, 1, 1, 1, 0, 0, 1, NA, NA, 1, NA, NA, 1, NA, 1, 1, 1, NA, 1, 0, 1, 1, 1, 1, 1, 1…
+## alc30d_YN
+1 in 4 drink and that is correlated with more issues. 
 
-###$ talkmotherYes        <dbl> 1, 1, 1, 1, 1, 1, 1, NA, NA, 1, NA, NA, 1, NA, NA, 1, 1, NA, NA, 0, 1, 1, 1, 1, 1,…
+```{r}
 
-###$ beenbulliedYes       <dbl> 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0…
+cat ("Frequence counts:")
+italy %>%
+  group_by(alc30d_YN) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
 
-###$ cbeenbulliedYes      <dbl> 1, 1, 1, 0, 0, 0, 0, 0, NA, 0, 0, 0, 0, NA, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0,…
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, alc30d_YN) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
 
-###$ age_r                <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, alc30d_YN) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
 
-###$ sex_r  
+```
+
+## age_r
+Things to get worse as kids grow up.
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(age_r) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, age_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, age_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## sex_r
+Balanced dataset with girls having a harder time. 
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(sex_r) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, sex_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, sex_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## IRRELFAS_LMH_r
+Yes, money helps.
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(IRRELFAS_LMH_r) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, IRRELFAS_LMH_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, IRRELFAS_LMH_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## talkfatherYes x talkmotherYes
+Talking to father really helps.
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(talkfatherYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, talkfatherYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, talkfatherYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+But it seems talking to a mother even helps more!
+
+```{r}
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(talkmotherYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, talkmotherYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, talkmotherYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+```
+
+## seqno_int
+
+```{r}
+
+# has to be true as identifier
+length(unique(italy$seqno_int)) == nrow(italy)
+
+```
+
+# Logistic Regression
+Fit with all vars and use forward variable selection.
+
+## For lifesat_low:
+
+```{r}
+
+# Fit GML model using forward subset selection
+reg0 <- glm(lifesat_low ~ pmsu_lmh, data = italy, family = binomial) 
+reg1 <- glm(lifesat_low ~  pmsu_lmh +
+              emconlfreqYes +
+              lives_onlineYN +
+              family_support_high +
+              friends_support_high +
+              school_support_high +
+              IRRELFAS_LMH_r +
+              talkfatherYes +
+              talkmotherYes +
+              beenbulliedYes +
+              cbeenbulliedYes +
+              timeexe_r +
+              alc30d_YN +
+              age_r +
+              sex_r, 
+            data = italy, 
+            family = binomial)
+
+summary(reg0)
+summary(reg1)
+
+best <- step(reg0, scope = formula(reg1), 
+             direction = "forward", k = 2) #k=2 is AIC
+summary(best)
+best$anova
+
+coefplot(best, intercept = FALSE, title = "Log-Odds Coefficients")
+mytidy <- tidy(best, exponentiate = TRUE, conf.int = TRUE)
+
+ggplot(mytidy, aes(x = term, y = estimate)) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                width = 0.15, color = "gray40") +
+  geom_point(size = 3, color = "blue") +
+  coord_flip() +
+  labs(
+    title = "Coefficient Estimates with 95% Confidence Intervals",
+    x = "",
+    y = "Estimate"
+  ) +
+  theme_minimal(base_size = 14)
 
 
-for later:
-keep complete obs only
-model like a rusian doll
+
+```
+
+## For mental_complaintsY:
+
+```{r}
+
+# Fit GML model using forward subset selection
+reg0 <- glm(mental_complaintsY ~ pmsu_lmh, data = italy, family = binomial) 
+reg1 <- glm(mental_complaintsY ~  pmsu_lmh +
+              emconlfreqYes +
+              lives_onlineYN +
+              family_support_high +
+              friends_support_high +
+              school_support_high +
+              IRRELFAS_LMH_r +
+              talkfatherYes +
+              talkmotherYes +
+              beenbulliedYes +
+              cbeenbulliedYes +
+              timeexe_r +
+              alc30d_YN +
+              age_r +
+              sex_r, 
+            data = italy, 
+            family = binomial)
+
+summary(reg0)
+summary(reg1)
+
+best <- step(reg0, scope = formula(reg1), 
+             direction = "forward", k = 2) #k=2 is AIC
+summary(best)
+best$anova
+
+coefplot(best, intercept = FALSE, title = "Log-Odds Coefficients")
+
+mytidy <- tidy(best, exponentiate = TRUE, conf.int = TRUE)
+ggplot(mytidy, aes(x = term, y = estimate)) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                width = 0.15, color = "gray40") +
+  geom_point(size = 3, color = "blue") +
+  coord_flip() +
+  labs(
+    title = "Coefficient Estimates with 95% Confidence Intervals",
+    x = "",
+    y = "Estimate"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+
+```
+
+
+# raw notes
+
+```{r}
+
+# un desorden pero ver
+
+mdl <- glm(lifesat_low ~ pmsu_lmh,
+           data = italy,
+           family = binomial)
+
+# log-odds coeffs
+summary(mdl)
+coefplot(mdl, intercept = FALSE, title = "Log-Odds Coefficients")
+
+# expo are better
+tidy(mdl, exponentiate = TRUE, conf.int = TRUE)
+
+# Generate the data frame with the baseline set to 1
+plot_data <- tidy(mdl, exponentiate = TRUE, conf.int = TRUE) %>% 
+  filter(term != "(Intercept)") %>% 
+  add_row(
+    term = "your_baseline_variable_name", # Rename this to your reference group
+    estimate = 1,                         # Odds Ratio baseline is 1
+    conf.low = 1, 
+    conf.high = 1, 
+    .before = 1                           # Puts it at the top of your plot
+  )
+
+
+# Plot Odds Ratios (Exponentiated Coefficients)
+plot_model(mdl, 
+           type = "est",        # Estimates
+           transform = "exp",   # Converts log-odds to Odds Ratios
+           show.values = TRUE,  # Shows values on the plot
+           value.offset = .3,
+           title = "Logistic Regression Odds Ratios") +
+  theme_minimal()
+
+# Extract statistics and calculate Odds Ratios with Confidence Intervals
+model_df <- tidy(mdl, conf.int = TRUE) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(
+    odds_ratio = exp(estimate),
+    conf.low_or = exp(conf.low),
+    conf.high_or = exp(conf.high)
+  )
+
+# Build custom ggplot
+ggplot(model_df, aes(x = odds_ratio, y = term)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red", size = 0.8) + # Null effect line
+  geom_errorbarh(aes(xmin = conf.low_or, xmax = conf.high_or), height = 0.2, color = "royalblue") +
+  geom_point(size = 3, color = "darkblue") +
+  labs(
+    title = "Model Coefficients (Odds Ratios)",
+    x = "Odds Ratio (with 95% CI)",
+    y = "Predictor Variables"
+  ) +
+  theme_bw()
+
+install.packages("ggstats")
+library(ggstats)
+library(ggplot2)
+
+# This automatically includes all baselines at 1 for factor variables
+ggcoef_model(mdl, 
+             exponentiate = TRUE, 
+             #include_reference_rows = TRUE) + # <-- This forces baselines to show
+) +
+  labs(title = "Multi-Variable Odds Ratios", x = "Odds Ratio") +
+  theme_minimal()
+
+
+
+
+
+lifesat_low
+
+mental_complaintsY
+
+pmsu_lmh
+emconlfreqYes
+lives_onlineYN
+
+family_support_high
+friends_support_high
+school_support_high
+
+IRRELFAS_LMH_r
+
+talkfatherYes
+talkmotherYes
+
+beenbulliedYes
+cbeenbulliedYes
+
+timeexe_r
+alc30d_YN
+
+age_r
+sex_r
+
+```
+
+chi2 test hacer
+
+
+https://www.r-bloggers.com/2023/09/decisions-at-the-door-understanding-logistic-regression-with-tidymodels/
+https://www.tidymodels.org/
+https://www.tmwr.org/
+
 
 
 
