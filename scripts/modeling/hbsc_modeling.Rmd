@@ -24,6 +24,8 @@ require(kableExtra)
 library(knitr)
 require(coefplot)
 require(sjPlot)
+require(shapviz)
+require(xgboost)
 
 
 ```
@@ -828,7 +830,7 @@ ggplot(mytidy, aes(x = term, y = estimate)) +
   geom_point(size = 3, color = "blue") +
   coord_flip() +
   labs(
-    title = "Coefficient Estimates with 95% Confidence Intervals",
+    #title = "Coefficient Estimates with 95% Confidence Intervals",
     x = "",
     y = "Estimate"
   ) +
@@ -838,107 +840,45 @@ ggplot(mytidy, aes(x = term, y = estimate)) +
 
 ```
 
+## The first SHAP
 
-# raw notes
 
 ```{r}
 
-# un desorden pero ver
+italy2 <- italy
 
-mdl <- glm(lifesat_low ~ pmsu_lmh,
-           data = italy,
-           family = binomial)
+italy2$mental_complaintsY_num <- as.numeric(italy2$mental_complaintsY)
+#italy2$pmsu_yn_num <- as.numeric(italy2$pmsu_yn)
+#italy2$beenbulliedYes_num <- as.numeric(italy2$beenbulliedYes)
 
-# log-odds coeffs
-summary(mdl)
-coefplot(mdl, intercept = FALSE, title = "Log-Odds Coefficients")
+set.seed(3653)
+#X <- italy2[c("pmsu_yn_num", "beenbulliedYes_num")]
+X <- italy2[c("pmsu_yn", "beenbulliedYes")]
+dtrain <- xgb.DMatrix(data.matrix(X), label = italy2$mental_complaintsY_num)
 
-# expo are better
-tidy(mdl, exponentiate = TRUE, conf.int = TRUE)
+fit <- xgb.train(
+  params = list(learning_rate = 0.1, objective = "reg:squarederror"), 
+  data = dtrain,
+  nrounds = 65L
+)
 
-# Generate the data frame with the baseline set to 1
-plot_data <- tidy(mdl, exponentiate = TRUE, conf.int = TRUE) %>% 
-  filter(term != "(Intercept)") %>% 
-  add_row(
-    term = "your_baseline_variable_name", # Rename this to your reference group
-    estimate = 1,                         # Odds Ratio baseline is 1
-    conf.low = 1, 
-    conf.high = 1, 
-    .before = 1                           # Puts it at the top of your plot
-  )
+# Explanation dataset
+X_small <- X[sample(nrow(X), 1000L), ]
 
+shp <- shapviz(fit, X_pred = data.matrix(X_small), X = X_small)
 
-# Plot Odds Ratios (Exponentiated Coefficients)
-plot_model(mdl, 
-           type = "est",        # Estimates
-           transform = "exp",   # Converts log-odds to Odds Ratios
-           show.values = TRUE,  # Shows values on the plot
-           value.offset = .3,
-           title = "Logistic Regression Odds Ratios") +
-  theme_minimal()
+sv_waterfall(shp, row_id = 1)
 
-# Extract statistics and calculate Odds Ratios with Confidence Intervals
-model_df <- tidy(mdl, conf.int = TRUE) %>% 
-  filter(term != "(Intercept)") %>% 
-  mutate(
-    odds_ratio = exp(estimate),
-    conf.low_or = exp(conf.low),
-    conf.high_or = exp(conf.high)
-  )
+sv_force(shp, row_id = 10)
+sv_force(shp, row_id = 1)
 
-# Build custom ggplot
-ggplot(model_df, aes(x = odds_ratio, y = term)) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "red", size = 0.8) + # Null effect line
-  geom_errorbarh(aes(xmin = conf.low_or, xmax = conf.high_or), height = 0.2, color = "royalblue") +
-  geom_point(size = 3, color = "darkblue") +
-  labs(
-    title = "Model Coefficients (Odds Ratios)",
-    x = "Odds Ratio (with 95% CI)",
-    y = "Predictor Variables"
-  ) +
-  theme_bw()
+sv_importance(shp)
+sv_importance(shp,
+              kind = "beeswarm")
 
-install.packages("ggstats")
-library(ggstats)
-library(ggplot2)
+sv_importance(shp, kind = "both", alpha = 0.2, width = 0.2)
 
-# This automatically includes all baselines at 1 for factor variables
-ggcoef_model(mdl, 
-             exponentiate = TRUE, 
-             #include_reference_rows = TRUE) + # <-- This forces baselines to show
-) +
-  labs(title = "Multi-Variable Odds Ratios", x = "Odds Ratio") +
-  theme_minimal()
-
-
-
-
-
-lifesat_low
-
-mental_complaintsY
-
-pmsu_lmh
-emconlfreqYes
-lives_onlineYN
-
-family_support_high
-friends_support_high
-school_support_high
-
-IRRELFAS_LMH_r
-
-talkfatherYes
-talkmotherYes
-
-beenbulliedYes
-cbeenbulliedYes
-
-timeexe_r
-alc30d_YN
-
-age_r
-sex_r
+sv_dependence(shp, v = "pmsu_yn", "auto")
 
 ```
 
@@ -948,6 +888,8 @@ chi2 test hacer
 https://www.r-bloggers.com/2023/09/decisions-at-the-door-understanding-logistic-regression-with-tidymodels/
 https://www.tidymodels.org/
 https://www.tmwr.org/
+https://medium.com/data-science/shap-for-binary-and-multiclass-target-variables-ff2f43de0cf4
+https://benhay.es/posts/interpreting-ml-shap/
 
 
 

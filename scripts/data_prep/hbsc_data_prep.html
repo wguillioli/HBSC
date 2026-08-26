@@ -1620,7 +1620,7 @@ display: none;
 
 
 <h1 class="title toc-ignore">HBSC: Data Overview and Prep</h1>
-<h4 class="date">Updated: 2026-08-17</h4>
+<h4 class="date">Updated: 2026-08-26</h4>
 
 </div>
 
@@ -3552,7 +3552,11 @@ summary(dat_out)</code></pre>
                            &quot;data/processed/&quot;,
                            &quot;dat_&quot;, Sys.Date(), &quot;.csv&quot;)
 
-write_csv(dat_out,
+#write_csv(dat_out,
+ #         dat_out_filename)
+
+# output el full mejor
+write_csv(dat,
           dat_out_filename)</code></pre>
 </div>
 </div>

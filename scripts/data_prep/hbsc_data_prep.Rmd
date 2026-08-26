@@ -1021,7 +1021,11 @@ dat_out_filename <- paste0(project_folder,
                            "data/processed/",
                            "dat_", Sys.Date(), ".csv")
 
-write_csv(dat_out,
+#write_csv(dat_out,
+ #         dat_out_filename)
+
+# output el full mejor
+write_csv(dat,
           dat_out_filename)
 
 ```

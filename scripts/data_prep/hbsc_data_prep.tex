@@ -120,7 +120,7 @@
 
 \title{HBSC: Data Overview and Prep}
 \author{}
-\date{\vspace{-2.5em}Updated: 2026-08-17}
+\date{\vspace{-2.5em}Updated: 2026-08-26}
 
 \begin{document}
 \maketitle
@@ -129,7 +129,7 @@
 \begin{Highlighting}[]
 \FunctionTok{rm}\NormalTok{(}\AttributeTok{list =} \FunctionTok{ls}\NormalTok{())}
 
-\FunctionTok{setwd}\NormalTok{(}\StringTok{"C:/MisLocalFiles/Github/HBSC/scripts"}\NormalTok{)}
+\FunctionTok{setwd}\NormalTok{(}\StringTok{"C:/MisLocalFiles/Github/HBSC/scripts/data\_prep/"}\NormalTok{)}
 \NormalTok{project\_folder }\OtherTok{\textless{}{-}} \StringTok{"C:/MisLocalFiles/Github/HBSC/"}
 
 \FunctionTok{require}\NormalTok{(tidyverse)}
@@ -2368,7 +2368,11 @@ and includes date.
                            \StringTok{"data/processed/"}\NormalTok{,}
                            \StringTok{"dat\_"}\NormalTok{, }\FunctionTok{Sys.Date}\NormalTok{(), }\StringTok{".csv"}\NormalTok{)}
 
-\FunctionTok{write\_csv}\NormalTok{(dat\_out,}
+\CommentTok{\#write\_csv(dat\_out,}
+ \CommentTok{\#         dat\_out\_filename)}
+
+\CommentTok{\# output el full mejor}
+\FunctionTok{write\_csv}\NormalTok{(dat,}
 \NormalTok{          dat\_out\_filename)}
 \end{Highlighting}
 \end{Shaded}
