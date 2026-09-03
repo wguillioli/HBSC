@@ -1,50 +1,319 @@
 ---
 title: "HBSC"
+date: "Updated: `r format(Sys.time(), '%Y-%m-%d')`"
 output:
   pdf_document: default
   html_document:
     df_print: paged
+urlcolor: blue
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "C:/MisLocalFiles/Github/HBSC")
-```
 
-```{r psetup, include=FALSE}
+rm(list = ls())
 
 require(tidyverse)
 library(knitr)
 require(stringr)
+library(scales)
+library(corrplot)
+library(psych)
 
-prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
+
+
+#prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
+prj_fldr <- "C:/Github/HBSC/"
 #setwd(prj_fldr)
 #knitr::opts_knit\$set(root.dir = "C:/MisLocalFiles/Github/HBSC")
-dat_fldr <- paste0(prj_fldr,"data/")
-
-hbsc2018 <- read_csv(paste0(dat_fldr, "raw/HBSC2018OAed1.1.csv"))
 
 ```
 
-```{r}
+```{r dat_read, echo=FALSE}
+
+dat_fldr <- paste0(prj_fldr,"data/")
+
+hbsc2018 <- read_delim(paste0(dat_fldr, "raw/HBSC2018OAed1.1.csv"),
+                       delim = ";",
+                       na = c("", " "),
+                       show_col_types = FALSE
+                       )
+
+```
+
+# Data Overview
+
+It's a huge file:
+
+```{r, echo=FALSE}
 
 dim(hbsc2018)
 
 ```
 
-```{r}
+With these columns:
 
+```{r, echo=FALSE}
 
 # get column names
 cols <- colnames(hbsc2018)
-cols <- strsplit(cols, ";")[[1]]
-cols <- trimws(cols)
+#cols <- strsplit(cols, ";")[[1]]
+#cols <- trimws(cols)
 
-# split into 3 roughly equal columns
 n <- length(cols)
 mat <- matrix(cols, ncol = 5, byrow = TRUE)
 
-# print as a table in R Markdown
-kable(mat) #, col.names = c("Column 1", "Column 2", "Column 3"))
+kable(mat)
 
 ```
+
+So after selecting and grouping variables, create dat with :
+
+```{r dat_create, echo=FALSE}
+
+var_groups <- list(
+  "Individual Information" = c(
+    "seqno_int", "countryno", "weight", "agecat", "sex",
+    "MBMI", "IRFAS", "IRRELFAS_LMH", "oweight_who",
+    "bodyweight", "bodyheight"
+  ),
+  "Health Issues and Life Satisfaction" = c(
+    "health", "lifesat", "headache", "stomachache", "backache",
+    "feellow", "irritable", "nervous", "sleepdificulty", "dizzy"
+  ),
+  "Problematic Social Media Use (PMSU)" = c(
+    "emcsocmed1", "emcsocmed2", "emcsocmed3",
+    "emcsocmed4", "emcsocmed5", "emcsocmed6",
+    "emcsocmed7", "emcsocmed8", "emcsocmed9"
+  ),
+  "Bullying" = c(
+    "beenbullied", "cbeenbullied"
+  ),
+  "Communicates Online More Than Real Life" = c(
+    "emconlfreq1", "emconlfreq2", "emconlfreq3", "emconlfreq4",
+    "emconlpref1", "emconlpref2", "emconlpref3"
+  ),
+  "Family Support" = c(
+    "famhelp", "famsup", "famtalk", "famdec"
+  ),
+  "Friends Support" = c(
+    "friendhelp", "friendcounton", "friendshare", "friendtalk"
+  ),
+  "School Support" = c(
+    "likeschool", "schoolpressure",
+    "studtogether", "studhelpful", "studaccept",
+    "teacheraccept", "teachercare", "teachertrust"
+  ),
+  "Communication with Parents" = c(
+    "talkfather", "talkmother"
+  ),
+  "Good/Bad Habits" = c(
+    "physact60", "timeexe", "alc30d_2"
+  )
+)
+
+# create dat
+cols_to_keep <- unlist(var_groups, use.names = FALSE)
+dat <- hbsc2018 %>%
+  select(all_of(cols_to_keep))
+
+# prettt print vars
+ for (group_name in names(var_groups)) {
+   cat("##", group_name, "\n")
+ 
+   cat(
+     paste0(
+       "* `", var_groups[[group_name]], "`",
+       collapse = "\n"
+     ),
+     "\n\n"
+   )
+ }
+
+```
+
+The number of missing values is relevant and need to address later:
+
+```{r nas, echo=FALSE}
+na_cnts <- data.frame(
+  variable = names(dat),
+  na_count = sapply(dat, function(x) sum(is.na(x)))
+)
+
+row.names(na_cnts) <- NULL
+
+na_cnts <- na_cnts %>%
+  #mutate(na_pct = round(100 * na_count / nrow(dat),0)) %>%
+  mutate(na_pct = na_count / nrow(dat)) %>% 
+  mutate(na_pct = percent(na_pct, accuracy = 1)) %>%
+  arrange(desc(na_count))
+
+print(na_cnts)
+```
+
+Now I explore all variables by group and feature engineer as appropriate.
+
+# [3] "Problematic Social Media Use (PMSU)"  
+9 binary variables are recoded to 0/1.
+
+```{r pmsu_recode, echo=FALSE}
+
+vars_pmsu <- var_groups[["Problematic Social Media Use (PMSU)"]]
+vars_pmsu_r <- paste0(vars_pmsu, "_r")
+  
+# recode to 0/1 from 1/2
+recode_emcsocmed <- function(old_col){
+  new_col <- case_when(
+    old_col == 1 ~ 0,
+    old_col == 2 ~ 1,
+    TRUE ~ NA #99?
+  )
+  return(new_col)
+}
+
+dat <- dat %>%
+  mutate(emcsocmed1_r = recode_emcsocmed(emcsocmed1),
+         emcsocmed2_r = recode_emcsocmed(emcsocmed2),
+         emcsocmed3_r = recode_emcsocmed(emcsocmed3),
+         emcsocmed4_r = recode_emcsocmed(emcsocmed4),
+         emcsocmed5_r = recode_emcsocmed(emcsocmed5),
+         emcsocmed6_r = recode_emcsocmed(emcsocmed6),
+         emcsocmed7_r = recode_emcsocmed(emcsocmed7),
+         emcsocmed8_r = recode_emcsocmed(emcsocmed8),
+         emcsocmed9_r = recode_emcsocmed(emcsocmed9)
+         ) 
+
+# and look like pprrint:
+questions <- data.frame(
+  item = c(
+    "emcsocmed1","emcsocmed2","emcsocmed3","emcsocmed4",
+    "emcsocmed5","emcsocmed6","emcsocmed7","emcsocmed8","emcsocmed9"
+  ),
+  topic = c(
+    "Social media: I can't think of anything else",
+    "Social media: Dissatisfied cause want to spend more time",
+    "Social media: Felt bad cause want to play",
+    "Social media: Failed to spend less time",
+    "Social media: Neglected other activities",
+    "Social media: Had arguments because of use",
+    "Social media: Lied about amount of time spent",
+    "Social media: Use it to escape from negative feelings",
+    "Social media: Conflict with family because of use"
+  )
+)
+
+kable(questions) #, caption = "Social Media Use Items")
+
+```
+
+And they are correlated.
+
+```{r corr2,echo=FALSE}
+
+tetra_mat <- tetrachoric(dat[vars_pmsu_r])$rho
+tetra_mat <- round(tetra_mat, 2)
+
+corrplot::corrplot(
+  tetra_mat,
+  method = "color",
+  type = "upper",
+  tl.col = "black",
+  addCoef.col = "black"
+)
+
+```
+
+These 9 vars are sumed and then binned to H/M/L where H(6-9), M(2-5) and L(0-1). Resulting in:
+
+```{r pmsu_recode2, echo=FALSE}
+
+#sum and bin
+dat <- dat %>%
+  # should go from [0,9]
+  mutate(pmsu_sum = rowSums(dat[,vars_pmsu_r])) %>%
+  # 3 groups
+  mutate(
+    pmsu_lmh = case_when(
+      between(pmsu_sum,6,9) ~ 3, #"High",
+      between(pmsu_sum,2,5) ~ 2, #"Med",
+      between(pmsu_sum,0,1) ~ 1, #"Low",
+      TRUE ~ NA
+    )
+  )
+
+#cat("## Table for emcsocmed_sum x pmsu_lmh")
+kable(table(dat$pmsu_sum,
+      dat$pmsu_lmh,
+      useNA = "always")
+)
+
+# remove original vars
+dat <-  dat %>%
+  select(-all_of(vars_pmsu))
+
+```
+
+# [6] "Family Support" 
+4 questions going from 1 Very strongly disagree to 7 Very strongly agree.
+
+```{r famprnt, echo=FALSE}
+family_items <- data.frame(
+  item = c(
+    "famhelp",
+    "famsup",
+    "famtalk",
+    "famclose"
+  ),
+  topic = c(
+    "Family tries to help",
+    "Get emotional help from family",
+    "Talk about problems with family",
+    "Feel close to family"
+  )
+)
+
+kable(family_items) #, caption = "Family Support Items")
+```
+
+Summing them results in [4,28] and then grouped as H/M/L as L 4-11, M 12-19, H 20-28. Resulting in:
+
+```{r fam_rec, echo=FALSE}
+
+vars_family_support <- c("famhelp", "famsup", "famtalk", "famdec")
+
+dat <- dat %>%
+   mutate(famsup_sum = rowSums(dat[,vars_family_support])
+          ) %>%
+   mutate(famsup_hml = case_when(
+            famsup_sum >= 4 & famsup_sum <= 11 ~ 1, #"Low",
+            famsup_sum >= 12 & famsup_sum <= 19 ~ 2, #"Med",
+            famsup_sum >= 20 & famsup_sum <= 28 ~ 3, #"High",
+            TRUE ~ NA))
+
+tbl_famsup <- table(dat$famsup_sum,
+                    dat$famsup_hml,
+                    useNA = "always"
+                    )
+
+kable(tbl_famsup)
+
+```
+
+voy
+[1] "Individual Information"                 
+[2] "Health Issues and Life Satisfaction"    
+[4] "Bullying"                               
+[5] "Communicates Online More Than Real Life"
+                        
+[7] "Friends Support"                        
+[8] "School Support"                         
+[9] "Communication with Parents"             
+[10] "Good/Bad Habits"
+
+
+
+
+
+
+
+
 

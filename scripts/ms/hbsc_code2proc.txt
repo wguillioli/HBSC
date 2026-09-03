@@ -1,0 +1,1558 @@
+
+
+
+### seqno_int
+This is the unique identifier of each record and I confirmed it's unique.
+
+
+
+length(unique(dat$seqno_int)) == nrow(dat)
+
+
+
+### countryno
+Number of countries in dataset is:
+
+
+
+length(unique(dat$countryno))
+
+
+And this is the count of survey responses by country:
+
+ecode_map <- c(
+  "8000"   = "Albania",
+  "31000"  = "Azerbaijan",
+  "40000"  = "Austria",
+  "51000"  = "Armenia",
+  "56001"  = "Belgium (Flemish)",
+  "56002"  = "Belgium (French)",
+  "100000" = "Bulgaria",
+  "124000" = "Canada",
+  "191000" = "Croatia",
+  "203000" = "Czech Republic",
+  "208000" = "Denmark",
+  "233000" = "Estonia",
+  "246000" = "Finland",
+  "250000" = "France",
+  "268000" = "Georgia",
+  "276000" = "Germany",
+  "300000" = "Greece",
+  "304000" = "Greenland",
+  "348000" = "Hungary",
+  "352000" = "Iceland",
+  "372000" = "Ireland",
+  "376000" = "Israel",
+  "380000" = "Italy",
+  "398000" = "Kazakhstan",
+  "428000" = "Latvia",
+  "440000" = "Lithuania",
+  "442000" = "Luxembourg",
+  "470000" = "Malta",
+  "498000" = "Republic of Moldova",
+  "528000" = "Netherlands",
+  "578000" = "Norway",
+  "616000" = "Poland",
+  "620000" = "Portugal",
+  "642000" = "Romania",
+  "643000" = "Russia",
+  "688000" = "Serbia",
+  "703000" = "Slovakia",
+  "705000" = "Slovenia",
+  "724000" = "Spain",
+  "752000" = "Sweden",
+  "756000" = "Switzerland",
+  "792000" = "Turkey",
+  "804000" = "Ukraine",
+  "807000" = "Macedonia",
+  "826001" = "England",
+  "826002" = "Scotland",
+  "826003" = "Wales",
+  "826004" = "Northern Ireland",
+  "840000" = "USA"
+)
+
+dat$country_name <- recode_map[as.character(dat$countryno)]
+
+dat %>%
+  group_by(country_name) %>%
+  summarise(n = n(),
+            .groups = "drop") %>%
+  mutate(pct = round(100 * n / sum(n),1)) %>%
+  arrange(desc(n)) %>%
+  print(n=Inf)
+
+# Variables to Predict
+
+### lifesat
+Q: Here is a picture of a ladder. The top of the ladder “10” is the best possible life for
+you and the bottom “0” is the worst possible life for you. In general, where on the
+ladder do you feel you stand at the moment?
+A: 0-10 
+
+
+
+ggplot(dat, aes(y = factor(lifesat))) +
+  geom_bar(fill = "steelblue") +
+  labs(
+    y = "lifesat",
+    x = "n"
+    ) +
+  theme_minimal()
+
+lifesat is dichotomized for modeling as lifesat_low:
+
+ <- dat %>%
+  mutate(
+    lifesat_low = case_when(
+      between(lifesat, 0, 5) ~ 1,
+      between(lifesat, 6, 10) ~ 0,
+      TRUE ~ NA))
+
+table(dat$lifesat,
+      dat$lifesat_low,
+      useNA = "always"
+      )
+
+Ultimately the distribution is:
+
+
+
+dat %>%
+  group_by(lifesat_low) %>%
+  summarise(n = n()) %>%
+  mutate(pct = n / sum(n))
+
+
+
+
+### (mental) health complaints 
+There are 8 variables for this that reply to a question like: 
+In the last 6 months: how often have you had the following….? And the answers goes from
+1 About every day to 5 Rarely or never. The 8 variables are: headache, stomachache, backache,
+dizzy, feellow, irritable, nervous, sleepdificulty.
+
+Their distributions look like this:
+
+
+
+vars_health_complaints <- c("headache", "stomachache", "backache", "dizzy",
+          "feellow", "irritable", "nervous", "sleepdificulty")
+
+plot_list <- map(vars_health_complaints, function(v) {
+  ggplot(dat, aes(y = factor(.data[[v]]))) +
+    geom_bar(fill = "steelblue") +
+    coord_flip() +
+    labs(
+      y = v,
+      x = "n"
+    ) +
+    theme_minimal()
+})
+
+wrap_plots(plot_list, ncol = 2)
+
+These variables are then recoded to a binary where it flags if the complaint
+occurs more than once per week (1 or 2).
+
+
+dat <- dat %>%
+  mutate(
+    headache_frequent = ifelse(headache <= 2, 1, 0),
+    stomachache_frequent = ifelse(stomachache <= 2, 1, 0),
+    backache_frequent = ifelse(backache <= 2, 1, 0),
+    dizzy_frequent = ifelse(dizzy <= 2, 1, 0),
+    feellow_frequent = ifelse(feellow <= 2, 1, 0),
+    irritable_frequent = ifelse(irritable <= 2, 1, 0),
+    nervous_frequent = ifelse(nervous <= 2, 1, 0),
+    sleepdificulty_frequent = ifelse(sleepdificulty <= 2, 1, 0)
+  )
+
+
+The recoded variables look like this:
+
+
+vars_health_complaints_frequent <- paste0(vars_health_complaints,
+                                          "_frequent")
+
+for (i in seq_along(vars_health_complaints)) {
+  cat("\n\n###", vars_health_complaints[i], "x", vars_health_complaints_frequent[i], "\n")
+  print(table(dat[[vars_health_complaints[i]]], dat[[vars_health_complaints_frequent[i]]], useNA = "always"))
+}
+
+
+The frequency of complaints is then added to calculate one sum for physical and 
+one for mental. If the sum is 2 or more then it is determined that there is a health issue.
+Most papers do it for psycosomatic (all 8 vars) but I will focus on the 4 mental ones.
+Still, I include both vars in case.
+
+
+dat <- dat %>%
+  # add the frequency of complaints
+  mutate(mental_complaints_sum = feellow_frequent +
+                           irritable_frequent +
+                           nervous_frequent +
+                           sleepdificulty_frequent,
+         physical_complaints_sum = headache_frequent +
+                           stomachache_frequent +
+                           backache_frequent + 
+                           dizzy_frequent
+  ) %>%
+  # derive index based on sum
+  mutate(mental_complaintsY = ifelse(mental_complaints_sum >=2, 1, 0),
+         health_complaintsY = ifelse((mental_complaints_sum + physical_complaints_sum) >=2, 1, 0)
+      ) 
+
+cat("\n\n### mental_complaintsY x mental_complaints_sum\n")
+table(dat$mental_complaints_sum,
+      dat$mental_complaintsY,
+      useNA = "always")
+
+cat("\n\n### (health_complaintsY x health_complaints_sum\n")
+table(dat$mental_complaints_sum + dat$physical_complaints_sum,
+      dat$health_complaintsY,
+      useNA = "always")
+
+
+### mental_complaintsY  
+Ultimately our variable to predict will be mental_complaintsY; at ~26%.
+
+
+
+dat %>%
+  group_by(mental_complaintsY) %>%
+  summarise(n = n()) %>%
+  mutate(pct = n / sum(n))
+
+
+### Friends (Peer) Support  
+There are 4 friends support questions. The questions start with: 
+We are interested in how you feel about the following statements.
+Please show how much you agree or disagree with each one.
+Please tick one box for each line.  
+
+The answers range from 1 Very strongly disagree to 7 Very strongly agree.  
+
+
+friend_items <- data.frame(
+  item = c(
+    "friendhelp",
+    "friendcounton",
+    "friendshare",
+    "friendtalk"
+  ),
+  topic = c(
+    "My friends really try to help me",
+    "I can count on my friends when things go wrong",
+    "I have friends with whom I can share my joys and sorrows",
+    "I can talk about my problems with my friends"
+  )
+)
+
+kable(friend_items)
+
+
+These variables are then combined to create a categorical predictor. For now,
+I will keep two options like I did for family but will select only one when modeling.
+These are:  
+a) H/L based on avg of 4 vars. L if [1,5.5) and H if [5.5, 7]  
+b) H/M/L based on sum of 4 vars. L if 4-11, M if 12-19, H if 20-28.
+
+
+
+
+vars_friends_support <- c("friendhelp", "friendcounton", "friendshare", "friendtalk")
+# recode friends/peer support as yn and hml
+dat <- dat %>%
+  mutate(friends_support_avg = rowMeans(dat[,vars_friends_support]),
+         friends_support_sum = rowSums(dat[,vars_friends_support])
+  ) %>%
+  mutate(friends_support_high = case_when(
+    friends_support_avg >= 1 & friends_support_avg < 5.5 ~ 0,
+    friends_support_avg >= 5.5 & friends_support_avg <= 7 ~ 1,
+    TRUE ~ NA)) %>%
+  mutate(friends_support_hml = case_when(
+    friends_support_sum >= 4 & friends_support_sum <= 11 ~ "Low",
+    friends_support_sum >= 12 & friends_support_sum <= 19 ~ "Med",
+    friends_support_sum >= 20 & friends_support_sum <= 28 ~ "High",
+    TRUE ~ NA))
+
+Their counts after recoding are:  
+
+
+
+t <- data.frame(
+          table(dat$friends_support_high, useNA = "always")
+          ) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+
+kable(t, caption = "friends_support_high")
+
+t <- data.frame(
+          table(dat$friends_support_hml, useNA = "always")
+          ) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+
+kable(t, caption = "friends_support_hml")
+
+# table(dat$friends_support_high, dat$friends_support_hml, useNA = "always")
+# table(dat$friends_support_high, useNA = "always")
+# table(dat$friends_support_hml, useNA = "always")
+
+
+### School support  
+This metric is a combination of multiple questions from 2 categories: teacher
+acceptance and classmates acceptance. The answers to these
+questions go from 1 (strong agree) to 5 (strong disagree).  
+
+The questions are:  
+
+
+
+school_items <- data.frame(
+  category = c("teacher", "teacher", "teacher",
+               "classmates", "classmates", "classmates"),
+  item = c("teacheraccept",
+           "teachercare",
+           "teachertrust",
+           "studtogether",
+           "studhelpful",
+           "studaccept"),
+  topic = c("Teacher accepts me",
+            "Teacher cares about me",
+            "Feel trust in teacher",
+            "Students enjoy being together",
+            "Students kind and helpful",
+            "Students accept me")
+)
+
+kable(school_items)
+
+
+The scales of these variables is reversed so 1 is negative and 5 is the most positive. 
+Then an arithmetic average is calculated for teacher and students. 
+The based on this average a high/low support is calculated for each with 4 being the threshold.
+
+
+
+# recodes from 1-5 to 0-4 (06-italy)
+recode_school_vars <- function(old_values){
+  
+  new_values <- case_when(
+    old_values == 5 ~ 1,
+    old_values == 4 ~ 2,
+    old_values == 3 ~ 3,
+    old_values == 2 ~ 4,
+    old_values == 1 ~ 5,
+    TRUE ~ NA
+  )
+  
+  return(new_values)
+  
+}
+
+dat <- dat %>%
+  # recode they can be added
+  mutate(teacheraccept_r = recode_school_vars(teacheraccept),
+         teachercare_r = recode_school_vars(teachercare),
+         teachertrust_r = recode_school_vars(teachertrust),
+         studtogether_r = recode_school_vars(studtogether),
+         studhelpful_r = recode_school_vars(studhelpful),
+         studaccept_r = recode_school_vars(studaccept)
+         ) %>%
+  # derive avg by teacher/student
+  mutate(teacher_support_avg = (teacheraccept_r 
+                               + teachercare_r
+                               + teachertrust_r) / 3,
+         student_support_avg = (studtogether_r
+                                + studhelpful_r
+                                + studaccept_r) / 3,
+         # just for fun combine and try
+         school_support_avg = (teacheraccept_r 
+                                + teachercare_r
+                                + teachertrust_r
+                                + studtogether_r
+                                + studhelpful_r
+                                + studaccept_r) / 6,
+         ) %>%
+  # derive support yn based on hbsc
+  mutate(
+    teacher_support_high = case_when(
+      teacher_support_avg >= 4 ~ 1,
+      teacher_support_avg < 4 ~ 0,
+      TRUE ~ NA),
+      student_support_high = case_when(
+        student_support_avg >= 4 ~ 1,
+        student_support_avg < 4 ~ 0,
+        TRUE ~ NA),
+      school_support_high = case_when(
+        school_support_avg >= 4 ~ 1,
+        school_support_avg < 4 ~ 0,
+      TRUE ~ NA)
+  )
+
+
+The recoding of each var is:
+
+
+
+vars_school <- c("teacheraccept",
+           "teachercare",
+           "teachertrust",
+           "studtogether",
+           "studhelpful",
+           "studaccept")
+
+vars_school_r <- paste0(vars_school,
+                        "_r")
+
+for (i in seq_along(vars_school)) {
+  cat("\n\n###", vars_school[i], "x", vars_school_r[i], "\n")
+  print(table(dat[[vars_school[i]]], dat[[vars_school_r[i]]], useNA = "always"))
+}
+
+
+And the actual recoded predictors look like:
+
+
+
+t <- data.frame(table(dat$teacher_support_high, useNA = "always")) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+kable(t, caption = "teacher_support_high")
+
+t <- data.frame(table(dat$student_support_high, useNA = "always")) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+kable(t, caption = "student_support_high")
+
+t <- data.frame(table(dat$school_support_high, useNA = "always")) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+kable(t, caption = "school_support_high")
+
+
+
+### IRRELFAS_LMH: Relative family affluence categorical  
+Derived from IRFAS. So check list of fas-variables in the dataset. 
+It is a cut based on percentiles so I recode to friendly.
+1 Lowest 20 pct  
+2 Medium 60 pct  
+3 Highest 20 pct  
+
+
+
+dat <- dat %>%
+  mutate(IRRELFAS_LMH_r = 
+           case_when(IRRELFAS_LMH == 1 ~ "Low20",
+                     IRRELFAS_LMH == 2 ~ "Med60",
+                     IRRELFAS_LMH == 3 ~ "High20",
+                     TRUE ~ NA)
+  )
+
+t <- table(dat$IRRELFAS_LMH,
+           dat$IRRELFAS_LMH_r,
+           useNA = "always")
+
+kable(t,
+       caption = "IRRELFAS_LMH x IRRELFAS_LMH_r")
+
+
+### talkfather and talkmother
+Two questions measure parent communication. The pre-question is:
+How easy is it for you to talk to the following persons about things that
+really bother you?
+Please tick one box for each line  
+
+Answers go from 1 Very easy to 5 Don't have or see.  
+
+These are dichotomized for each parent as Yes if [1,2] and No if [3-5].  
+
+
+dat <- dat %>%
+  mutate(talkfatherYes = 
+           case_when(talkfather %in% c(1,2) ~ 1,
+                     talkfather %in% c(3,4,5) ~ 0,
+                     TRUE ~ NA),
+         talkmotherYes = 
+           case_when(talkmother %in% c(1,2) ~ 1,
+                     talkmother %in% c(3,4,5) ~ 0,
+                     TRUE ~ NA)
+         )
+
+cat("## Table for talkfatherYes x talkfather")
+table(dat$talkfather, dat$talkfatherYes, useNA = "always")
+
+cat("## Table for talkmotherYes x talkmother")
+table(dat$talkmother, dat$talkmotherYes, useNA = "always")
+
+I was going to combine to a "number of parents one can talk" but I'll leave for now
+and will try as interactions later.
+
+### bullying victim  
+There are 2 variables that measure if kid has been bullied. a) beenbullied: Been bullied past months
+and b) cbeenbullied: Been cyber bullied. Answers range from 1 Haven't to 5 Several times a week.  
+
+These are dichotomized as Yes if [2-5] and No if [1].
+
+
+
+dat <- dat %>%
+  mutate(beenbulliedYes = 
+           case_when(beenbullied == 1 ~ 0,
+                     between(beenbullied, 2, 5) ~ 1,
+                     TRUE ~ NA),
+         cbeenbulliedYes = 
+           case_when(cbeenbullied == 1 ~ 0,
+                     between(cbeenbullied, 2, 5) ~ 1,
+                     TRUE ~ NA)
+           )
+
+cat("## Table for beenbullied x beenbulliedYes")
+table(dat$beenbullied, dat$beenbulliedYes, useNA = "always")
+
+cat("## Table for cbeenbullied x cbeenbulliedYes")
+table(dat$cbeenbullied, dat$cbeenbulliedYes, useNA = "always")
+
+
+### age and sex(gender)  
+There are 3 age groups and 2 genders. I recode to friendly/actual value and they look
+like this.  
+
+
+
+dat <- dat %>%
+  mutate(
+    age_r = case_match(agecat,
+                             1 ~ 11,
+                             2 ~ 13,
+                             3 ~ 15,
+                             .default = NA
+                             ),
+    sex_r = case_match(sex,
+                             1 ~ "Boy",
+                             2 ~ "Girl",
+                             .default = NA)
+  )
+
+cat("## Table for agecat x age_r")
+table(dat$agecat, dat$age_r, useNA = "always")
+
+cat("## Table for sex x sex_r")
+table(dat$sex, dat$sex_r, useNA = "always")
+
+cat("## Table for age_r x sex_r")
+table(dat$age_r, dat$sex_r, useNA = "always")
+
+
+### Continuos Online Communications
+This category measures how how often young person communicate online with 
+4 types of people in their life. Preamble of question is: How often do you have ONLINE 
+contact with the following people?
+Answers range from 1 (NA or don't know) to 6 (almost all of the time). 
+
+| Variable      | Description                         |
+|---------------|-------------------------------------|
+| emconlfreq1   | Online contact with close friends    |
+| emconlfreq2   | Online contact with larger friend group |
+| emconlfreq3   | Online contact with online friends   |
+| emconlfreq4   | Online contact with other            |
+
+I combine this into one dichotomized and adopt the HBSC definition of yes if 
+any of the variables is 6. 
+
+
+
+dat <- dat %>%
+  mutate(emconlfreqYes = case_when(
+    (emconlfreq1 == 6 | emconlfreq2 == 6 | emconlfreq3 == 6 | emconlfreq4 == 6) ~ 1,
+    (!is.na(emconlfreq1) | !is.na(emconlfreq2) | !is.na(emconlfreq3) | !is.na(emconlfreq4)) ~ 0,
+    TRUE ~ NA
+  )) 
+#still need to do something with 99
+
+table(dat$emconlfreqYes, useNA = "always")
+
+### Prefer Online life
+I haven't found a paper that include this but I want to. It asks questions about
+preference of sharing important stuff online vs real-life. The three variables are:
+
+| Variable      | Description                     |
+|---------------|---------------------------------|
+| emconlpref1   | Secrets, more easily online     |
+| emconlpref2   | Feelings, more easily online    |
+| emconlpref3   | Concerns, more easily online    |
+
+The answers range from 1 (Strong disagree) to 5 (Strong agree).
+The counts are:
+
+
+
+online_life <- vars <- c("emconlpref1", "emconlpref2", "emconlpref3")
+
+for (i in seq_along(online_life)){
+  #print(online_life[i])
+  #print(table(dat[online_life[1]], useNA = "ifany"))
+  
+  print(
+    dat %>% 
+      group_by(.data[[ online_life[i] ]]) %>% 
+      tally() %>%
+      mutate(pct = round(n/sum(n),3))
+  )
+}
+
+
+For this I copy the school approach which is avg and dichotomize with 4 as threshold:  
+
+
+
+dat <- dat %>%
+  mutate(lives_online = (emconlpref1 +  emconlpref2 +  emconlpref3)/3) %>%
+  mutate(lives_onlineYN = ifelse(lives_online >= 4, 1, 0)
+         )
+
+table(dat$lives_online %/% 1,
+      dat$lives_onlineYN,
+      useNA = "always")
+
+
+# timeexe: Vigorous physical activity frequency
+Question is Outside school hours: how often do you usually exercise in your free time so much
+that you get out of breath or sweat? Answers go from 1 (every day) to 7 never. 
+
+HBSC shows proportions of those that do three or more times per week. But that is 2022 data,
+in our case we do 2-3 times per week or more.
+
+
+
+dat <- dat %>%
+  mutate(timeexe_r = case_when(
+    between(timeexe, 1, 3) ~ 1,
+    between(timeexe, 4, 7) ~ 0,
+    TRUE ~ NA
+  ))
+
+print(
+table(dat$timeexe,
+      dat$timeexe_r,
+      useNA = "ifany")
+)
+
+
+# alc30d_2: Alcohol use last 30 days
+Question is  On how many days (if any) have you drunk alcohol?
+Answers are binned and go from 1 (never) to 7 (30 days or more).
+HBSC dichotomizes as Never vs Yes so I will do the same.
+
+
+
+dat <- dat %>%
+  mutate(alc30d_YN = case_when(
+    alc30d_2 == 1 ~ 0,
+    alc30d_2 != 1 ~ 1,
+    TRUE ~ NA
+  ))
+
+print(
+  table(dat$alc30d_2,
+        dat$alc30d_YN,
+        useNA = "ifany")
+)
+
+
+## Dataset for Modeling  
+Only the relevant and prepared variables are exported to a csv so I can start the 
+modeling process with those. File goes to "data/processed/" and includes date.
+
+
+
+dat_out <- dat %>%
+  select(seqno_int,
+         country_name,
+         lifesat_low, 
+         mental_complaintsY, 
+         health_complaintsY, 
+         pmsu_lmh, 
+         pmsu_yn, 
+         family_support_high, 
+         family_support_hml, 
+         friends_support_high, 
+         friends_support_hml, 
+         teacher_support_high,
+         student_support_high,
+         school_support_high,
+         IRRELFAS_LMH_r, 
+         talkfatherYes, 
+         talkmotherYes, 
+         beenbulliedYes, 
+         cbeenbulliedYes, 
+         age_r, 
+         sex_r,
+         emconlfreqYes,
+         lives_onlineYN,
+         timeexe_r,
+         alc30d_YN
+         )
+
+summary(dat_out)
+
+dat_out_filename <- paste0(project_folder,
+                           "data/processed/",
+                           "dat_", Sys.Date(), ".csv")
+
+#write_csv(dat_out,
+ #         dat_out_filename)
+
+# output el full mejor
+write_csv(dat,
+          dat_out_filename)
+
+
+
+
+
+rm(list = ls())
+
+setwd("C:/MisLocalFiles/Github/HBSC/scripts/modeling/")
+project_folder <- "C:/MisLocalFiles/Github/HBSC/"
+
+require(tidyverse)
+require(caret)
+require(broom)
+require(kableExtra)
+library(knitr)
+require(coefplot)
+require(sjPlot)
+require(shapviz)
+require(xgboost)
+
+
+
+# Data Overview
+This data is prepared in hbsc.rmd file. It's dimensions are:
+
+
+# ---------------------------------------------------------
+# load dataset
+# ---------------------------------------------------------
+
+d <- read_csv(paste0(project_folder, "data/processed/dat_2026-08-16.csv"))
+
+dim(d) #244097     25
+
+
+The list of vars and it's type is:
+
+
+
+glimpse(d)
+
+
+# Missing Values
+Most features have missing values. 
+
+
+
+summary(d)
+
+
+For now, I will just keep complete observations to simplify my life. 
+But as can be seen some countries are very afected. Netherlands is a good option.
+
+
+
+d <- d %>% 
+  mutate(any_na = if_any(everything(), is.na))
+
+d %>%
+  group_by(country_name, any_na) %>%
+  tally() %>%
+  pivot_wider(names_from = any_na,
+              names_prefix = "na_",
+              values_from = n,
+              values_fill = 0) %>%
+  mutate(n = na_FALSE + na_TRUE) %>%
+  mutate(pct_complete = round(na_FALSE / n,3)) %>%
+  select(n, na_FALSE, pct_complete) %>%
+  arrange(desc(pct_complete))-> tbl_nas_country
+
+kable(tbl_nas_country)
+
+dc <- d[complete.cases(d),]
+
+summary(dc)
+
+
+
+# Check if Dataset if balanced based on vars to predict
+
+## lifesat_low
+For lifesat_low I like Canada and Netherlands in the extremes. Could be good to compare
+if we opt for two countries. For now, I will go with Canada due to big %.
+
+
+
+dc %>%
+  group_by(country_name, lifesat_low) %>%
+  tally() %>%
+  pivot_wider(names_from = lifesat_low,
+              names_prefix = "is_",
+              values_from = n,
+              values_fill = 0) %>%
+  mutate(n = is_0 + is_1) %>%
+  mutate(lifesat_low_pct = round(is_1/n,3)) %>%
+  select(country_name, n, lifesat_low_pct) %>%
+  arrange(desc(lifesat_low_pct)) -> lifesat_low_pct_country
+
+kable(lifesat_low_pct_country)
+
+#mental_complaintsY   
+
+
+## mental_complaintsY
+For mental_complaintsY, Netherlads is still good. But Canada is more halfway,
+while other countries like Italy are at top. Israel is at top of list on both
+so could try that. 
+
+
+
+dc %>%
+  group_by(country_name, mental_complaintsY) %>%
+  tally() %>%
+  pivot_wider(names_from = mental_complaintsY,
+              names_prefix = "is_",
+              values_from = n,
+              values_fill = 0) %>%
+  mutate(n = is_0 + is_1) %>%
+  mutate(mental_complaintsY_pct = round(is_1/n,3)) %>%
+  select(country_name, n, mental_complaintsY_pct) %>%
+  arrange(desc(mental_complaintsY_pct)) -> mental_complaintsY_pct_country
+
+kable(mental_complaintsY_pct_country)
+
+Well, ok. I need to make a call for now. So I will pick Italy first since 
+it has the highest % of mental health complaints. And if I decide to compare
+we can do it with Spain or Netherlands. 
+
+# Coercions of Data Types
+For modeling, many vars need to be coerced so I start there before univ EDA.
+
+
+
+dc <- dc %>%
+  mutate(lifesat_low = factor(lifesat_low, levels = c("0","1")),
+         mental_complaintsY = factor(mental_complaintsY, levels = c("0","1")),
+         health_complaintsY = factor(health_complaintsY, levels = c("0", "1")),
+         pmsu_lmh = factor(pmsu_lmh, levels = c("Low", "Med", "High")),
+         pmsu_yn = factor(pmsu_yn, levels = c("0", "1")),
+         family_support_high = factor(family_support_high, levels = c("0", "1")),
+         family_support_hml = factor(family_support_hml, levels = c("Low", "Med", "High")),
+         friends_support_high = factor(friends_support_high, levels = c("0", "1")),
+         friends_support_hml = factor(friends_support_hml, levels = c("Low", "Med", "High")),
+         teacher_support_high = factor(teacher_support_high, levels = c("0", "1")),
+         student_support_high = factor(student_support_high, levels = c("0", "1")),
+         school_support_high = factor(school_support_high, levels = c("0", "1")),
+         IRRELFAS_LMH_r = factor(IRRELFAS_LMH_r, levels = c("Low20", "Med60", "High20")),
+         talkfatherYes = factor(talkfatherYes, levels = c("0", "1")),
+         talkmotherYes = factor(talkmotherYes, levels = c("0", "1")),
+         beenbulliedYes = factor(beenbulliedYes, levels = c("0", "1")),
+         cbeenbulliedYes = factor(cbeenbulliedYes, levels = c("0", "1")),
+         age_r = factor(age_r, levels = c("11", "13", "15")),
+         sex_r = factor(sex_r),
+         emconlfreqYes = factor(emconlfreqYes, levels = c("0","1")),       
+         lives_onlineYN = factor(lives_onlineYN, levels = c("0","1")),    
+         timeexe_r = factor(timeexe_r, levels = c("0","1")),    
+         alc30d_YN = factor(alc30d_YN, levels = c("0","1"))          
+         )
+
+
+
+italy <- dc %>%
+  filter(country_name == "Italy")
+
+summary(italy)
+
+
+
+# Logical grouping of variables
+I group logically in themes the 25 vars as follows:
+
+Vars to Predict:
+- lifesat_low
+- mental_complaintsY (or maybe health_complaintsY)
+
+Key Predictors to Study (in this order):
+
+Problematic social media use: 
+- pmsu_lmh (over pmsu_yn)
+
+Other concerning online stuff:
+- emconlfreqYes (too much online comms)
+- lives_onlineYN (prefer online vulnerability)
+
+Bulling:
+- beenbulliedYes
+- cbeenbulliedYes
+
+Youth support system:
+- family_support_high (over family_support_hml)
+- friends_support_high (over friends_support_hml)
+- school_support_high (over teacher_support_high:student_support_high)
+
+Parental support:
+- talkfatherYes x talkmotherYes
+
+Habits good/bad:
+- timeexe_r (exercise)
+- alc30d_YN
+
+Covariates:
+- age_r
+- sex_r
+- IRRELFAS_LMH_r
+
+Other:
+- seqno_int
+- country_name
+
+
+# Univariate EDA
+Here for each var, I check it's descriptive stats and potential of prediction.
+
+## pmsu_lmh
+Has potential based on higher prop of our Y vars based on pmsu.
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(pmsu_lmh) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, pmsu_lmh) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, pmsu_lmh) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## emconlfreqYes (too much online comms)
+Has potential for mental issues but doesn't for lifesatlow.
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(emconlfreqYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, emconlfreqYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, emconlfreqYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## lives_onlineYN (prefer online vulnerability)
+Has potential for both vars. 
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(lives_onlineYN) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, lives_onlineYN) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, lives_onlineYN) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## beenbulliedYes
+Small % has been bullied and has strong potential for both vars. 
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(beenbulliedYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, beenbulliedYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, beenbulliedYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## cbeenbulliedYes
+Same as previous bullying metric. 
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(cbeenbulliedYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, cbeenbulliedYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, cbeenbulliedYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## family_support_high (over family_support_hml)
+Highest % have support and that certainly helps lower the predictions. 
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(family_support_high) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, family_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, family_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## friends_support_high (over friends_support_hml)
+Same as above. 
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(friends_support_high) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, friends_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, friends_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## school_support_high (over teacher_support_high:student_support_high)
+More balanced but having support helps.
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(school_support_high) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, school_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, school_support_high) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## timeexe_r (exercise)
+Most exercise and seems to help a bit, not much but some. 
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(timeexe_r) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, timeexe_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, timeexe_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## alc30d_YN
+1 in 4 drink and that is correlated with more issues. 
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(alc30d_YN) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, alc30d_YN) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, alc30d_YN) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## age_r
+Things to get worse as kids grow up.
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(age_r) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, age_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, age_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## sex_r
+Balanced dataset with girls having a harder time. 
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(sex_r) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, sex_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, sex_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## IRRELFAS_LMH_r
+Yes, money helps.
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(IRRELFAS_LMH_r) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, IRRELFAS_LMH_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, IRRELFAS_LMH_r) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+## talkfatherYes x talkmotherYes
+Talking to father really helps.
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(talkfatherYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, talkfatherYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, talkfatherYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+But it seems talking to a mother even helps more!
+
+
+
+cat ("Frequence counts:")
+italy %>%
+  group_by(talkmotherYes) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+cat ("Potential of prediction for mental_complaints:")
+italy %>%
+  group_by(mental_complaintsY, talkmotherYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = mental_complaintsY,
+              names_prefix = "mental_complaintsY") %>%
+  mutate(n = mental_complaintsY0 + mental_complaintsY1,
+         pct_mental_complaintsY1 = mental_complaintsY1 / n)
+
+cat ("Potential of prediction for lifesat_low")
+italy %>%
+  group_by(lifesat_low, talkmotherYes) %>%
+  tally() %>%
+  pivot_wider(values_from = n,
+              names_from = lifesat_low,
+              names_prefix = "lifesat_lowY") %>%
+  mutate(n = lifesat_lowY0 + lifesat_lowY1,
+         pct_lifesat_lowY1 = lifesat_lowY1 / n)
+
+
+## seqno_int
+
+
+
+# has to be true as identifier
+length(unique(italy$seqno_int)) == nrow(italy)
+
+
+# Logistic Regression
+Fit with all vars and use forward variable selection.
+
+## For lifesat_low:
+
+
+
+# Fit GML model using forward subset selection
+reg0 <- glm(lifesat_low ~ pmsu_lmh, data = italy, family = binomial) 
+reg1 <- glm(lifesat_low ~  pmsu_lmh +
+              emconlfreqYes +
+              lives_onlineYN +
+              family_support_high +
+              friends_support_high +
+              school_support_high +
+              IRRELFAS_LMH_r +
+              talkfatherYes +
+              talkmotherYes +
+              beenbulliedYes +
+              cbeenbulliedYes +
+              timeexe_r +
+              alc30d_YN +
+              age_r +
+              sex_r, 
+            data = italy, 
+            family = binomial)
+
+summary(reg0)
+summary(reg1)
+
+best <- step(reg0, scope = formula(reg1), 
+             direction = "forward", k = 2) #k=2 is AIC
+summary(best)
+best$anova
+
+coefplot(best, intercept = FALSE, title = "Log-Odds Coefficients")
+mytidy <- tidy(best, exponentiate = TRUE, conf.int = TRUE)
+
+ggplot(mytidy, aes(x = term, y = estimate)) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                width = 0.15, color = "gray40") +
+  geom_point(size = 3, color = "blue") +
+  coord_flip() +
+  labs(
+    title = "Coefficient Estimates with 95% Confidence Intervals",
+    x = "",
+    y = "Estimate"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+
+
+## For mental_complaintsY:
+
+
+
+# Fit GML model using forward subset selection
+reg0 <- glm(mental_complaintsY ~ pmsu_lmh, data = italy, family = binomial) 
+reg1 <- glm(mental_complaintsY ~  pmsu_lmh +
+              emconlfreqYes +
+              lives_onlineYN +
+              family_support_high +
+              friends_support_high +
+              school_support_high +
+              IRRELFAS_LMH_r +
+              talkfatherYes +
+              talkmotherYes +
+              beenbulliedYes +
+              cbeenbulliedYes +
+              timeexe_r +
+              alc30d_YN +
+              age_r +
+              sex_r, 
+            data = italy, 
+            family = binomial)
+
+summary(reg0)
+summary(reg1)
+
+best <- step(reg0, scope = formula(reg1), 
+             direction = "forward", k = 2) #k=2 is AIC
+summary(best)
+best$anova
+
+coefplot(best, intercept = FALSE, title = "Log-Odds Coefficients")
+
+mytidy <- tidy(best, exponentiate = TRUE, conf.int = TRUE)
+ggplot(mytidy, aes(x = term, y = estimate)) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                width = 0.15, color = "gray40") +
+  geom_point(size = 3, color = "blue") +
+  coord_flip() +
+  labs(
+    #title = "Coefficient Estimates with 95% Confidence Intervals",
+    x = "",
+    y = "Estimate"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+
+
+
+## The first SHAP
+
+
+
+
+italy2 <- italy
+
+italy2$mental_complaintsY_num <- as.numeric(italy2$mental_complaintsY)
+#italy2$pmsu_yn_num <- as.numeric(italy2$pmsu_yn)
+#italy2$beenbulliedYes_num <- as.numeric(italy2$beenbulliedYes)
+
+set.seed(3653)
+#X <- italy2[c("pmsu_yn_num", "beenbulliedYes_num")]
+X <- italy2[c("pmsu_yn", "beenbulliedYes")]
+dtrain <- xgb.DMatrix(data.matrix(X), label = italy2$mental_complaintsY_num)
+
+fit <- xgb.train(
+  params = list(learning_rate = 0.1, objective = "reg:squarederror"), 
+  data = dtrain,
+  nrounds = 65L
+)
+
+# Explanation dataset
+X_small <- X[sample(nrow(X), 1000L), ]
+
+shp <- shapviz(fit, X_pred = data.matrix(X_small), X = X_small)
+
+sv_waterfall(shp, row_id = 1)
+
+sv_force(shp, row_id = 10)
+sv_force(shp, row_id = 1)
+
+sv_importance(shp)
+sv_importance(shp,
+              kind = "beeswarm")
+
+sv_importance(shp, kind = "both", alpha = 0.2, width = 0.2)
+
+sv_dependence(shp, v = "pmsu_yn", "auto")
+
+
+
+chi2 test hacer
+
+
+https://www.r-bloggers.com/2023/09/decisions-at-the-door-understanding-logistic-regression-with-tidymodels/
+https://www.tidymodels.org/
+https://www.tmwr.org/
+https://medium.com/data-science/shap-for-binary-and-multiclass-target-variables-ff2f43de0cf4
+https://benhay.es/posts/interpreting-ml-shap/
+
+
