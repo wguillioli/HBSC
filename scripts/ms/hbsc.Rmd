@@ -1,9 +1,9 @@
 ---
 title: "HBSC"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -13,6 +13,8 @@ knitr::opts_knit$set(root.dir = "C:/MisLocalFiles/Github/HBSC")
 ```{r psetup, include=FALSE}
 
 require(tidyverse)
+library(knitr)
+require(stringr)
 
 prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
 #setwd(prj_fldr)
@@ -27,7 +29,22 @@ hbsc2018 <- read_csv(paste0(dat_fldr, "raw/HBSC2018OAed1.1.csv"))
 
 dim(hbsc2018)
 
-colnames(hbsc2018)
+```
+
+```{r}
+
+
+# get column names
+cols <- colnames(hbsc2018)
+cols <- strsplit(cols, ";")[[1]]
+cols <- trimws(cols)
+
+# split into 3 roughly equal columns
+n <- length(cols)
+mat <- matrix(cols, ncol = 5, byrow = TRUE)
+
+# print as a table in R Markdown
+kable(mat) #, col.names = c("Column 1", "Column 2", "Column 3"))
 
 ```
 
