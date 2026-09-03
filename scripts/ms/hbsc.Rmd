@@ -1,0 +1,33 @@
+---
+title: "HBSC"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "C:/MisLocalFiles/Github/HBSC")
+```
+
+```{r psetup, include=FALSE}
+
+require(tidyverse)
+
+prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
+#setwd(prj_fldr)
+#knitr::opts_knit\$set(root.dir = "C:/MisLocalFiles/Github/HBSC")
+dat_fldr <- paste0(prj_fldr,"data/")
+
+hbsc2018 <- read_csv(paste0(dat_fldr, "raw/HBSC2018OAed1.1.csv"))
+
+```
+
+```{r}
+
+dim(hbsc2018)
+
+colnames(hbsc2018)
+
+```
+
