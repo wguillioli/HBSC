@@ -1,0 +1,2381 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
+\documentclass[
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={HBSC: Data Overview and Prep},
+  colorlinks=true,
+  linkcolor={Maroon},
+  filecolor={Maroon},
+  citecolor={Blue},
+  urlcolor={blue},
+  pdfcreator={LaTeX via pandoc}}
+
+\title{HBSC: Data Overview and Prep}
+\author{}
+\date{\vspace{-2.5em}Updated: 2026-08-28}
+
+\begin{document}
+\maketitle
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{rm}\NormalTok{(}\AttributeTok{list =} \FunctionTok{ls}\NormalTok{())}
+
+\FunctionTok{setwd}\NormalTok{(}\StringTok{"C:/MisLocalFiles/Github/HBSC/scripts/data\_prep/"}\NormalTok{)}
+\NormalTok{project\_folder }\OtherTok{\textless{}{-}} \StringTok{"C:/MisLocalFiles/Github/HBSC/"}
+
+\FunctionTok{require}\NormalTok{(tidyverse)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: tidyverse
+\end{verbatim}
+
+\begin{verbatim}
+## -- Attaching core tidyverse packages ------------------------ tidyverse 2.0.0 --
+## v dplyr     1.1.4     v readr     2.1.5
+## v forcats   1.0.1     v stringr   1.6.0
+## v ggplot2   4.0.0     v tibble    3.3.0
+## v lubridate 1.9.4     v tidyr     1.3.1
+## v purrr     1.1.0     
+## -- Conflicts ------------------------------------------ tidyverse_conflicts() --
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()
+## i Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{require}\NormalTok{(broom)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: broom
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{require}\NormalTok{(naniar)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: naniar
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: package 'naniar' was built under R version 4.5.3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(purrr)}
+\FunctionTok{library}\NormalTok{(patchwork)}
+\FunctionTok{library}\NormalTok{(knitr)}
+\end{Highlighting}
+\end{Shaded}
+
+\subsection{Dataset Overview}\label{dataset-overview}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{hbsc2018 }\OtherTok{\textless{}{-}} \FunctionTok{read\_delim}\NormalTok{(}\FunctionTok{paste0}\NormalTok{(project\_folder,}
+                                  \StringTok{"/data/raw/HBSC2018OAed1.1.csv"}\NormalTok{),}
+                       \AttributeTok{delim =} \StringTok{";"}\NormalTok{,}
+                       \AttributeTok{na =} \FunctionTok{c}\NormalTok{(}\StringTok{""}\NormalTok{, }\StringTok{" "}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Rows: 244097 Columns: 120
+## -- Column specification --------------------------------------------------------
+## Delimiter: ";"
+## chr   (5): region, weight, countryborn, countrybornmo, countrybornfa
+## dbl (113): HBSC, seqno_int, cluster, countryno, id1, id2, id3, id4, adm, mon...
+## num   (2): age, MBMI
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# working copy}
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ hbsc2018}
+\end{Highlighting}
+\end{Shaded}
+
+File has the following rows and columns:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{dim}\NormalTok{(hbsc2018)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 244097    120
+\end{verbatim}
+
+Pretty much all columns have missing values so need to address later.
+Though it seems much of the variables I will care about don't have much.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{na\_cnts }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+  \AttributeTok{variable =} \FunctionTok{names}\NormalTok{(dat),}
+  \AttributeTok{na\_count =} \FunctionTok{sapply}\NormalTok{(dat, }\ControlFlowTok{function}\NormalTok{(x) }\FunctionTok{sum}\NormalTok{(}\FunctionTok{is.na}\NormalTok{(x)))}
+\NormalTok{)}
+
+\FunctionTok{row.names}\NormalTok{(na\_cnts) }\OtherTok{\textless{}{-}} \ConstantTok{NULL}
+
+\NormalTok{na\_cnts }\OtherTok{\textless{}{-}}\NormalTok{ na\_cnts }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{na\_pct =} \FunctionTok{round}\NormalTok{(}\DecValTok{100} \SpecialCharTok{*}\NormalTok{ na\_count }\SpecialCharTok{/} \FunctionTok{nrow}\NormalTok{(dat),}\DecValTok{1}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{arrange}\NormalTok{(}\FunctionTok{desc}\NormalTok{(na\_count))}
+
+\FunctionTok{print}\NormalTok{(na\_cnts)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##             variable na_count na_pct
+## 1             agesex   228488   93.6
+## 2     contraceptpill   228448   93.6
+## 3   contraceptcondom   228070   93.4
+## 4        employnotfa   224524   92.0
+## 5        employnotmo   199890   81.9
+## 6             hadsex   162986   66.8
+## 7      cannabis30d_2   144442   59.2
+## 8      cannabisltm_2   142745   58.5
+## 9      countrybornfa    71901   29.5
+## 10     countrybornmo    70659   28.9
+## 11       countryborn    69118   28.3
+## 12        talkstepmo    69006   28.3
+## 13        talkstepfa    67025   27.5
+## 14             grade    64830   26.6
+## 15       oweight_who    54573   22.4
+## 16             IOTF4    54541   22.3
+## 17              MBMI    53311   21.8
+## 18        bodyweight    41128   16.8
+## 19        bodyheight    40036   16.4
+## 20        emcsocmed8    32878   13.5
+## 21        emcsocmed9    32855   13.5
+## 22        emcsocmed7    32597   13.4
+## 23        emcsocmed6    32544   13.3
+## 24        emcsocmed5    32443   13.3
+## 25        emcsocmed4    32428   13.3
+## 26        emcsocmed3    32009   13.1
+## 27        emcsocmed1    31973   13.1
+## 28        emcsocmed2    31659   13.0
+## 29       emconlpref3    31097   12.7
+## 30       emconlpref2    30586   12.5
+## 31       emconlpref1    29813   12.2
+## 32       emconlfreq2    29552   12.1
+## 33       emconlfreq4    29003   11.9
+## 34       emconlfreq3    28973   11.9
+## 35       emconlfreq1    26720   10.9
+## 36          employmo    24135    9.9
+## 37          employfa    23999    9.8
+## 38     bulliedothers    21579    8.8
+## 39               id3    20807    8.5
+## 40         smok30d_2    20687    8.5
+## 41           smokltm    20451    8.4
+## 42          drunk30d    20415    8.4
+## 43            famdec    20237    8.3
+## 44            famsup    20091    8.2
+## 45           famtalk    20019    8.2
+## 46          alc30d_2    19326    7.9
+## 47          drunkltm    19266    7.9
+## 48           famhelp    18896    7.7
+## 49       teachercare    18340    7.5
+## 50            alcltm    18007    7.4
+## 51      teachertrust    17839    7.3
+## 52        talkfather    17491    7.2
+## 53       breakfastwe    17468    7.2
+## 54        studaccept    17444    7.1
+## 55       beenbullied    16962    6.9
+## 56     teacheraccept    16764    6.9
+## 57       studhelpful    16746    6.9
+## 58      studtogether    16351    6.7
+## 59        talkmother    15521    6.4
+## 60      cbeenbullied    15084    6.2
+## 61    cbulliedothers    14934    6.1
+## 62             fmeal    14738    6.0
+## 63             IRFAS    12599    5.2
+## 64      IRRELFAS_LMH    12599    5.2
+## 65       fasdishwash    12124    5.0
+## 66         thinkbody    11657    4.8
+## 67       elsehome1_2    11124    4.6
+## 68       fosterhome1    10938    4.5
+## 69    sleepdificulty    10814    4.4
+## 70       friendshare    10813    4.4
+## 71        friendtalk    10808    4.4
+## 72       breakfastwd    10748    4.4
+## 73       fasbathroom    10743    4.4
+## 74       stepfahome1    10451    4.3
+## 75       stepmohome1    10449    4.3
+## 76     friendcounton    10374    4.2
+## 77       motherhome1    10235    4.2
+## 78       fatherhome1    10163    4.2
+## 79        friendhelp     9744    4.0
+## 80        injured12m     8974    3.7
+## 81          fight12m     8762    3.6
+## 82             dizzy     8566    3.5
+## 83           toothbr     7910    3.2
+## 84       fasholidays     7727    3.2
+## 85           feellow     6696    2.7
+## 86        fasbedroom     6672    2.7
+## 87          backache     6543    2.7
+## 88         irritable     6539    2.7
+## 89           nervous     6525    2.7
+## 90         physact60     6215    2.5
+## 91         fasfamcar     6195    2.5
+## 92      vegetables_2     6021    2.5
+## 93          sweets_2     6004    2.5
+## 94      softdrinks_2     5906    2.4
+## 95       stomachache     5679    2.3
+## 96      fascomputers     5527    2.3
+## 97    schoolpressure     5486    2.2
+## 98          fruits_2     5294    2.2
+## 99        likeschool     5109    2.1
+## 100          timeexe     4799    2.0
+## 101          lifesat     4512    1.8
+## 102         headache     4505    1.8
+## 103           health     2577    1.1
+## 104              age     1516    0.6
+## 105           agecat     1516    0.6
+## 106        yearbirth     1516    0.6
+## 107       monthbirth     1106    0.5
+## 108            month       18    0.0
+## 109             HBSC        0    0.0
+## 110        seqno_int        0    0.0
+## 111          cluster        0    0.0
+## 112        countryno        0    0.0
+## 113           region        0    0.0
+## 114              id1        0    0.0
+## 115              id2        0    0.0
+## 116              id4        0    0.0
+## 117           weight        0    0.0
+## 118              adm        0    0.0
+## 119             year        0    0.0
+## 120              sex        0    0.0
+\end{verbatim}
+
+\subsubsection{seqno\_int}\label{seqno_int}
+
+This is the unique identifier of each record and I confirmed it's
+unique.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{length}\NormalTok{(}\FunctionTok{unique}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{seqno\_int)) }\SpecialCharTok{==} \FunctionTok{nrow}\NormalTok{(dat)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] TRUE
+\end{verbatim}
+
+\subsubsection{countryno}\label{countryno}
+
+Number of countries in dataset is:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{length}\NormalTok{(}\FunctionTok{unique}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{countryno))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 47
+\end{verbatim}
+
+And this is the count of survey responses by country:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{recode\_map }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}
+  \StringTok{"8000"}   \OtherTok{=} \StringTok{"Albania"}\NormalTok{,}
+  \StringTok{"31000"}  \OtherTok{=} \StringTok{"Azerbaijan"}\NormalTok{,}
+  \StringTok{"40000"}  \OtherTok{=} \StringTok{"Austria"}\NormalTok{,}
+  \StringTok{"51000"}  \OtherTok{=} \StringTok{"Armenia"}\NormalTok{,}
+  \StringTok{"56001"}  \OtherTok{=} \StringTok{"Belgium (Flemish)"}\NormalTok{,}
+  \StringTok{"56002"}  \OtherTok{=} \StringTok{"Belgium (French)"}\NormalTok{,}
+  \StringTok{"100000"} \OtherTok{=} \StringTok{"Bulgaria"}\NormalTok{,}
+  \StringTok{"124000"} \OtherTok{=} \StringTok{"Canada"}\NormalTok{,}
+  \StringTok{"191000"} \OtherTok{=} \StringTok{"Croatia"}\NormalTok{,}
+  \StringTok{"203000"} \OtherTok{=} \StringTok{"Czech Republic"}\NormalTok{,}
+  \StringTok{"208000"} \OtherTok{=} \StringTok{"Denmark"}\NormalTok{,}
+  \StringTok{"233000"} \OtherTok{=} \StringTok{"Estonia"}\NormalTok{,}
+  \StringTok{"246000"} \OtherTok{=} \StringTok{"Finland"}\NormalTok{,}
+  \StringTok{"250000"} \OtherTok{=} \StringTok{"France"}\NormalTok{,}
+  \StringTok{"268000"} \OtherTok{=} \StringTok{"Georgia"}\NormalTok{,}
+  \StringTok{"276000"} \OtherTok{=} \StringTok{"Germany"}\NormalTok{,}
+  \StringTok{"300000"} \OtherTok{=} \StringTok{"Greece"}\NormalTok{,}
+  \StringTok{"304000"} \OtherTok{=} \StringTok{"Greenland"}\NormalTok{,}
+  \StringTok{"348000"} \OtherTok{=} \StringTok{"Hungary"}\NormalTok{,}
+  \StringTok{"352000"} \OtherTok{=} \StringTok{"Iceland"}\NormalTok{,}
+  \StringTok{"372000"} \OtherTok{=} \StringTok{"Ireland"}\NormalTok{,}
+  \StringTok{"376000"} \OtherTok{=} \StringTok{"Israel"}\NormalTok{,}
+  \StringTok{"380000"} \OtherTok{=} \StringTok{"Italy"}\NormalTok{,}
+  \StringTok{"398000"} \OtherTok{=} \StringTok{"Kazakhstan"}\NormalTok{,}
+  \StringTok{"428000"} \OtherTok{=} \StringTok{"Latvia"}\NormalTok{,}
+  \StringTok{"440000"} \OtherTok{=} \StringTok{"Lithuania"}\NormalTok{,}
+  \StringTok{"442000"} \OtherTok{=} \StringTok{"Luxembourg"}\NormalTok{,}
+  \StringTok{"470000"} \OtherTok{=} \StringTok{"Malta"}\NormalTok{,}
+  \StringTok{"498000"} \OtherTok{=} \StringTok{"Republic of Moldova"}\NormalTok{,}
+  \StringTok{"528000"} \OtherTok{=} \StringTok{"Netherlands"}\NormalTok{,}
+  \StringTok{"578000"} \OtherTok{=} \StringTok{"Norway"}\NormalTok{,}
+  \StringTok{"616000"} \OtherTok{=} \StringTok{"Poland"}\NormalTok{,}
+  \StringTok{"620000"} \OtherTok{=} \StringTok{"Portugal"}\NormalTok{,}
+  \StringTok{"642000"} \OtherTok{=} \StringTok{"Romania"}\NormalTok{,}
+  \StringTok{"643000"} \OtherTok{=} \StringTok{"Russia"}\NormalTok{,}
+  \StringTok{"688000"} \OtherTok{=} \StringTok{"Serbia"}\NormalTok{,}
+  \StringTok{"703000"} \OtherTok{=} \StringTok{"Slovakia"}\NormalTok{,}
+  \StringTok{"705000"} \OtherTok{=} \StringTok{"Slovenia"}\NormalTok{,}
+  \StringTok{"724000"} \OtherTok{=} \StringTok{"Spain"}\NormalTok{,}
+  \StringTok{"752000"} \OtherTok{=} \StringTok{"Sweden"}\NormalTok{,}
+  \StringTok{"756000"} \OtherTok{=} \StringTok{"Switzerland"}\NormalTok{,}
+  \StringTok{"792000"} \OtherTok{=} \StringTok{"Turkey"}\NormalTok{,}
+  \StringTok{"804000"} \OtherTok{=} \StringTok{"Ukraine"}\NormalTok{,}
+  \StringTok{"807000"} \OtherTok{=} \StringTok{"Macedonia"}\NormalTok{,}
+  \StringTok{"826001"} \OtherTok{=} \StringTok{"England"}\NormalTok{,}
+  \StringTok{"826002"} \OtherTok{=} \StringTok{"Scotland"}\NormalTok{,}
+  \StringTok{"826003"} \OtherTok{=} \StringTok{"Wales"}\NormalTok{,}
+  \StringTok{"826004"} \OtherTok{=} \StringTok{"Northern Ireland"}\NormalTok{,}
+  \StringTok{"840000"} \OtherTok{=} \StringTok{"USA"}
+\NormalTok{)}
+
+\NormalTok{dat}\SpecialCharTok{$}\NormalTok{country\_name }\OtherTok{\textless{}{-}}\NormalTok{ recode\_map[}\FunctionTok{as.character}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{countryno)]}
+
+\NormalTok{dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(country\_name) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{summarise}\NormalTok{(}\AttributeTok{n =} \FunctionTok{n}\NormalTok{(),}
+            \AttributeTok{.groups =} \StringTok{"drop"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =} \FunctionTok{round}\NormalTok{(}\DecValTok{100} \SpecialCharTok{*}\NormalTok{ n }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(n),}\DecValTok{1}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{arrange}\NormalTok{(}\FunctionTok{desc}\NormalTok{(n)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{print}\NormalTok{(}\AttributeTok{n=}\ConstantTok{Inf}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 46 x 3
+##    country_name            n   pct
+##    <chr>               <int> <dbl>
+##  1 Wales               15951   6.5
+##  2 Canada              12950   5.3
+##  3 Czech Republic      11564   4.7
+##  4 France               9170   3.8
+##  5 <NA>                 8411   3.4
+##  6 Israel               7712   3.2
+##  7 Switzerland          7510   3.1
+##  8 Iceland              6996   2.9
+##  9 Ukraine              6660   2.7
+## 10 Portugal             6126   2.5
+## 11 Turkey               5848   2.4
+## 12 Slovenia             5667   2.3
+## 13 Belgium (French)     5578   2.3
+## 14 Poland               5224   2.1
+## 15 Croatia              5169   2.1
+## 16 Scotland             5021   2.1
+## 17 Kazakhstan           4868   2  
+## 18 Slovakia             4785   2  
+## 19 Estonia              4725   1.9
+## 20 Armenia              4717   1.9
+## 21 Netherlands          4698   1.9
+## 22 Republic of Moldova  4686   1.9
+## 23 Macedonia            4658   1.9
+## 24 Azerbaijan           4586   1.9
+## 25 Romania              4567   1.9
+## 26 Latvia               4412   1.8
+## 27 Germany              4347   1.8
+## 28 Belgium (Flemish)    4333   1.8
+## 29 Spain                4320   1.8
+## 30 Russia               4281   1.8
+## 31 Georgia              4242   1.7
+## 32 Sweden               4185   1.7
+## 33 Italy                4144   1.7
+## 34 Austria              4129   1.7
+## 35 Luxembourg           4070   1.7
+## 36 Serbia               3933   1.6
+## 37 Ireland              3833   1.6
+## 38 Lithuania            3797   1.6
+## 39 Hungary              3789   1.6
+## 40 England              3397   1.4
+## 41 Denmark              3181   1.3
+## 42 Finland              3146   1.3
+## 43 Norway               3127   1.3
+## 44 Malta                2576   1.1
+## 45 Albania              1765   0.7
+## 46 Greenland            1243   0.5
+\end{verbatim}
+
+\subsection{Variables to Predict}\label{variables-to-predict}
+
+\subsubsection{lifesat}\label{lifesat}
+
+Q: Here is a picture of a ladder. The top of the ladder ``10'' is the
+best possible life for you and the bottom ``0'' is the worst possible
+life for you. In general, where on the ladder do you feel you stand at
+the moment? A: 0-10
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(dat, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{y =} \FunctionTok{factor}\NormalTok{(lifesat))) }\SpecialCharTok{+}
+  \FunctionTok{geom\_bar}\NormalTok{(}\AttributeTok{fill =} \StringTok{"steelblue"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}
+    \AttributeTok{y =} \StringTok{"lifesat"}\NormalTok{,}
+    \AttributeTok{x =} \StringTok{"n"}
+\NormalTok{    ) }\SpecialCharTok{+}
+  \FunctionTok{theme\_minimal}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{hbsc_data_prep_files/figure-latex/unnamed-chunk-5-1.pdf}}
+lifesat is dichotomized for modeling as lifesat\_low:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}
+    \AttributeTok{lifesat\_low =} \FunctionTok{case\_when}\NormalTok{(}
+      \FunctionTok{between}\NormalTok{(lifesat, }\DecValTok{0}\NormalTok{, }\DecValTok{5}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+      \FunctionTok{between}\NormalTok{(lifesat, }\DecValTok{6}\NormalTok{, }\DecValTok{10}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+      \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{))}
+
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{lifesat,}
+\NormalTok{      dat}\SpecialCharTok{$}\NormalTok{lifesat\_low,}
+      \AttributeTok{useNA =} \StringTok{"always"}
+\NormalTok{      )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##            0     1  <NA>
+##   0        0  1218     0
+##   1        0  1041     0
+##   2        0  1748     0
+##   3        0  3691     0
+##   4        0  6961     0
+##   5        0 17137     0
+##   6    19921     0     0
+##   7    39120     0     0
+##   8    55325     0     0
+##   9    45271     0     0
+##   10   48152     0     0
+##   <NA>     0     0  4512
+\end{verbatim}
+
+Ultimately the distribution is:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(lifesat\_low) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{summarise}\NormalTok{(}\AttributeTok{n =} \FunctionTok{n}\NormalTok{()) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =}\NormalTok{ n }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(n))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 3 x 3
+##   lifesat_low      n    pct
+##         <dbl>  <int>  <dbl>
+## 1           0 207789 0.851 
+## 2           1  31796 0.130 
+## 3          NA   4512 0.0185
+\end{verbatim}
+
+\subsubsection{(mental) health
+complaints}\label{mental-health-complaints}
+
+There are 8 variables for this that reply to a question like: In the
+last 6 months: how often have you had the following\ldots.? And the
+answers goes from 1 About every day to 5 Rarely or never. The 8
+variables are: headache, stomachache, backache, dizzy, feellow,
+irritable, nervous, sleepdificulty.
+
+Their distributions look like this:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{vars\_health\_complaints }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"headache"}\NormalTok{, }\StringTok{"stomachache"}\NormalTok{, }\StringTok{"backache"}\NormalTok{, }\StringTok{"dizzy"}\NormalTok{,}
+          \StringTok{"feellow"}\NormalTok{, }\StringTok{"irritable"}\NormalTok{, }\StringTok{"nervous"}\NormalTok{, }\StringTok{"sleepdificulty"}\NormalTok{)}
+
+\NormalTok{plot\_list }\OtherTok{\textless{}{-}} \FunctionTok{map}\NormalTok{(vars\_health\_complaints, }\ControlFlowTok{function}\NormalTok{(v) \{}
+  \FunctionTok{ggplot}\NormalTok{(dat, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{y =} \FunctionTok{factor}\NormalTok{(.data[[v]]))) }\SpecialCharTok{+}
+    \FunctionTok{geom\_bar}\NormalTok{(}\AttributeTok{fill =} \StringTok{"steelblue"}\NormalTok{) }\SpecialCharTok{+}
+    \FunctionTok{coord\_flip}\NormalTok{() }\SpecialCharTok{+}
+    \FunctionTok{labs}\NormalTok{(}
+      \AttributeTok{y =}\NormalTok{ v,}
+      \AttributeTok{x =} \StringTok{"n"}
+\NormalTok{    ) }\SpecialCharTok{+}
+    \FunctionTok{theme\_minimal}\NormalTok{()}
+\NormalTok{\})}
+
+\FunctionTok{wrap\_plots}\NormalTok{(plot\_list, }\AttributeTok{ncol =} \DecValTok{2}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{hbsc_data_prep_files/figure-latex/unnamed-chunk-8-1.pdf}}
+These variables are then recoded to a binary where it flags if the
+complaint occurs more than once per week (1 or 2).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}
+    \AttributeTok{headache\_frequent =} \FunctionTok{ifelse}\NormalTok{(headache }\SpecialCharTok{\textless{}=} \DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{),}
+    \AttributeTok{stomachache\_frequent =} \FunctionTok{ifelse}\NormalTok{(stomachache }\SpecialCharTok{\textless{}=} \DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{),}
+    \AttributeTok{backache\_frequent =} \FunctionTok{ifelse}\NormalTok{(backache }\SpecialCharTok{\textless{}=} \DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{),}
+    \AttributeTok{dizzy\_frequent =} \FunctionTok{ifelse}\NormalTok{(dizzy }\SpecialCharTok{\textless{}=} \DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{),}
+    \AttributeTok{feellow\_frequent =} \FunctionTok{ifelse}\NormalTok{(feellow }\SpecialCharTok{\textless{}=} \DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{),}
+    \AttributeTok{irritable\_frequent =} \FunctionTok{ifelse}\NormalTok{(irritable }\SpecialCharTok{\textless{}=} \DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{),}
+    \AttributeTok{nervous\_frequent =} \FunctionTok{ifelse}\NormalTok{(nervous }\SpecialCharTok{\textless{}=} \DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{),}
+    \AttributeTok{sleepdificulty\_frequent =} \FunctionTok{ifelse}\NormalTok{(sleepdificulty }\SpecialCharTok{\textless{}=} \DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{)}
+\NormalTok{  )}
+\end{Highlighting}
+\end{Shaded}
+
+The recoded variables look like this:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{vars\_health\_complaints\_frequent }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(vars\_health\_complaints,}
+                                          \StringTok{"\_frequent"}\NormalTok{)}
+
+\ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \FunctionTok{seq\_along}\NormalTok{(vars\_health\_complaints)) \{}
+  \FunctionTok{cat}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}n\textbackslash{}n}\StringTok{\#\#\#"}\NormalTok{, vars\_health\_complaints[i], }\StringTok{"x"}\NormalTok{, vars\_health\_complaints\_frequent[i], }\StringTok{"}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+  \FunctionTok{print}\NormalTok{(}\FunctionTok{table}\NormalTok{(dat[[vars\_health\_complaints[i]]], dat[[vars\_health\_complaints\_frequent[i]]], }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{))}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+## 
+## ### headache x headache_frequent 
+##       
+##             0      1   <NA>
+##   1         0  13883      0
+##   2         0  24257      0
+##   3     30076      0      0
+##   4     53676      0      0
+##   5    117700      0      0
+##   <NA>      0      0   4505
+## 
+## 
+## ### stomachache x stomachache_frequent 
+##       
+##             0      1   <NA>
+##   1         0   8415      0
+##   2         0  16223      0
+##   3     22895      0      0
+##   4     68018      0      0
+##   5    122867      0      0
+##   <NA>      0      0   5679
+## 
+## 
+## ### backache x backache_frequent 
+##       
+##             0      1   <NA>
+##   1         0  14872      0
+##   2         0  16137      0
+##   3     21410      0      0
+##   4     40910      0      0
+##   5    144225      0      0
+##   <NA>      0      0   6543
+## 
+## 
+## ### dizzy x dizzy_frequent 
+##       
+##             0      1   <NA>
+##   1         0  10461      0
+##   2         0  14272      0
+##   3     17261      0      0
+##   4     35189      0      0
+##   5    158348      0      0
+##   <NA>      0      0   8566
+## 
+## 
+## ### feellow x feellow_frequent 
+##       
+##             0      1   <NA>
+##   1         0  20224      0
+##   2         0  25739      0
+##   3     29784      0      0
+##   4     48898      0      0
+##   5    112756      0      0
+##   <NA>      0      0   6696
+## 
+## 
+## ### irritable x irritable_frequent 
+##       
+##            0     1  <NA>
+##   1        0 26053     0
+##   2        0 35879     0
+##   3    42648     0     0
+##   4    57922     0     0
+##   5    75056     0     0
+##   <NA>     0     0  6539
+## 
+## 
+## ### nervous x nervous_frequent 
+##       
+##            0     1  <NA>
+##   1        0 28306     0
+##   2        0 32770     0
+##   3    40064     0     0
+##   4    54109     0     0
+##   5    82323     0     0
+##   <NA>     0     0  6525
+## 
+## 
+## ### sleepdificulty x sleepdificulty_frequent 
+##       
+##             0      1   <NA>
+##   1         0  30501      0
+##   2         0  25543      0
+##   3     26053      0      0
+##   4     36570      0      0
+##   5    114616      0      0
+##   <NA>      0      0  10814
+\end{verbatim}
+
+The frequency of complaints is then added to calculate one sum for
+physical and one for mental. If the sum is 2 or more then it is
+determined that there is a health issue. Most papers do it for
+psycosomatic (all 8 vars) but I will focus on the 4 mental ones. Still,
+I include both vars in case.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \CommentTok{\# add the frequency of complaints}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{mental\_complaints\_sum =}\NormalTok{ feellow\_frequent }\SpecialCharTok{+}
+\NormalTok{                           irritable\_frequent }\SpecialCharTok{+}
+\NormalTok{                           nervous\_frequent }\SpecialCharTok{+}
+\NormalTok{                           sleepdificulty\_frequent,}
+         \AttributeTok{physical\_complaints\_sum =}\NormalTok{ headache\_frequent }\SpecialCharTok{+}
+\NormalTok{                           stomachache\_frequent }\SpecialCharTok{+}
+\NormalTok{                           backache\_frequent }\SpecialCharTok{+} 
+\NormalTok{                           dizzy\_frequent}
+\NormalTok{  ) }\SpecialCharTok{\%\textgreater{}\%}
+  \CommentTok{\# derive index based on sum}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{mental\_complaintsY =} \FunctionTok{ifelse}\NormalTok{(mental\_complaints\_sum }\SpecialCharTok{\textgreater{}=}\DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{),}
+         \AttributeTok{health\_complaintsY =} \FunctionTok{ifelse}\NormalTok{((mental\_complaints\_sum }\SpecialCharTok{+}\NormalTok{ physical\_complaints\_sum) }\SpecialCharTok{\textgreater{}=}\DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{)}
+\NormalTok{      ) }
+
+\FunctionTok{cat}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}n\textbackslash{}n}\StringTok{\#\#\# mental\_complaintsY x mental\_complaints\_sum}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+## 
+## ### mental_complaintsY x mental_complaints_sum
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{mental\_complaints\_sum,}
+\NormalTok{      dat}\SpecialCharTok{$}\NormalTok{mental\_complaintsY,}
+      \AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##             0      1   <NA>
+##   0    121573      0      0
+##   1     45509      0      0
+##   2         0  29991      0
+##   3         0  21172      0
+##   4         0  12970      0
+##   <NA>      0      0  12882
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}n\textbackslash{}n}\StringTok{\#\#\# (health\_complaintsY x health\_complaints\_sum}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+## 
+## ### (health_complaintsY x health_complaints_sum
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{mental\_complaints\_sum }\SpecialCharTok{+}\NormalTok{ dat}\SpecialCharTok{$}\NormalTok{physical\_complaints\_sum,}
+\NormalTok{      dat}\SpecialCharTok{$}\NormalTok{health\_complaintsY,}
+      \AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##             0      1   <NA>
+##   0    103678      0      0
+##   1     41923      0      0
+##   2         0  29221      0
+##   3         0  21360      0
+##   4         0  14640      0
+##   5         0   8824      0
+##   6         0   5202      0
+##   7         0   2839      0
+##   8         0   2219      0
+##   <NA>      0      0  14191
+\end{verbatim}
+
+\subsubsection{mental\_complaintsY}\label{mental_complaintsy}
+
+Ultimately our variable to predict will be mental\_complaintsY; at
+\textasciitilde26\%.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(mental\_complaintsY) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{summarise}\NormalTok{(}\AttributeTok{n =} \FunctionTok{n}\NormalTok{()) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =}\NormalTok{ n }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(n))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 3 x 3
+##   mental_complaintsY      n    pct
+##                <dbl>  <int>  <dbl>
+## 1                  0 167082 0.684 
+## 2                  1  64133 0.263 
+## 3                 NA  12882 0.0528
+\end{verbatim}
+
+\subsection{The Predictors}\label{the-predictors}
+
+\subsubsection{Problematic social media use
+(PMSU)}\label{problematic-social-media-use-pmsu}
+
+PMSU are the main variables of interest. There are 9 of them: emcsocmed1
+to emcsocmed9. The prequestion for all of them is: We are interested in
+your experiences with social media. The term social media refers to
+social network sites (e.g.~Facebook, {[}add other local examples{]}) and
+instant messengers (e.g.~{[}insert local examples{]}, WhatsApp,
+Snapchat, Facebook messenger). During the past year, have you\ldots.
+Please tick one box for each line.
+
+The possible answers are 1 (no) and 2 (yes). Also those with 99 mean
+Missing due to skip pattern.
+
+The topic of each question is:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{questions }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+  \AttributeTok{item =} \FunctionTok{c}\NormalTok{(}
+    \StringTok{"emcsocmed1"}\NormalTok{,}\StringTok{"emcsocmed2"}\NormalTok{,}\StringTok{"emcsocmed3"}\NormalTok{,}\StringTok{"emcsocmed4"}\NormalTok{,}
+    \StringTok{"emcsocmed5"}\NormalTok{,}\StringTok{"emcsocmed6"}\NormalTok{,}\StringTok{"emcsocmed7"}\NormalTok{,}\StringTok{"emcsocmed8"}\NormalTok{,}\StringTok{"emcsocmed9"}
+\NormalTok{  ),}
+  \AttributeTok{topic =} \FunctionTok{c}\NormalTok{(}
+    \StringTok{"Social media: I can\textquotesingle{}t think of anything else"}\NormalTok{,}
+    \StringTok{"Social media: Dissatisfied cause want to spend more time"}\NormalTok{,}
+    \StringTok{"Social media: Felt bad cause want to play"}\NormalTok{,}
+    \StringTok{"Social media: Failed to spend less time"}\NormalTok{,}
+    \StringTok{"Social media: Neglected other activities"}\NormalTok{,}
+    \StringTok{"Social media: Had arguments because of use"}\NormalTok{,}
+    \StringTok{"Social media: Lied about amount of time spent"}\NormalTok{,}
+    \StringTok{"Social media: Use it to escape from negative feelings"}\NormalTok{,}
+    \StringTok{"Social media: Conflict with family because of use"}
+\NormalTok{  )}
+\NormalTok{)}
+
+\FunctionTok{kable}\NormalTok{(questions) }\CommentTok{\#, caption = "Social Media Use Items")}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+item & topic \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+emcsocmed1 & Social media: I can't think of anything else \\
+emcsocmed2 & Social media: Dissatisfied cause want to spend more time \\
+emcsocmed3 & Social media: Felt bad cause want to play \\
+emcsocmed4 & Social media: Failed to spend less time \\
+emcsocmed5 & Social media: Neglected other activities \\
+emcsocmed6 & Social media: Had arguments because of use \\
+emcsocmed7 & Social media: Lied about amount of time spent \\
+emcsocmed8 & Social media: Use it to escape from negative feelings \\
+emcsocmed9 & Social media: Conflict with family because of use \\
+\end{longtable}
+
+Since I need to get a sum of them I will recode them from 1/2 to
+0/1.These are the distributions of the answers. I put the 99 as NA - is
+that correct?
+
+The recoding looks like this:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# recode emcsocmed to 0/1 from 1/2}
+\NormalTok{recode\_emcsocmed }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(old\_col)\{}
+\NormalTok{  new\_col }\OtherTok{\textless{}{-}} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{    old\_col }\SpecialCharTok{==} \DecValTok{1} \SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+\NormalTok{    old\_col }\SpecialCharTok{==} \DecValTok{2} \SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+    \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA} \CommentTok{\#99?}
+\NormalTok{  )}
+  \FunctionTok{return}\NormalTok{(new\_col)}
+\NormalTok{\}}
+
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{emcsocmed1\_r =} \FunctionTok{recode\_emcsocmed}\NormalTok{(emcsocmed1),}
+         \AttributeTok{emcsocmed2\_r =} \FunctionTok{recode\_emcsocmed}\NormalTok{(emcsocmed2),}
+         \AttributeTok{emcsocmed3\_r =} \FunctionTok{recode\_emcsocmed}\NormalTok{(emcsocmed3),}
+         \AttributeTok{emcsocmed4\_r =} \FunctionTok{recode\_emcsocmed}\NormalTok{(emcsocmed4),}
+         \AttributeTok{emcsocmed5\_r =} \FunctionTok{recode\_emcsocmed}\NormalTok{(emcsocmed5),}
+         \AttributeTok{emcsocmed6\_r =} \FunctionTok{recode\_emcsocmed}\NormalTok{(emcsocmed6),}
+         \AttributeTok{emcsocmed7\_r =} \FunctionTok{recode\_emcsocmed}\NormalTok{(emcsocmed7),}
+         \AttributeTok{emcsocmed8\_r =} \FunctionTok{recode\_emcsocmed}\NormalTok{(emcsocmed8),}
+         \AttributeTok{emcsocmed9\_r =} \FunctionTok{recode\_emcsocmed}\NormalTok{(emcsocmed9)}
+\NormalTok{         ) }
+
+\NormalTok{vars }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(}\StringTok{"emcsocmed"}\NormalTok{, }\DecValTok{1}\SpecialCharTok{:}\DecValTok{9}\NormalTok{)}
+
+\ControlFlowTok{for}\NormalTok{ (v }\ControlFlowTok{in}\NormalTok{ vars) \{}
+  \FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for"}\NormalTok{, v)}
+  \FunctionTok{print}\NormalTok{(}\FunctionTok{table}\NormalTok{(dat[[v]], dat[[}\FunctionTok{paste0}\NormalTok{(v, }\StringTok{"\_r"}\NormalTok{)]], }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{))}
+  \FunctionTok{cat}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}n\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for emcsocmed1      
+##             0      1   <NA>
+##   1    156598      0      0
+##   2         0  44267      0
+##   99        0      0  11259
+##   <NA>      0      0  31973
+## 
+## 
+## ## Table for emcsocmed2      
+##             0      1   <NA>
+##   1    163166      0      0
+##   2         0  38013      0
+##   99        0      0  11259
+##   <NA>      0      0  31659
+## 
+## 
+## ## Table for emcsocmed3      
+##             0      1   <NA>
+##   1    157891      0      0
+##   2         0  42938      0
+##   99        0      0  11259
+##   <NA>      0      0  32009
+## 
+## 
+## ## Table for emcsocmed4      
+##             0      1   <NA>
+##   1    138631      0      0
+##   2         0  61779      0
+##   99        0      0  11259
+##   <NA>      0      0  32428
+## 
+## 
+## ## Table for emcsocmed5      
+##             0      1   <NA>
+##   1    168967      0      0
+##   2         0  31428      0
+##   99        0      0  11259
+##   <NA>      0      0  32443
+## 
+## 
+## ## Table for emcsocmed6      
+##             0      1   <NA>
+##   1    162482      0      0
+##   2         0  37812      0
+##   99        0      0  11259
+##   <NA>      0      0  32544
+## 
+## 
+## ## Table for emcsocmed7      
+##             0      1   <NA>
+##   1    171121      0      0
+##   2         0  29120      0
+##   99        0      0  11259
+##   <NA>      0      0  32597
+## 
+## 
+## ## Table for emcsocmed8      
+##             0      1   <NA>
+##   1    137767      0      0
+##   2         0  62193      0
+##   99        0      0  11259
+##   <NA>      0      0  32878
+## 
+## 
+## ## Table for emcsocmed9      
+##             0      1   <NA>
+##   1    171010      0      0
+##   2         0  28973      0
+##   99        0      0  11259
+##   <NA>      0      0  32855
+\end{verbatim}
+
+And this gives an idea of how correlated they are with each other.
+
+Is this right? Too correlated? Or it's done different? It has to be done
+another way?
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{vars }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(}\StringTok{"emcsocmed"}\NormalTok{, }\DecValTok{1}\SpecialCharTok{:}\DecValTok{9}\NormalTok{)}
+
+\NormalTok{r }\OtherTok{\textless{}{-}} \FunctionTok{cor}\NormalTok{(dat[,vars],}
+    \AttributeTok{use =} \StringTok{"complete.obs"}\NormalTok{)}
+
+\FunctionTok{round}\NormalTok{(r,}\DecValTok{4}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##            emcsocmed1 emcsocmed2 emcsocmed3 emcsocmed4 emcsocmed5 emcsocmed6
+## emcsocmed1     1.0000     0.9998     0.9998     0.9997     0.9998     0.9998
+## emcsocmed2     0.9998     1.0000     0.9998     0.9997     0.9998     0.9998
+## emcsocmed3     0.9998     0.9998     1.0000     0.9997     0.9998     0.9998
+## emcsocmed4     0.9997     0.9997     0.9997     1.0000     0.9997     0.9997
+## emcsocmed5     0.9998     0.9998     0.9998     0.9997     1.0000     0.9998
+## emcsocmed6     0.9998     0.9998     0.9998     0.9997     0.9998     1.0000
+## emcsocmed7     0.9998     0.9998     0.9998     0.9998     0.9998     0.9998
+## emcsocmed8     0.9997     0.9997     0.9997     0.9997     0.9997     0.9997
+## emcsocmed9     0.9998     0.9998     0.9998     0.9998     0.9998     0.9998
+##            emcsocmed7 emcsocmed8 emcsocmed9
+## emcsocmed1     0.9998     0.9997     0.9998
+## emcsocmed2     0.9998     0.9997     0.9998
+## emcsocmed3     0.9998     0.9997     0.9998
+## emcsocmed4     0.9998     0.9997     0.9998
+## emcsocmed5     0.9998     0.9997     0.9998
+## emcsocmed6     0.9998     0.9997     0.9998
+## emcsocmed7     1.0000     0.9998     0.9999
+## emcsocmed8     0.9998     1.0000     0.9998
+## emcsocmed9     0.9999     0.9998     1.0000
+\end{verbatim}
+
+PMSU variables are then combined so output is represented in one
+variable, instead of 9. I will do 2 versions: a) Yes/No where Y(6-9) and
+N(0-5) b) H/M/L where H(6-9), M(2-5) and L(0-1)
+
+The distribution of PMSU categorized is:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{vars\_emcsocmed }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(}\StringTok{"emcsocmed"}\NormalTok{, }\DecValTok{1}\SpecialCharTok{:}\DecValTok{9}\NormalTok{)}
+\NormalTok{vars\_emcsocmed\_r }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(}\StringTok{"emcsocmed"}\NormalTok{, }\DecValTok{1}\SpecialCharTok{:}\DecValTok{9}\NormalTok{, }\StringTok{"\_r"}\NormalTok{)}
+
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{emcsocmed\_sum =} \FunctionTok{rowSums}\NormalTok{(dat[,vars\_emcsocmed\_r])) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}
+    \AttributeTok{pmsu\_yn =} \FunctionTok{case\_when}\NormalTok{(}
+      \FunctionTok{between}\NormalTok{(emcsocmed\_sum,}\DecValTok{6}\NormalTok{,}\DecValTok{9}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+      \FunctionTok{between}\NormalTok{(emcsocmed\_sum,}\DecValTok{0}\NormalTok{,}\DecValTok{5}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+      \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}
+\NormalTok{    ),}
+    \AttributeTok{pmsu\_lmh =} \FunctionTok{case\_when}\NormalTok{(}
+      \FunctionTok{between}\NormalTok{(emcsocmed\_sum,}\DecValTok{6}\NormalTok{,}\DecValTok{9}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \StringTok{"High"}\NormalTok{,}
+      \FunctionTok{between}\NormalTok{(emcsocmed\_sum,}\DecValTok{2}\NormalTok{,}\DecValTok{5}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \StringTok{"Med"}\NormalTok{,}
+      \FunctionTok{between}\NormalTok{(emcsocmed\_sum,}\DecValTok{0}\NormalTok{,}\DecValTok{1}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \StringTok{"Low"}\NormalTok{,}
+      \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}
+\NormalTok{    )}
+\NormalTok{  )}
+
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for emcsocmed\_sum x pmsu\_yn"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for emcsocmed_sum x pmsu_yn
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{emcsocmed\_sum,}
+\NormalTok{      dat}\SpecialCharTok{$}\NormalTok{pmsu\_yn,}
+      \AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##            0     1  <NA>
+##   0    72474     0     0
+##   1    36277     0     0
+##   2    26066     0     0
+##   3    19012     0     0
+##   4    14908     0     0
+##   5    10306     0     0
+##   6        0  5905     0
+##   7        0  3382     0
+##   8        0  1878     0
+##   9        0  2979     0
+##   <NA>     0     0 50910
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for emcsocmed\_sum x pmsu\_lmh"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for emcsocmed_sum x pmsu_lmh
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{emcsocmed\_sum,}
+\NormalTok{      dat}\SpecialCharTok{$}\NormalTok{pmsu\_lmh,}
+      \AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##         High   Low   Med  <NA>
+##   0        0 72474     0     0
+##   1        0 36277     0     0
+##   2        0     0 26066     0
+##   3        0     0 19012     0
+##   4        0     0 14908     0
+##   5        0     0 10306     0
+##   6     5905     0     0     0
+##   7     3382     0     0     0
+##   8     1878     0     0     0
+##   9     2979     0     0     0
+##   <NA>     0     0     0 50910
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for pmsu\_yn x pmsu\_lmh"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for pmsu_yn x pmsu_lmh
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{pmsu\_lmh, dat}\SpecialCharTok{$}\NormalTok{pmsu\_yn, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##             0      1   <NA>
+##   High      0  14144      0
+##   Low  108751      0      0
+##   Med   70292      0      0
+##   <NA>      0      0  50910
+\end{verbatim}
+
+\subsubsection{Family Support}\label{family-support}
+
+There are 4 of them. The question starts with: We are interested in how
+you feel about the following statements. Please show how much you agree
+or disagree with each one. Please tick one box for each line.
+
+The options to answer go from 1 Very strongly disagree to 7 Very
+strongly agree. The 4 questions are:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{family\_items }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+  \AttributeTok{item =} \FunctionTok{c}\NormalTok{(}
+    \StringTok{"famhelp"}\NormalTok{,}
+    \StringTok{"famsup"}\NormalTok{,}
+    \StringTok{"famtalk"}\NormalTok{,}
+    \StringTok{"famclose"}
+\NormalTok{  ),}
+  \AttributeTok{topic =} \FunctionTok{c}\NormalTok{(}
+    \StringTok{"Family tries to help"}\NormalTok{,}
+    \StringTok{"Get emotional help from family"}\NormalTok{,}
+    \StringTok{"Talk about problems with family"}\NormalTok{,}
+    \StringTok{"Feel close to family"}
+\NormalTok{  )}
+\NormalTok{)}
+
+\FunctionTok{kable}\NormalTok{(family\_items) }\CommentTok{\#, caption = "Family Support Items")}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+item & topic \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+famhelp & Family tries to help \\
+famsup & Get emotional help from family \\
+famtalk & Talk about problems with family \\
+famclose & Feel close to family \\
+\end{longtable}
+
+These variables are then combined to create a categorical predictor. For
+now, I will keep two options like I did for PMSU but will select only
+one when modeling. These are:\\
+a) H/L based on avg of 4 vars. L if {[}1,5.5) and H if {[}5.5, 7{]}\\
+b) H/M/L based on sum of 4 vars. L if 4-11, M if 12-19, H if 20-28.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{vars\_family\_support }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"famhelp"}\NormalTok{, }\StringTok{"famsup"}\NormalTok{, }\StringTok{"famtalk"}\NormalTok{, }\StringTok{"famdec"}\NormalTok{)}
+
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+   \FunctionTok{mutate}\NormalTok{(}\AttributeTok{family\_support\_avg =} \FunctionTok{rowMeans}\NormalTok{(dat[,vars\_family\_support]),}
+          \AttributeTok{family\_support\_sum =} \FunctionTok{rowSums}\NormalTok{(dat[,vars\_family\_support])}
+\NormalTok{          ) }\SpecialCharTok{\%\textgreater{}\%}
+   \FunctionTok{mutate}\NormalTok{(}\AttributeTok{family\_support\_high =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{            family\_support\_avg }\SpecialCharTok{\textgreater{}=} \DecValTok{1} \SpecialCharTok{\&}\NormalTok{ family\_support\_avg }\SpecialCharTok{\textless{}} \FloatTok{5.5} \SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+\NormalTok{            family\_support\_avg }\SpecialCharTok{\textgreater{}=} \FloatTok{5.5} \SpecialCharTok{\&}\NormalTok{ family\_support\_avg }\SpecialCharTok{\textless{}=} \DecValTok{7} \SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+            \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+   \FunctionTok{mutate}\NormalTok{(}\AttributeTok{family\_support\_hml =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{            family\_support\_sum }\SpecialCharTok{\textgreater{}=} \DecValTok{4} \SpecialCharTok{\&}\NormalTok{ family\_support\_sum }\SpecialCharTok{\textless{}=} \DecValTok{11} \SpecialCharTok{\textasciitilde{}} \StringTok{"Low"}\NormalTok{,}
+\NormalTok{            family\_support\_sum }\SpecialCharTok{\textgreater{}=} \DecValTok{12} \SpecialCharTok{\&}\NormalTok{ family\_support\_sum }\SpecialCharTok{\textless{}=} \DecValTok{19} \SpecialCharTok{\textasciitilde{}} \StringTok{"Med"}\NormalTok{,}
+\NormalTok{            family\_support\_sum }\SpecialCharTok{\textgreater{}=} \DecValTok{20} \SpecialCharTok{\&}\NormalTok{ family\_support\_sum }\SpecialCharTok{\textless{}=} \DecValTok{28} \SpecialCharTok{\textasciitilde{}} \StringTok{"High"}\NormalTok{,}
+            \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+Their counts after recoding are:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# \#table(dat$family\_support\_high, dat$family\_support\_hml, useNA = "always")}
+\CommentTok{\# cat("\#\# Table for family\_support\_high")}
+\CommentTok{\# table(dat$family\_support\_high, useNA = "always")}
+
+\CommentTok{\#cat("\#\# Table for family\_support\_hml")}
+\CommentTok{\#table(dat$family\_support\_hml, useNA = "always")}
+
+\NormalTok{t }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+          \FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{family\_support\_high, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\NormalTok{          ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =} \FunctionTok{round}\NormalTok{(Freq }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(Freq),}\DecValTok{3}\NormalTok{))}
+
+\FunctionTok{kable}\NormalTok{(t, }\AttributeTok{caption =} \StringTok{"family\_support\_high"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrr@{}}
+\caption{family\_support\_high}\tabularnewline
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0 & 65676 & 0.269 \\
+1 & 156068 & 0.639 \\
+NA & 22353 & 0.092 \\
+\end{longtable}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{t }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+          \FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{family\_support\_hml, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\NormalTok{          ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =} \FunctionTok{round}\NormalTok{(Freq }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(Freq),}\DecValTok{3}\NormalTok{))}
+
+\FunctionTok{kable}\NormalTok{(t, }\AttributeTok{caption =} \StringTok{"family\_support\_hml"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrr@{}}
+\caption{family\_support\_hml}\tabularnewline
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+High & 169660 & 0.695 \\
+Low & 23345 & 0.096 \\
+Med & 28739 & 0.118 \\
+NA & 22353 & 0.092 \\
+\end{longtable}
+
+\subsubsection{Friends (Peer) Support}\label{friends-peer-support}
+
+There are 4 friends support questions. The questions start with: We are
+interested in how you feel about the following statements. Please show
+how much you agree or disagree with each one. Please tick one box for
+each line.
+
+The answers range from 1 Very strongly disagree to 7 Very strongly
+agree.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{friend\_items }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+  \AttributeTok{item =} \FunctionTok{c}\NormalTok{(}
+    \StringTok{"friendhelp"}\NormalTok{,}
+    \StringTok{"friendcounton"}\NormalTok{,}
+    \StringTok{"friendshare"}\NormalTok{,}
+    \StringTok{"friendtalk"}
+\NormalTok{  ),}
+  \AttributeTok{topic =} \FunctionTok{c}\NormalTok{(}
+    \StringTok{"My friends really try to help me"}\NormalTok{,}
+    \StringTok{"I can count on my friends when things go wrong"}\NormalTok{,}
+    \StringTok{"I have friends with whom I can share my joys and sorrows"}\NormalTok{,}
+    \StringTok{"I can talk about my problems with my friends"}
+\NormalTok{  )}
+\NormalTok{)}
+
+\FunctionTok{kable}\NormalTok{(friend\_items)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1972}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8028}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+item
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+topic
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+friendhelp & My friends really try to help me \\
+friendcounton & I can count on my friends when things go wrong \\
+friendshare & I have friends with whom I can share my joys and
+sorrows \\
+friendtalk & I can talk about my problems with my friends \\
+\end{longtable}
+
+These variables are then combined to create a categorical predictor. For
+now, I will keep two options like I did for family but will select only
+one when modeling. These are:\\
+a) H/L based on avg of 4 vars. L if {[}1,5.5) and H if {[}5.5, 7{]}\\
+b) H/M/L based on sum of 4 vars. L if 4-11, M if 12-19, H if 20-28.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{vars\_friends\_support }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"friendhelp"}\NormalTok{, }\StringTok{"friendcounton"}\NormalTok{, }\StringTok{"friendshare"}\NormalTok{, }\StringTok{"friendtalk"}\NormalTok{)}
+\CommentTok{\# recode friends/peer support as yn and hml}
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{friends\_support\_avg =} \FunctionTok{rowMeans}\NormalTok{(dat[,vars\_friends\_support]),}
+         \AttributeTok{friends\_support\_sum =} \FunctionTok{rowSums}\NormalTok{(dat[,vars\_friends\_support])}
+\NormalTok{  ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{friends\_support\_high =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{    friends\_support\_avg }\SpecialCharTok{\textgreater{}=} \DecValTok{1} \SpecialCharTok{\&}\NormalTok{ friends\_support\_avg }\SpecialCharTok{\textless{}} \FloatTok{5.5} \SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+\NormalTok{    friends\_support\_avg }\SpecialCharTok{\textgreater{}=} \FloatTok{5.5} \SpecialCharTok{\&}\NormalTok{ friends\_support\_avg }\SpecialCharTok{\textless{}=} \DecValTok{7} \SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+    \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{friends\_support\_hml =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{    friends\_support\_sum }\SpecialCharTok{\textgreater{}=} \DecValTok{4} \SpecialCharTok{\&}\NormalTok{ friends\_support\_sum }\SpecialCharTok{\textless{}=} \DecValTok{11} \SpecialCharTok{\textasciitilde{}} \StringTok{"Low"}\NormalTok{,}
+\NormalTok{    friends\_support\_sum }\SpecialCharTok{\textgreater{}=} \DecValTok{12} \SpecialCharTok{\&}\NormalTok{ friends\_support\_sum }\SpecialCharTok{\textless{}=} \DecValTok{19} \SpecialCharTok{\textasciitilde{}} \StringTok{"Med"}\NormalTok{,}
+\NormalTok{    friends\_support\_sum }\SpecialCharTok{\textgreater{}=} \DecValTok{20} \SpecialCharTok{\&}\NormalTok{ friends\_support\_sum }\SpecialCharTok{\textless{}=} \DecValTok{28} \SpecialCharTok{\textasciitilde{}} \StringTok{"High"}\NormalTok{,}
+    \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+Their counts after recoding are:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{t }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+          \FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{friends\_support\_high, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\NormalTok{          ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =} \FunctionTok{round}\NormalTok{(Freq }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(Freq),}\DecValTok{3}\NormalTok{))}
+
+\FunctionTok{kable}\NormalTok{(t, }\AttributeTok{caption =} \StringTok{"friends\_support\_high"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrr@{}}
+\caption{friends\_support\_high}\tabularnewline
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0 & 95821 & 0.393 \\
+1 & 135380 & 0.555 \\
+NA & 12896 & 0.053 \\
+\end{longtable}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{t }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+          \FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{friends\_support\_hml, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\NormalTok{          ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =} \FunctionTok{round}\NormalTok{(Freq }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(Freq),}\DecValTok{3}\NormalTok{))}
+
+\FunctionTok{kable}\NormalTok{(t, }\AttributeTok{caption =} \StringTok{"friends\_support\_hml"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrr@{}}
+\caption{friends\_support\_hml}\tabularnewline
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+High & 155201 & 0.636 \\
+Low & 29537 & 0.121 \\
+Med & 46463 & 0.190 \\
+NA & 12896 & 0.053 \\
+\end{longtable}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# table(dat$friends\_support\_high, dat$friends\_support\_hml, useNA = "always")}
+\CommentTok{\# table(dat$friends\_support\_high, useNA = "always")}
+\CommentTok{\# table(dat$friends\_support\_hml, useNA = "always")}
+\end{Highlighting}
+\end{Shaded}
+
+\subsubsection{School support}\label{school-support}
+
+This metric is a combination of multiple questions from 2 categories:
+teacher acceptance and classmates acceptance. The answers to these
+questions go from 1 (strong agree) to 5 (strong disagree).
+
+The questions are:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{school\_items }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+  \AttributeTok{category =} \FunctionTok{c}\NormalTok{(}\StringTok{"teacher"}\NormalTok{, }\StringTok{"teacher"}\NormalTok{, }\StringTok{"teacher"}\NormalTok{,}
+               \StringTok{"classmates"}\NormalTok{, }\StringTok{"classmates"}\NormalTok{, }\StringTok{"classmates"}\NormalTok{),}
+  \AttributeTok{item =} \FunctionTok{c}\NormalTok{(}\StringTok{"teacheraccept"}\NormalTok{,}
+           \StringTok{"teachercare"}\NormalTok{,}
+           \StringTok{"teachertrust"}\NormalTok{,}
+           \StringTok{"studtogether"}\NormalTok{,}
+           \StringTok{"studhelpful"}\NormalTok{,}
+           \StringTok{"studaccept"}\NormalTok{),}
+  \AttributeTok{topic =} \FunctionTok{c}\NormalTok{(}\StringTok{"Teacher accepts me"}\NormalTok{,}
+            \StringTok{"Teacher cares about me"}\NormalTok{,}
+            \StringTok{"Feel trust in teacher"}\NormalTok{,}
+            \StringTok{"Students enjoy being together"}\NormalTok{,}
+            \StringTok{"Students kind and helpful"}\NormalTok{,}
+            \StringTok{"Students accept me"}\NormalTok{)}
+\NormalTok{)}
+
+\FunctionTok{kable}\NormalTok{(school\_items)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+category & item & topic \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+teacher & teacheraccept & Teacher accepts me \\
+teacher & teachercare & Teacher cares about me \\
+teacher & teachertrust & Feel trust in teacher \\
+classmates & studtogether & Students enjoy being together \\
+classmates & studhelpful & Students kind and helpful \\
+classmates & studaccept & Students accept me \\
+\end{longtable}
+
+The scales of these variables is reversed so 1 is negative and 5 is the
+most positive. Then an arithmetic average is calculated for teacher and
+students. The based on this average a high/low support is calculated for
+each with 4 being the threshold.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# recodes from 1{-}5 to 0{-}4 (06{-}italy)}
+\NormalTok{recode\_school\_vars }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(old\_values)\{}
+  
+\NormalTok{  new\_values }\OtherTok{\textless{}{-}} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{    old\_values }\SpecialCharTok{==} \DecValTok{5} \SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+\NormalTok{    old\_values }\SpecialCharTok{==} \DecValTok{4} \SpecialCharTok{\textasciitilde{}} \DecValTok{2}\NormalTok{,}
+\NormalTok{    old\_values }\SpecialCharTok{==} \DecValTok{3} \SpecialCharTok{\textasciitilde{}} \DecValTok{3}\NormalTok{,}
+\NormalTok{    old\_values }\SpecialCharTok{==} \DecValTok{2} \SpecialCharTok{\textasciitilde{}} \DecValTok{4}\NormalTok{,}
+\NormalTok{    old\_values }\SpecialCharTok{==} \DecValTok{1} \SpecialCharTok{\textasciitilde{}} \DecValTok{5}\NormalTok{,}
+    \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}
+\NormalTok{  )}
+  
+  \FunctionTok{return}\NormalTok{(new\_values)}
+  
+\NormalTok{\}}
+
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \CommentTok{\# recode they can be added}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{teacheraccept\_r =} \FunctionTok{recode\_school\_vars}\NormalTok{(teacheraccept),}
+         \AttributeTok{teachercare\_r =} \FunctionTok{recode\_school\_vars}\NormalTok{(teachercare),}
+         \AttributeTok{teachertrust\_r =} \FunctionTok{recode\_school\_vars}\NormalTok{(teachertrust),}
+         \AttributeTok{studtogether\_r =} \FunctionTok{recode\_school\_vars}\NormalTok{(studtogether),}
+         \AttributeTok{studhelpful\_r =} \FunctionTok{recode\_school\_vars}\NormalTok{(studhelpful),}
+         \AttributeTok{studaccept\_r =} \FunctionTok{recode\_school\_vars}\NormalTok{(studaccept)}
+\NormalTok{         ) }\SpecialCharTok{\%\textgreater{}\%}
+  \CommentTok{\# derive avg by teacher/student}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{teacher\_support\_avg =}\NormalTok{ (teacheraccept\_r }
+                               \SpecialCharTok{+}\NormalTok{ teachercare\_r}
+                               \SpecialCharTok{+}\NormalTok{ teachertrust\_r) }\SpecialCharTok{/} \DecValTok{3}\NormalTok{,}
+         \AttributeTok{student\_support\_avg =}\NormalTok{ (studtogether\_r}
+                                \SpecialCharTok{+}\NormalTok{ studhelpful\_r}
+                                \SpecialCharTok{+}\NormalTok{ studaccept\_r) }\SpecialCharTok{/} \DecValTok{3}\NormalTok{,}
+         \CommentTok{\# just for fun combine and try}
+         \AttributeTok{school\_support\_avg =}\NormalTok{ (teacheraccept\_r }
+                                \SpecialCharTok{+}\NormalTok{ teachercare\_r}
+                                \SpecialCharTok{+}\NormalTok{ teachertrust\_r}
+                                \SpecialCharTok{+}\NormalTok{ studtogether\_r}
+                                \SpecialCharTok{+}\NormalTok{ studhelpful\_r}
+                                \SpecialCharTok{+}\NormalTok{ studaccept\_r) }\SpecialCharTok{/} \DecValTok{6}\NormalTok{,}
+\NormalTok{         ) }\SpecialCharTok{\%\textgreater{}\%}
+  \CommentTok{\# derive support yn based on hbsc}
+  \FunctionTok{mutate}\NormalTok{(}
+    \AttributeTok{teacher\_support\_high =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{      teacher\_support\_avg }\SpecialCharTok{\textgreater{}=} \DecValTok{4} \SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+\NormalTok{      teacher\_support\_avg }\SpecialCharTok{\textless{}} \DecValTok{4} \SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+      \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{),}
+      \AttributeTok{student\_support\_high =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{        student\_support\_avg }\SpecialCharTok{\textgreater{}=} \DecValTok{4} \SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+\NormalTok{        student\_support\_avg }\SpecialCharTok{\textless{}} \DecValTok{4} \SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+        \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{),}
+      \AttributeTok{school\_support\_high =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{        school\_support\_avg }\SpecialCharTok{\textgreater{}=} \DecValTok{4} \SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+\NormalTok{        school\_support\_avg }\SpecialCharTok{\textless{}} \DecValTok{4} \SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+      \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{)}
+\NormalTok{  )}
+\end{Highlighting}
+\end{Shaded}
+
+The recoding of each var is:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{vars\_school }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"teacheraccept"}\NormalTok{,}
+           \StringTok{"teachercare"}\NormalTok{,}
+           \StringTok{"teachertrust"}\NormalTok{,}
+           \StringTok{"studtogether"}\NormalTok{,}
+           \StringTok{"studhelpful"}\NormalTok{,}
+           \StringTok{"studaccept"}\NormalTok{)}
+
+\NormalTok{vars\_school\_r }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(vars\_school,}
+                        \StringTok{"\_r"}\NormalTok{)}
+
+\ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \FunctionTok{seq\_along}\NormalTok{(vars\_school)) \{}
+  \FunctionTok{cat}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}n\textbackslash{}n}\StringTok{\#\#\#"}\NormalTok{, vars\_school[i], }\StringTok{"x"}\NormalTok{, vars\_school\_r[i], }\StringTok{"}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+  \FunctionTok{print}\NormalTok{(}\FunctionTok{table}\NormalTok{(dat[[vars\_school[i]]], dat[[vars\_school\_r[i]]], }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{))}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+## 
+## ### teacheraccept x teacheraccept_r 
+##       
+##            1     2     3     4     5  <NA>
+##   1        0     0     0     0 90101     0
+##   2        0     0     0 88287     0     0
+##   3        0     0 33135     0     0     0
+##   4        0  9562     0     0     0     0
+##   5     6248     0     0     0     0     0
+##   <NA>     0     0     0     0     0 16764
+## 
+## 
+## ### teachercare x teachercare_r 
+##       
+##            1     2     3     4     5  <NA>
+##   1        0     0     0     0 58512     0
+##   2        0     0     0 81902     0     0
+##   3        0     0 56100     0     0     0
+##   4        0 18645     0     0     0     0
+##   5    10598     0     0     0     0     0
+##   <NA>     0     0     0     0     0 18340
+## 
+## 
+## ### teachertrust x teachertrust_r 
+##       
+##            1     2     3     4     5  <NA>
+##   1        0     0     0     0 65528     0
+##   2        0     0     0 72597     0     0
+##   3        0     0 53595     0     0     0
+##   4        0 20051     0     0     0     0
+##   5    14487     0     0     0     0     0
+##   <NA>     0     0     0     0     0 17839
+## 
+## 
+## ### studtogether x studtogether_r 
+##       
+##            1     2     3     4     5  <NA>
+##   1        0     0     0     0 64685     0
+##   2        0     0     0 91183     0     0
+##   3        0     0 52410     0     0     0
+##   4        0 12772     0     0     0     0
+##   5     6696     0     0     0     0     0
+##   <NA>     0     0     0     0     0 16351
+## 
+## 
+## ### studhelpful x studhelpful_r 
+##       
+##            1     2     3     4     5  <NA>
+##   1        0     0     0     0 57252     0
+##   2        0     0     0 90713     0     0
+##   3        0     0 50364     0     0     0
+##   4        0 19809     0     0     0     0
+##   5     9213     0     0     0     0     0
+##   <NA>     0     0     0     0     0 16746
+## 
+## 
+## ### studaccept x studaccept_r 
+##       
+##            1     2     3     4     5  <NA>
+##   1        0     0     0     0 79297     0
+##   2        0     0     0 87972     0     0
+##   3        0     0 37998     0     0     0
+##   4        0 12786     0     0     0     0
+##   5     8600     0     0     0     0     0
+##   <NA>     0     0     0     0     0 17444
+\end{verbatim}
+
+And the actual recoded predictors look like:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{t }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{teacher\_support\_high, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =} \FunctionTok{round}\NormalTok{(Freq }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(Freq),}\DecValTok{3}\NormalTok{))}
+\FunctionTok{kable}\NormalTok{(t, }\AttributeTok{caption =} \StringTok{"teacher\_support\_high"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrr@{}}
+\caption{teacher\_support\_high}\tabularnewline
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0 & 100287 & 0.411 \\
+1 & 124049 & 0.508 \\
+NA & 19761 & 0.081 \\
+\end{longtable}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{t }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{student\_support\_high, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =} \FunctionTok{round}\NormalTok{(Freq }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(Freq),}\DecValTok{3}\NormalTok{))}
+\FunctionTok{kable}\NormalTok{(t, }\AttributeTok{caption =} \StringTok{"student\_support\_high"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrr@{}}
+\caption{student\_support\_high}\tabularnewline
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0 & 96707 & 0.396 \\
+1 & 128592 & 0.527 \\
+NA & 18798 & 0.077 \\
+\end{longtable}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{t }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{school\_support\_high, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =} \FunctionTok{round}\NormalTok{(Freq }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(Freq),}\DecValTok{3}\NormalTok{))}
+\FunctionTok{kable}\NormalTok{(t, }\AttributeTok{caption =} \StringTok{"school\_support\_high"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrr@{}}
+\caption{school\_support\_high}\tabularnewline
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Var1 & Freq & pct \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0 & 111725 & 0.458 \\
+1 & 109746 & 0.450 \\
+NA & 22626 & 0.093 \\
+\end{longtable}
+
+\subsubsection{IRRELFAS\_LMH: Relative family affluence
+categorical}\label{irrelfas_lmh-relative-family-affluence-categorical}
+
+Derived from IRFAS. So check list of fas-variables in the dataset. It is
+a cut based on percentiles so I recode to friendly. 1 Lowest 20 pct\\
+2 Medium 60 pct\\
+3 Highest 20 pct
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{IRRELFAS\_LMH\_r =} 
+           \FunctionTok{case\_when}\NormalTok{(IRRELFAS\_LMH }\SpecialCharTok{==} \DecValTok{1} \SpecialCharTok{\textasciitilde{}} \StringTok{"Low20"}\NormalTok{,}
+\NormalTok{                     IRRELFAS\_LMH }\SpecialCharTok{==} \DecValTok{2} \SpecialCharTok{\textasciitilde{}} \StringTok{"Med60"}\NormalTok{,}
+\NormalTok{                     IRRELFAS\_LMH }\SpecialCharTok{==} \DecValTok{3} \SpecialCharTok{\textasciitilde{}} \StringTok{"High20"}\NormalTok{,}
+                     \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{)}
+\NormalTok{  )}
+
+\NormalTok{t }\OtherTok{\textless{}{-}} \FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{IRRELFAS\_LMH,}
+\NormalTok{           dat}\SpecialCharTok{$}\NormalTok{IRRELFAS\_LMH\_r,}
+           \AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+
+\FunctionTok{kable}\NormalTok{(t,}
+       \AttributeTok{caption =} \StringTok{"IRRELFAS\_LMH x IRRELFAS\_LMH\_r"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrrrr@{}}
+\caption{IRRELFAS\_LMH x IRRELFAS\_LMH\_r}\tabularnewline
+\toprule\noalign{}
+& High20 & Low20 & Med60 & NA \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+& High20 & Low20 & Med60 & NA \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & 0 & 45818 & 0 & 0 \\
+2 & 0 & 0 & 142148 & 0 \\
+3 & 43532 & 0 & 0 & 0 \\
+NA & 0 & 0 & 0 & 12599 \\
+\end{longtable}
+
+\subsubsection{talkfather and
+talkmother}\label{talkfather-and-talkmother}
+
+Two questions measure parent communication. The pre-question is: How
+easy is it for you to talk to the following persons about things that
+really bother you? Please tick one box for each line
+
+Answers go from 1 Very easy to 5 Don't have or see.
+
+These are dichotomized for each parent as Yes if {[}1,2{]} and No if
+{[}3-5{]}.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{talkfatherYes =} 
+           \FunctionTok{case\_when}\NormalTok{(talkfather }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{2}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+\NormalTok{                     talkfather }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\DecValTok{3}\NormalTok{,}\DecValTok{4}\NormalTok{,}\DecValTok{5}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+                     \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{),}
+         \AttributeTok{talkmotherYes =} 
+           \FunctionTok{case\_when}\NormalTok{(talkmother }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{2}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+\NormalTok{                     talkmother }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\DecValTok{3}\NormalTok{,}\DecValTok{4}\NormalTok{,}\DecValTok{5}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+                     \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{)}
+\NormalTok{         )}
+
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for talkfatherYes x talkfather"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for talkfatherYes x talkfather
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{talkfather, dat}\SpecialCharTok{$}\NormalTok{talkfatherYes, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##            0     1  <NA>
+##   1        0 73777     0
+##   2        0 78346     0
+##   3    40289     0     0
+##   4    19010     0     0
+##   5    15184     0     0
+##   <NA>     0     0 17491
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for talkmotherYes x talkmother"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for talkmotherYes x talkmother
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{talkmother, dat}\SpecialCharTok{$}\NormalTok{talkmotherYes, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##             0      1   <NA>
+##   1         0 115899      0
+##   2         0  74913      0
+##   3     24042      0      0
+##   4      9276      0      0
+##   5      4446      0      0
+##   <NA>      0      0  15521
+\end{verbatim}
+
+I was going to combine to a ``number of parents one can talk'' but I'll
+leave for now and will try as interactions later.
+
+\subsubsection{bullying victim}\label{bullying-victim}
+
+There are 2 variables that measure if kid has been bullied. a)
+beenbullied: Been bullied past months and b) cbeenbullied: Been cyber
+bullied. Answers range from 1 Haven't to 5 Several times a week.
+
+These are dichotomized as Yes if {[}2-5{]} and No if {[}1{]}.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{beenbulliedYes =} 
+           \FunctionTok{case\_when}\NormalTok{(beenbullied }\SpecialCharTok{==} \DecValTok{1} \SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+                     \FunctionTok{between}\NormalTok{(beenbullied, }\DecValTok{2}\NormalTok{, }\DecValTok{5}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+                     \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{),}
+         \AttributeTok{cbeenbulliedYes =} 
+           \FunctionTok{case\_when}\NormalTok{(cbeenbullied }\SpecialCharTok{==} \DecValTok{1} \SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+                     \FunctionTok{between}\NormalTok{(cbeenbullied, }\DecValTok{2}\NormalTok{, }\DecValTok{5}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+                     \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}\NormalTok{)}
+\NormalTok{           )}
+
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for beenbullied x beenbulliedYes"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for beenbullied x beenbulliedYes
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{beenbullied, dat}\SpecialCharTok{$}\NormalTok{beenbulliedYes, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##             0      1   <NA>
+##   1    166254      0      0
+##   2         0  36624      0
+##   3         0   9754      0
+##   4         0   6179      0
+##   5         0   8324      0
+##   <NA>      0      0  16962
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for cbeenbullied x cbeenbulliedYes"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for cbeenbullied x cbeenbulliedYes
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{cbeenbullied, dat}\SpecialCharTok{$}\NormalTok{cbeenbulliedYes, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##             0      1   <NA>
+##   1    198900      0      0
+##   2         0  20426      0
+##   3         0   4625      0
+##   4         0   2274      0
+##   5         0   2788      0
+##   <NA>      0      0  15084
+\end{verbatim}
+
+\subsubsection{age and sex(gender)}\label{age-and-sexgender}
+
+There are 3 age groups and 2 genders. I recode to friendly/actual value
+and they look like this.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}
+    \AttributeTok{age\_r =} \FunctionTok{case\_match}\NormalTok{(agecat,}
+                             \DecValTok{1} \SpecialCharTok{\textasciitilde{}} \DecValTok{11}\NormalTok{,}
+                             \DecValTok{2} \SpecialCharTok{\textasciitilde{}} \DecValTok{13}\NormalTok{,}
+                             \DecValTok{3} \SpecialCharTok{\textasciitilde{}} \DecValTok{15}\NormalTok{,}
+                             \AttributeTok{.default =} \ConstantTok{NA}
+\NormalTok{                             ),}
+    \AttributeTok{sex\_r =} \FunctionTok{case\_match}\NormalTok{(sex,}
+                             \DecValTok{1} \SpecialCharTok{\textasciitilde{}} \StringTok{"Boy"}\NormalTok{,}
+                             \DecValTok{2} \SpecialCharTok{\textasciitilde{}} \StringTok{"Girl"}\NormalTok{,}
+                             \AttributeTok{.default =} \ConstantTok{NA}\NormalTok{)}
+\NormalTok{  )}
+
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for agecat x age\_r"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for agecat x age_r
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{agecat, dat}\SpecialCharTok{$}\NormalTok{age\_r, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##           11    13    15  <NA>
+##   1    81834     0     0     0
+##   2        0 83749     0     0
+##   3        0     0 76998     0
+##   <NA>     0     0     0  1516
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for sex x sex\_r"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for sex x sex_r
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{sex, dat}\SpecialCharTok{$}\NormalTok{sex\_r, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##           Boy   Girl   <NA>
+##   1    120350      0      0
+##   2         0 123747      0
+##   <NA>      0      0      0
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{(}\StringTok{"\#\# Table for age\_r x sex\_r"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ## Table for age_r x sex_r
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{age\_r, dat}\SpecialCharTok{$}\NormalTok{sex\_r, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##          Boy  Girl  <NA>
+##   11   40476 41358     0
+##   13   41612 42137     0
+##   15   37394 39604     0
+##   <NA>   868   648     0
+\end{verbatim}
+
+\subsubsection{Continuos Online
+Communications}\label{continuos-online-communications}
+
+This category measures how how often young person communicate online
+with 4 types of people in their life. Preamble of question is: How often
+do you have ONLINE contact with the following people? Answers range from
+1 (NA or don't know) to 6 (almost all of the time).
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Variable & Description \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+emconlfreq1 & Online contact with close friends \\
+emconlfreq2 & Online contact with larger friend group \\
+emconlfreq3 & Online contact with online friends \\
+emconlfreq4 & Online contact with other \\
+\end{longtable}
+
+I combine this into one dichotomized and adopt the HBSC definition of
+yes if any of the variables is 6.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{emconlfreqYes =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{    (emconlfreq1 }\SpecialCharTok{==} \DecValTok{6} \SpecialCharTok{|}\NormalTok{ emconlfreq2 }\SpecialCharTok{==} \DecValTok{6} \SpecialCharTok{|}\NormalTok{ emconlfreq3 }\SpecialCharTok{==} \DecValTok{6} \SpecialCharTok{|}\NormalTok{ emconlfreq4 }\SpecialCharTok{==} \DecValTok{6}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+\NormalTok{    (}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(emconlfreq1) }\SpecialCharTok{|} \SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(emconlfreq2) }\SpecialCharTok{|} \SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(emconlfreq3) }\SpecialCharTok{|} \SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(emconlfreq4)) }\SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+    \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}
+\NormalTok{  )) }
+\CommentTok{\#still need to do something with 99}
+
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{emconlfreqYes, }\AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+##      0      1   <NA> 
+## 143585  74898  25614
+\end{verbatim}
+
+\subsubsection{Prefer Online life}\label{prefer-online-life}
+
+I haven't found a paper that include this but I want to. It asks
+questions about preference of sharing important stuff online vs
+real-life. The three variables are:
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Variable & Description \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+emconlpref1 & Secrets, more easily online \\
+emconlpref2 & Feelings, more easily online \\
+emconlpref3 & Concerns, more easily online \\
+\end{longtable}
+
+The answers range from 1 (Strong disagree) to 5 (Strong agree). The
+counts are:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{online\_life }\OtherTok{\textless{}{-}}\NormalTok{ vars }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"emconlpref1"}\NormalTok{, }\StringTok{"emconlpref2"}\NormalTok{, }\StringTok{"emconlpref3"}\NormalTok{)}
+
+\ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \FunctionTok{seq\_along}\NormalTok{(online\_life))\{}
+  \CommentTok{\#print(online\_life[i])}
+  \CommentTok{\#print(table(dat[online\_life[1]], useNA = "ifany"))}
+  
+  \FunctionTok{print}\NormalTok{(}
+\NormalTok{    dat }\SpecialCharTok{\%\textgreater{}\%} 
+      \FunctionTok{group\_by}\NormalTok{(.data[[ online\_life[i] ]]) }\SpecialCharTok{\%\textgreater{}\%} 
+      \FunctionTok{tally}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+      \FunctionTok{mutate}\NormalTok{(}\AttributeTok{pct =} \FunctionTok{round}\NormalTok{(n}\SpecialCharTok{/}\FunctionTok{sum}\NormalTok{(n),}\DecValTok{3}\NormalTok{))}
+\NormalTok{  )}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 7 x 3
+##   emconlpref1     n   pct
+##         <dbl> <int> <dbl>
+## 1           1 79803 0.327
+## 2           2 43850 0.18 
+## 3           3 38481 0.158
+## 4           4 25303 0.104
+## 5           5 15588 0.064
+## 6          99 11259 0.046
+## 7          NA 29813 0.122
+## # A tibble: 7 x 3
+##   emconlpref2     n   pct
+##         <dbl> <int> <dbl>
+## 1           1 73132 0.3  
+## 2           2 44817 0.184
+## 3           3 38415 0.157
+## 4           4 29753 0.122
+## 5           5 16135 0.066
+## 6          99 11259 0.046
+## 7          NA 30586 0.125
+## # A tibble: 7 x 3
+##   emconlpref3     n   pct
+##         <dbl> <int> <dbl>
+## 1           1 76316 0.313
+## 2           2 46124 0.189
+## 3           3 39569 0.162
+## 4           4 25442 0.104
+## 5           5 14290 0.059
+## 6          99 11259 0.046
+## 7          NA 31097 0.127
+\end{verbatim}
+
+For this I copy the school approach which is avg and dichotomize with 4
+as threshold:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{lives\_online =}\NormalTok{ (emconlpref1 }\SpecialCharTok{+}\NormalTok{  emconlpref2 }\SpecialCharTok{+}\NormalTok{  emconlpref3)}\SpecialCharTok{/}\DecValTok{3}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{lives\_onlineYN =} \FunctionTok{ifelse}\NormalTok{(lives\_online }\SpecialCharTok{\textgreater{}=} \DecValTok{4}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{)}
+\NormalTok{         )}
+
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{lives\_online }\SpecialCharTok{\%/\%} \DecValTok{1}\NormalTok{,}
+\NormalTok{      dat}\SpecialCharTok{$}\NormalTok{lives\_onlineYN,}
+      \AttributeTok{useNA =} \StringTok{"always"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##            0     1  <NA>
+##   1    76743     0     0
+##   2    54007     0     0
+##   3    42509     0     0
+##   4        0 18411     0
+##   5        0  9262     0
+##   99       0 11259     0
+##   <NA>     0     0 31906
+\end{verbatim}
+
+\section{timeexe: Vigorous physical activity
+frequency}\label{timeexe-vigorous-physical-activity-frequency}
+
+Question is Outside school hours: how often do you usually exercise in
+your free time so much that you get out of breath or sweat? Answers go
+from 1 (every day) to 7 never.
+
+HBSC shows proportions of those that do three or more times per week.
+But that is 2022 data, in our case we do 2-3 times per week or more.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{timeexe\_r =} \FunctionTok{case\_when}\NormalTok{(}
+    \FunctionTok{between}\NormalTok{(timeexe, }\DecValTok{1}\NormalTok{, }\DecValTok{3}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+    \FunctionTok{between}\NormalTok{(timeexe, }\DecValTok{4}\NormalTok{, }\DecValTok{7}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+    \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}
+\NormalTok{  ))}
+
+\FunctionTok{print}\NormalTok{(}
+\FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{timeexe,}
+\NormalTok{      dat}\SpecialCharTok{$}\NormalTok{timeexe\_r,}
+      \AttributeTok{useNA =} \StringTok{"ifany"}\NormalTok{)}
+\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##            0     1  <NA>
+##   1        0 41797     0
+##   2        0 56673     0
+##   3        0 71661     0
+##   4    32246     0     0
+##   5    10541     0     0
+##   6    10256     0     0
+##   7    16124     0     0
+##   <NA>     0     0  4799
+\end{verbatim}
+
+\section{alc30d\_2: Alcohol use last 30
+days}\label{alc30d_2-alcohol-use-last-30-days}
+
+Question is On how many days (if any) have you drunk alcohol? Answers
+are binned and go from 1 (never) to 7 (30 days or more). HBSC
+dichotomizes as Never vs Yes so I will do the same.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{alc30d\_YN =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{    alc30d\_2 }\SpecialCharTok{==} \DecValTok{1} \SpecialCharTok{\textasciitilde{}} \DecValTok{0}\NormalTok{,}
+\NormalTok{    alc30d\_2 }\SpecialCharTok{!=} \DecValTok{1} \SpecialCharTok{\textasciitilde{}} \DecValTok{1}\NormalTok{,}
+    \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \ConstantTok{NA}
+\NormalTok{  ))}
+
+\FunctionTok{print}\NormalTok{(}
+  \FunctionTok{table}\NormalTok{(dat}\SpecialCharTok{$}\NormalTok{alc30d\_2,}
+\NormalTok{        dat}\SpecialCharTok{$}\NormalTok{alc30d\_YN,}
+        \AttributeTok{useNA =} \StringTok{"ifany"}\NormalTok{)}
+\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       
+##             0      1   <NA>
+##   1    181984      0      0
+##   2         0  26230      0
+##   3         0   8277      0
+##   4         0   3805      0
+##   5         0   1892      0
+##   6         0    646      0
+##   7         0   1937      0
+##   <NA>      0      0  19326
+\end{verbatim}
+
+\subsection{Dataset for Modeling}\label{dataset-for-modeling}
+
+Only the relevant and prepared variables are exported to a csv so I can
+start the modeling process with those. File goes to ``data/processed/''
+and includes date.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat\_out }\OtherTok{\textless{}{-}}\NormalTok{ dat }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(seqno\_int,}
+\NormalTok{         country\_name,}
+\NormalTok{         lifesat\_low, }
+\NormalTok{         mental\_complaintsY, }
+\NormalTok{         health\_complaintsY, }
+\NormalTok{         pmsu\_lmh, }
+\NormalTok{         pmsu\_yn, }
+\NormalTok{         family\_support\_high, }
+\NormalTok{         family\_support\_hml, }
+\NormalTok{         friends\_support\_high, }
+\NormalTok{         friends\_support\_hml, }
+\NormalTok{         teacher\_support\_high,}
+\NormalTok{         student\_support\_high,}
+\NormalTok{         school\_support\_high,}
+\NormalTok{         IRRELFAS\_LMH\_r, }
+\NormalTok{         talkfatherYes, }
+\NormalTok{         talkmotherYes, }
+\NormalTok{         beenbulliedYes, }
+\NormalTok{         cbeenbulliedYes, }
+\NormalTok{         age\_r, }
+\NormalTok{         sex\_r,}
+\NormalTok{         emconlfreqYes,}
+\NormalTok{         lives\_onlineYN,}
+\NormalTok{         timeexe\_r,}
+\NormalTok{         alc30d\_YN}
+\NormalTok{         )}
+
+\FunctionTok{summary}\NormalTok{(dat\_out)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##    seqno_int       country_name        lifesat_low     mental_complaintsY
+##  Min.   : 100001   Length:244097      Min.   :0.0000   Min.   :0.0000    
+##  1st Qu.:1013119   Class :character   1st Qu.:0.0000   1st Qu.:0.0000    
+##  Median :2301741   Mode  :character   Median :0.0000   Median :0.0000    
+##  Mean   :2390239                      Mean   :0.1327   Mean   :0.2774    
+##  3rd Qu.:3600677                      3rd Qu.:0.0000   3rd Qu.:1.0000    
+##  Max.   :4813535                      Max.   :1.0000   Max.   :1.0000    
+##                                       NA's   :4512     NA's   :12882     
+##  health_complaintsY   pmsu_lmh            pmsu_yn      family_support_high
+##  Min.   :0.0000     Length:244097      Min.   :0.000   Min.   :0.0000     
+##  1st Qu.:0.0000     Class :character   1st Qu.:0.000   1st Qu.:0.0000     
+##  Median :0.0000     Mode  :character   Median :0.000   Median :1.0000     
+##  Mean   :0.3667                        Mean   :0.073   Mean   :0.7038     
+##  3rd Qu.:1.0000                        3rd Qu.:0.000   3rd Qu.:1.0000     
+##  Max.   :1.0000                        Max.   :1.000   Max.   :1.0000     
+##  NA's   :14191                         NA's   :50910   NA's   :22353      
+##  family_support_hml friends_support_high friends_support_hml
+##  Length:244097      Min.   :0.0000       Length:244097      
+##  Class :character   1st Qu.:0.0000       Class :character   
+##  Mode  :character   Median :1.0000       Mode  :character   
+##                     Mean   :0.5856                          
+##                     3rd Qu.:1.0000                          
+##                     Max.   :1.0000                          
+##                     NA's   :12896                           
+##  teacher_support_high student_support_high school_support_high
+##  Min.   :0.000        Min.   :0.0000       Min.   :0.0000     
+##  1st Qu.:0.000        1st Qu.:0.0000       1st Qu.:0.0000     
+##  Median :1.000        Median :1.0000       Median :0.0000     
+##  Mean   :0.553        Mean   :0.5708       Mean   :0.4955     
+##  3rd Qu.:1.000        3rd Qu.:1.0000       3rd Qu.:1.0000     
+##  Max.   :1.000        Max.   :1.0000       Max.   :1.0000     
+##  NA's   :19761        NA's   :18798        NA's   :22626      
+##  IRRELFAS_LMH_r     talkfatherYes    talkmotherYes    beenbulliedYes 
+##  Length:244097      Min.   :0.0000   Min.   :0.0000   Min.   :0.000  
+##  Class :character   1st Qu.:0.0000   1st Qu.:1.0000   1st Qu.:0.000  
+##  Mode  :character   Median :1.0000   Median :1.0000   Median :0.000  
+##                     Mean   :0.6713   Mean   :0.8348   Mean   :0.268  
+##                     3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.000  
+##                     Max.   :1.0000   Max.   :1.0000   Max.   :1.000  
+##                     NA's   :17491    NA's   :15521    NA's   :16962  
+##  cbeenbulliedYes      age_r          sex_r           emconlfreqYes   
+##  Min.   :0.0000   Min.   :11.00   Length:244097      Min.   :0.0000  
+##  1st Qu.:0.0000   1st Qu.:11.00   Class :character   1st Qu.:0.0000  
+##  Median :0.0000   Median :13.00   Mode  :character   Median :0.0000  
+##  Mean   :0.1315   Mean   :12.96                      Mean   :0.3428  
+##  3rd Qu.:0.0000   3rd Qu.:15.00                      3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :15.00                      Max.   :1.0000  
+##  NA's   :15084    NA's   :1516                       NA's   :25614   
+##  lives_onlineYN    timeexe_r       alc30d_YN     
+##  Min.   :0.000   Min.   :0.000   Min.   :0.0000  
+##  1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.0000  
+##  Median :0.000   Median :1.000   Median :0.0000  
+##  Mean   :0.183   Mean   :0.711   Mean   :0.1904  
+##  3rd Qu.:0.000   3rd Qu.:1.000   3rd Qu.:0.0000  
+##  Max.   :1.000   Max.   :1.000   Max.   :1.0000  
+##  NA's   :31906   NA's   :4799    NA's   :19326
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dat\_out\_filename }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(project\_folder,}
+                           \StringTok{"data/processed/"}\NormalTok{,}
+                           \StringTok{"dat\_"}\NormalTok{, }\FunctionTok{Sys.Date}\NormalTok{(), }\StringTok{".csv"}\NormalTok{)}
+
+\CommentTok{\#write\_csv(dat\_out,}
+ \CommentTok{\#         dat\_out\_filename)}
+
+\CommentTok{\# output el full mejor}
+\FunctionTok{write\_csv}\NormalTok{(dat,}
+\NormalTok{          dat\_out\_filename)}
+\end{Highlighting}
+\end{Shaded}
+
+
+\end{document}

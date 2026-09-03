@@ -1,0 +1,1035 @@
+---
+title: 'HBSC: Data Overview and Prep'
+date: "Updated: `r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  html_notebook: default
+  pdf_document: default
+urlcolor: blue
+---
+
+```{r project_setup}
+
+rm(list = ls())
+
+setwd("C:/MisLocalFiles/Github/HBSC/scripts/data_prep/")
+project_folder <- "C:/MisLocalFiles/Github/HBSC/"
+
+require(tidyverse)
+require(broom)
+require(naniar)
+library(purrr)
+library(patchwork)
+library(knitr)
+
+```
+
+## Dataset Overview
+
+```{r data_load}
+
+hbsc2018 <- read_delim(paste0(project_folder,
+                                  "/data/raw/HBSC2018OAed1.1.csv"),
+                       delim = ";",
+                       na = c("", " "))
+# working copy
+dat <- hbsc2018
+
+```
+
+File has the following rows and columns:
+
+```{r}
+
+dim(hbsc2018)
+
+```
+
+Pretty much all columns have missing values so need to address later. Though it 
+seems much of the variables I will care about don't have much.
+
+```{r}
+
+na_cnts <- data.frame(
+  variable = names(dat),
+  na_count = sapply(dat, function(x) sum(is.na(x)))
+)
+
+row.names(na_cnts) <- NULL
+
+na_cnts <- na_cnts %>%
+  mutate(na_pct = round(100 * na_count / nrow(dat),1)) %>%
+  arrange(desc(na_count))
+
+print(na_cnts)
+
+```
+
+### seqno_int
+This is the unique identifier of each record and I confirmed it's unique.
+
+```{r}
+
+length(unique(dat$seqno_int)) == nrow(dat)
+
+```
+
+### countryno
+Number of countries in dataset is:
+
+```{r}
+
+length(unique(dat$countryno))
+
+```
+And this is the count of survey responses by country:
+
+```{r country_recode}
+
+recode_map <- c(
+  "8000"   = "Albania",
+  "31000"  = "Azerbaijan",
+  "40000"  = "Austria",
+  "51000"  = "Armenia",
+  "56001"  = "Belgium (Flemish)",
+  "56002"  = "Belgium (French)",
+  "100000" = "Bulgaria",
+  "124000" = "Canada",
+  "191000" = "Croatia",
+  "203000" = "Czech Republic",
+  "208000" = "Denmark",
+  "233000" = "Estonia",
+  "246000" = "Finland",
+  "250000" = "France",
+  "268000" = "Georgia",
+  "276000" = "Germany",
+  "300000" = "Greece",
+  "304000" = "Greenland",
+  "348000" = "Hungary",
+  "352000" = "Iceland",
+  "372000" = "Ireland",
+  "376000" = "Israel",
+  "380000" = "Italy",
+  "398000" = "Kazakhstan",
+  "428000" = "Latvia",
+  "440000" = "Lithuania",
+  "442000" = "Luxembourg",
+  "470000" = "Malta",
+  "498000" = "Republic of Moldova",
+  "528000" = "Netherlands",
+  "578000" = "Norway",
+  "616000" = "Poland",
+  "620000" = "Portugal",
+  "642000" = "Romania",
+  "643000" = "Russia",
+  "688000" = "Serbia",
+  "703000" = "Slovakia",
+  "705000" = "Slovenia",
+  "724000" = "Spain",
+  "752000" = "Sweden",
+  "756000" = "Switzerland",
+  "792000" = "Turkey",
+  "804000" = "Ukraine",
+  "807000" = "Macedonia",
+  "826001" = "England",
+  "826002" = "Scotland",
+  "826003" = "Wales",
+  "826004" = "Northern Ireland",
+  "840000" = "USA"
+)
+
+dat$country_name <- recode_map[as.character(dat$countryno)]
+
+dat %>%
+  group_by(country_name) %>%
+  summarise(n = n(),
+            .groups = "drop") %>%
+  mutate(pct = round(100 * n / sum(n),1)) %>%
+  arrange(desc(n)) %>%
+  print(n=Inf)
+
+```
+
+## Variables to Predict
+
+### lifesat
+Q: Here is a picture of a ladder. The top of the ladder “10” is the best possible life for
+you and the bottom “0” is the worst possible life for you. In general, where on the
+ladder do you feel you stand at the moment?
+A: 0-10 
+
+```{r}
+
+ggplot(dat, aes(y = factor(lifesat))) +
+  geom_bar(fill = "steelblue") +
+  labs(
+    y = "lifesat",
+    x = "n"
+    ) +
+  theme_minimal()
+
+```
+lifesat is dichotomized for modeling as lifesat_low:
+
+```{r}
+
+dat <- dat %>%
+  mutate(
+    lifesat_low = case_when(
+      between(lifesat, 0, 5) ~ 1,
+      between(lifesat, 6, 10) ~ 0,
+      TRUE ~ NA))
+
+table(dat$lifesat,
+      dat$lifesat_low,
+      useNA = "always"
+      )
+
+```
+Ultimately the distribution is:
+
+```{r}
+
+dat %>%
+  group_by(lifesat_low) %>%
+  summarise(n = n()) %>%
+  mutate(pct = n / sum(n))
+
+```
+
+
+### (mental) health complaints 
+There are 8 variables for this that reply to a question like: 
+In the last 6 months: how often have you had the following….? And the answers goes from
+1 About every day to 5 Rarely or never. The 8 variables are: headache, stomachache, backache,
+dizzy, feellow, irritable, nervous, sleepdificulty.
+
+Their distributions look like this:
+
+```{r}
+
+vars_health_complaints <- c("headache", "stomachache", "backache", "dizzy",
+          "feellow", "irritable", "nervous", "sleepdificulty")
+
+plot_list <- map(vars_health_complaints, function(v) {
+  ggplot(dat, aes(y = factor(.data[[v]]))) +
+    geom_bar(fill = "steelblue") +
+    coord_flip() +
+    labs(
+      y = v,
+      x = "n"
+    ) +
+    theme_minimal()
+})
+
+wrap_plots(plot_list, ncol = 2)
+
+```
+These variables are then recoded to a binary where it flags if the complaint
+occurs more than once per week (1 or 2).
+
+```{r}
+
+dat <- dat %>%
+  mutate(
+    headache_frequent = ifelse(headache <= 2, 1, 0),
+    stomachache_frequent = ifelse(stomachache <= 2, 1, 0),
+    backache_frequent = ifelse(backache <= 2, 1, 0),
+    dizzy_frequent = ifelse(dizzy <= 2, 1, 0),
+    feellow_frequent = ifelse(feellow <= 2, 1, 0),
+    irritable_frequent = ifelse(irritable <= 2, 1, 0),
+    nervous_frequent = ifelse(nervous <= 2, 1, 0),
+    sleepdificulty_frequent = ifelse(sleepdificulty <= 2, 1, 0)
+  )
+
+```
+
+The recoded variables look like this:
+
+```{r}
+
+vars_health_complaints_frequent <- paste0(vars_health_complaints,
+                                          "_frequent")
+
+for (i in seq_along(vars_health_complaints)) {
+  cat("\n\n###", vars_health_complaints[i], "x", vars_health_complaints_frequent[i], "\n")
+  print(table(dat[[vars_health_complaints[i]]], dat[[vars_health_complaints_frequent[i]]], useNA = "always"))
+}
+
+```
+The frequency of complaints is then added to calculate one sum for physical and 
+one for mental. If the sum is 2 or more then it is determined that there is a health issue.
+Most papers do it for psycosomatic (all 8 vars) but I will focus on the 4 mental ones.
+Still, I include both vars in case.
+
+```{r}
+
+dat <- dat %>%
+  # add the frequency of complaints
+  mutate(mental_complaints_sum = feellow_frequent +
+                           irritable_frequent +
+                           nervous_frequent +
+                           sleepdificulty_frequent,
+         physical_complaints_sum = headache_frequent +
+                           stomachache_frequent +
+                           backache_frequent + 
+                           dizzy_frequent
+  ) %>%
+  # derive index based on sum
+  mutate(mental_complaintsY = ifelse(mental_complaints_sum >=2, 1, 0),
+         health_complaintsY = ifelse((mental_complaints_sum + physical_complaints_sum) >=2, 1, 0)
+      ) 
+
+cat("\n\n### mental_complaintsY x mental_complaints_sum\n")
+table(dat$mental_complaints_sum,
+      dat$mental_complaintsY,
+      useNA = "always")
+
+cat("\n\n### (health_complaintsY x health_complaints_sum\n")
+table(dat$mental_complaints_sum + dat$physical_complaints_sum,
+      dat$health_complaintsY,
+      useNA = "always")
+
+```
+
+### mental_complaintsY  
+Ultimately our variable to predict will be mental_complaintsY; at ~26%.
+
+```{r}
+
+dat %>%
+  group_by(mental_complaintsY) %>%
+  summarise(n = n()) %>%
+  mutate(pct = n / sum(n))
+
+```
+
+
+## The Predictors
+
+### Problematic social media use (PMSU)
+PMSU are the main variables of interest. There are 
+9 of them: emcsocmed1 to emcsocmed9. The prequestion for all of them is: 
+We are interested in your experiences with social media. The term social
+media refers to social network sites (e.g. Facebook, [add other local
+examples]) and instant messengers (e.g. [insert local examples],
+WhatsApp, Snapchat, Facebook messenger).
+During the past year, have you….
+Please tick one box for each line.  
+
+The possible answers are 1 (no) and 2 (yes). Also those with 99 mean Missing due to skip pattern. 
+
+The topic of each question is: 
+
+```{r}
+
+questions <- data.frame(
+  item = c(
+    "emcsocmed1","emcsocmed2","emcsocmed3","emcsocmed4",
+    "emcsocmed5","emcsocmed6","emcsocmed7","emcsocmed8","emcsocmed9"
+  ),
+  topic = c(
+    "Social media: I can't think of anything else",
+    "Social media: Dissatisfied cause want to spend more time",
+    "Social media: Felt bad cause want to play",
+    "Social media: Failed to spend less time",
+    "Social media: Neglected other activities",
+    "Social media: Had arguments because of use",
+    "Social media: Lied about amount of time spent",
+    "Social media: Use it to escape from negative feelings",
+    "Social media: Conflict with family because of use"
+  )
+)
+
+kable(questions) #, caption = "Social Media Use Items")
+
+```
+
+Since I need to get a sum of them I will recode them from 1/2 to 0/1.These are the 
+distributions of the answers. I put the 99 as NA - is that correct?  
+
+The recoding looks like this:
+
+```{r}
+
+# recode emcsocmed to 0/1 from 1/2
+recode_emcsocmed <- function(old_col){
+  new_col <- case_when(
+    old_col == 1 ~ 0,
+    old_col == 2 ~ 1,
+    TRUE ~ NA #99?
+  )
+  return(new_col)
+}
+
+dat <- dat %>%
+  mutate(emcsocmed1_r = recode_emcsocmed(emcsocmed1),
+         emcsocmed2_r = recode_emcsocmed(emcsocmed2),
+         emcsocmed3_r = recode_emcsocmed(emcsocmed3),
+         emcsocmed4_r = recode_emcsocmed(emcsocmed4),
+         emcsocmed5_r = recode_emcsocmed(emcsocmed5),
+         emcsocmed6_r = recode_emcsocmed(emcsocmed6),
+         emcsocmed7_r = recode_emcsocmed(emcsocmed7),
+         emcsocmed8_r = recode_emcsocmed(emcsocmed8),
+         emcsocmed9_r = recode_emcsocmed(emcsocmed9)
+         ) 
+
+vars <- paste0("emcsocmed", 1:9)
+
+for (v in vars) {
+  cat("## Table for", v)
+  print(table(dat[[v]], dat[[paste0(v, "_r")]], useNA = "always"))
+  cat("\n\n")
+}
+
+```
+
+And this gives an idea of how correlated they are with each other. 
+
+Is this right? Too correlated? Or it's done different? It has to be done another way?
+
+```{r}
+
+vars <- paste0("emcsocmed", 1:9)
+
+r <- cor(dat[,vars],
+    use = "complete.obs")
+
+round(r,4)
+
+```
+
+PMSU variables are then combined so output is represented in one variable, instead of 9.
+I will do 2 versions:
+a) Yes/No where Y(6-9) and N(0-5)
+b) H/M/L where H(6-9), M(2-5) and L(0-1)
+
+The distribution of PMSU categorized is:
+
+```{r}
+
+vars_emcsocmed <- paste0("emcsocmed", 1:9)
+vars_emcsocmed_r <- paste0("emcsocmed", 1:9, "_r")
+
+dat <- dat %>%
+  mutate(emcsocmed_sum = rowSums(dat[,vars_emcsocmed_r])) %>%
+  mutate(
+    pmsu_yn = case_when(
+      between(emcsocmed_sum,6,9) ~ 1,
+      between(emcsocmed_sum,0,5) ~ 0,
+      TRUE ~ NA
+    ),
+    pmsu_lmh = case_when(
+      between(emcsocmed_sum,6,9) ~ "High",
+      between(emcsocmed_sum,2,5) ~ "Med",
+      between(emcsocmed_sum,0,1) ~ "Low",
+      TRUE ~ NA
+    )
+  )
+
+cat("## Table for emcsocmed_sum x pmsu_yn")
+table(dat$emcsocmed_sum,
+      dat$pmsu_yn,
+      useNA = "always")
+
+cat("## Table for emcsocmed_sum x pmsu_lmh")
+table(dat$emcsocmed_sum,
+      dat$pmsu_lmh,
+      useNA = "always")
+
+cat("## Table for pmsu_yn x pmsu_lmh")
+table(dat$pmsu_lmh, dat$pmsu_yn, useNA = "always")
+
+```
+
+### Family Support
+There are 4 of them. The question starts with: 
+We are interested in how you feel about the following statements.
+Please show how much you agree or disagree with each one.
+Please tick one box for each line.
+
+The options to answer go from 1 Very strongly disagree to 7 Very strongly agree.
+The 4 questions are: 
+
+```{r}
+
+family_items <- data.frame(
+  item = c(
+    "famhelp",
+    "famsup",
+    "famtalk",
+    "famclose"
+  ),
+  topic = c(
+    "Family tries to help",
+    "Get emotional help from family",
+    "Talk about problems with family",
+    "Feel close to family"
+  )
+)
+
+kable(family_items) #, caption = "Family Support Items")
+
+```
+
+These variables are then combined to create a categorical predictor. For now,
+I will keep two options like I did for PMSU but will select only one when modeling.
+These are:  
+a) H/L based on avg of 4 vars. L if [1,5.5) and H if [5.5, 7]  
+b) H/M/L based on sum of 4 vars. L if 4-11, M if 12-19, H if 20-28.
+
+```{r}
+
+vars_family_support <- c("famhelp", "famsup", "famtalk", "famdec")
+
+dat <- dat %>%
+   mutate(family_support_avg = rowMeans(dat[,vars_family_support]),
+          family_support_sum = rowSums(dat[,vars_family_support])
+          ) %>%
+   mutate(family_support_high = case_when(
+            family_support_avg >= 1 & family_support_avg < 5.5 ~ 0,
+            family_support_avg >= 5.5 & family_support_avg <= 7 ~ 1,
+            TRUE ~ NA)) %>%
+   mutate(family_support_hml = case_when(
+            family_support_sum >= 4 & family_support_sum <= 11 ~ "Low",
+            family_support_sum >= 12 & family_support_sum <= 19 ~ "Med",
+            family_support_sum >= 20 & family_support_sum <= 28 ~ "High",
+            TRUE ~ NA))
+
+```
+
+Their counts after recoding are:  
+
+```{r}
+# #table(dat$family_support_high, dat$family_support_hml, useNA = "always")
+# cat("## Table for family_support_high")
+# table(dat$family_support_high, useNA = "always")
+
+#cat("## Table for family_support_hml")
+#table(dat$family_support_hml, useNA = "always")
+
+t <- data.frame(
+          table(dat$family_support_high, useNA = "always")
+          ) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+
+kable(t, caption = "family_support_high")
+
+t <- data.frame(
+          table(dat$family_support_hml, useNA = "always")
+          ) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+
+kable(t, caption = "family_support_hml")
+
+```
+
+### Friends (Peer) Support  
+There are 4 friends support questions. The questions start with: 
+We are interested in how you feel about the following statements.
+Please show how much you agree or disagree with each one.
+Please tick one box for each line.  
+
+The answers range from 1 Very strongly disagree to 7 Very strongly agree.  
+
+```{r}
+friend_items <- data.frame(
+  item = c(
+    "friendhelp",
+    "friendcounton",
+    "friendshare",
+    "friendtalk"
+  ),
+  topic = c(
+    "My friends really try to help me",
+    "I can count on my friends when things go wrong",
+    "I have friends with whom I can share my joys and sorrows",
+    "I can talk about my problems with my friends"
+  )
+)
+
+kable(friend_items)
+
+```
+
+  
+These variables are then combined to create a categorical predictor. For now,
+I will keep two options like I did for family but will select only one when modeling.
+These are:  
+a) H/L based on avg of 4 vars. L if [1,5.5) and H if [5.5, 7]  
+b) H/M/L based on sum of 4 vars. L if 4-11, M if 12-19, H if 20-28.
+
+
+```{r}
+
+vars_friends_support <- c("friendhelp", "friendcounton", "friendshare", "friendtalk")
+# recode friends/peer support as yn and hml
+dat <- dat %>%
+  mutate(friends_support_avg = rowMeans(dat[,vars_friends_support]),
+         friends_support_sum = rowSums(dat[,vars_friends_support])
+  ) %>%
+  mutate(friends_support_high = case_when(
+    friends_support_avg >= 1 & friends_support_avg < 5.5 ~ 0,
+    friends_support_avg >= 5.5 & friends_support_avg <= 7 ~ 1,
+    TRUE ~ NA)) %>%
+  mutate(friends_support_hml = case_when(
+    friends_support_sum >= 4 & friends_support_sum <= 11 ~ "Low",
+    friends_support_sum >= 12 & friends_support_sum <= 19 ~ "Med",
+    friends_support_sum >= 20 & friends_support_sum <= 28 ~ "High",
+    TRUE ~ NA))
+```
+
+Their counts after recoding are:  
+
+```{r}
+
+t <- data.frame(
+          table(dat$friends_support_high, useNA = "always")
+          ) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+
+kable(t, caption = "friends_support_high")
+
+t <- data.frame(
+          table(dat$friends_support_hml, useNA = "always")
+          ) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+
+kable(t, caption = "friends_support_hml")
+
+# table(dat$friends_support_high, dat$friends_support_hml, useNA = "always")
+# table(dat$friends_support_high, useNA = "always")
+# table(dat$friends_support_hml, useNA = "always")
+
+```
+
+
+### School support  
+This metric is a combination of multiple questions from 2 categories: teacher
+acceptance and classmates acceptance. The answers to these
+questions go from 1 (strong agree) to 5 (strong disagree).  
+
+The questions are:  
+
+```{r}
+
+school_items <- data.frame(
+  category = c("teacher", "teacher", "teacher",
+               "classmates", "classmates", "classmates"),
+  item = c("teacheraccept",
+           "teachercare",
+           "teachertrust",
+           "studtogether",
+           "studhelpful",
+           "studaccept"),
+  topic = c("Teacher accepts me",
+            "Teacher cares about me",
+            "Feel trust in teacher",
+            "Students enjoy being together",
+            "Students kind and helpful",
+            "Students accept me")
+)
+
+kable(school_items)
+
+```
+
+The scales of these variables is reversed so 1 is negative and 5 is the most positive. 
+Then an arithmetic average is calculated for teacher and students. 
+The based on this average a high/low support is calculated for each with 4 being the threshold.
+
+```{r}
+
+# recodes from 1-5 to 0-4 (06-italy)
+recode_school_vars <- function(old_values){
+  
+  new_values <- case_when(
+    old_values == 5 ~ 1,
+    old_values == 4 ~ 2,
+    old_values == 3 ~ 3,
+    old_values == 2 ~ 4,
+    old_values == 1 ~ 5,
+    TRUE ~ NA
+  )
+  
+  return(new_values)
+  
+}
+
+dat <- dat %>%
+  # recode they can be added
+  mutate(teacheraccept_r = recode_school_vars(teacheraccept),
+         teachercare_r = recode_school_vars(teachercare),
+         teachertrust_r = recode_school_vars(teachertrust),
+         studtogether_r = recode_school_vars(studtogether),
+         studhelpful_r = recode_school_vars(studhelpful),
+         studaccept_r = recode_school_vars(studaccept)
+         ) %>%
+  # derive avg by teacher/student
+  mutate(teacher_support_avg = (teacheraccept_r 
+                               + teachercare_r
+                               + teachertrust_r) / 3,
+         student_support_avg = (studtogether_r
+                                + studhelpful_r
+                                + studaccept_r) / 3,
+         # just for fun combine and try
+         school_support_avg = (teacheraccept_r 
+                                + teachercare_r
+                                + teachertrust_r
+                                + studtogether_r
+                                + studhelpful_r
+                                + studaccept_r) / 6,
+         ) %>%
+  # derive support yn based on hbsc
+  mutate(
+    teacher_support_high = case_when(
+      teacher_support_avg >= 4 ~ 1,
+      teacher_support_avg < 4 ~ 0,
+      TRUE ~ NA),
+      student_support_high = case_when(
+        student_support_avg >= 4 ~ 1,
+        student_support_avg < 4 ~ 0,
+        TRUE ~ NA),
+      school_support_high = case_when(
+        school_support_avg >= 4 ~ 1,
+        school_support_avg < 4 ~ 0,
+      TRUE ~ NA)
+  )
+
+```
+
+The recoding of each var is:
+
+```{r}
+
+vars_school <- c("teacheraccept",
+           "teachercare",
+           "teachertrust",
+           "studtogether",
+           "studhelpful",
+           "studaccept")
+
+vars_school_r <- paste0(vars_school,
+                        "_r")
+
+for (i in seq_along(vars_school)) {
+  cat("\n\n###", vars_school[i], "x", vars_school_r[i], "\n")
+  print(table(dat[[vars_school[i]]], dat[[vars_school_r[i]]], useNA = "always"))
+}
+
+```
+
+And the actual recoded predictors look like:
+
+```{r}
+
+t <- data.frame(table(dat$teacher_support_high, useNA = "always")) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+kable(t, caption = "teacher_support_high")
+
+t <- data.frame(table(dat$student_support_high, useNA = "always")) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+kable(t, caption = "student_support_high")
+
+t <- data.frame(table(dat$school_support_high, useNA = "always")) %>%
+  mutate(pct = round(Freq / sum(Freq),3))
+kable(t, caption = "school_support_high")
+
+```
+
+
+### IRRELFAS_LMH: Relative family affluence categorical  
+Derived from IRFAS. So check list of fas-variables in the dataset. 
+It is a cut based on percentiles so I recode to friendly.
+1 Lowest 20 pct  
+2 Medium 60 pct  
+3 Highest 20 pct  
+
+```{r}
+
+dat <- dat %>%
+  mutate(IRRELFAS_LMH_r = 
+           case_when(IRRELFAS_LMH == 1 ~ "Low20",
+                     IRRELFAS_LMH == 2 ~ "Med60",
+                     IRRELFAS_LMH == 3 ~ "High20",
+                     TRUE ~ NA)
+  )
+
+t <- table(dat$IRRELFAS_LMH,
+           dat$IRRELFAS_LMH_r,
+           useNA = "always")
+
+kable(t,
+       caption = "IRRELFAS_LMH x IRRELFAS_LMH_r")
+
+```
+
+
+### talkfather and talkmother
+Two questions measure parent communication. The pre-question is:
+How easy is it for you to talk to the following persons about things that
+really bother you?
+Please tick one box for each line  
+
+Answers go from 1 Very easy to 5 Don't have or see.  
+
+These are dichotomized for each parent as Yes if [1,2] and No if [3-5].  
+
+```{r}
+
+dat <- dat %>%
+  mutate(talkfatherYes = 
+           case_when(talkfather %in% c(1,2) ~ 1,
+                     talkfather %in% c(3,4,5) ~ 0,
+                     TRUE ~ NA),
+         talkmotherYes = 
+           case_when(talkmother %in% c(1,2) ~ 1,
+                     talkmother %in% c(3,4,5) ~ 0,
+                     TRUE ~ NA)
+         )
+
+cat("## Table for talkfatherYes x talkfather")
+table(dat$talkfather, dat$talkfatherYes, useNA = "always")
+
+cat("## Table for talkmotherYes x talkmother")
+table(dat$talkmother, dat$talkmotherYes, useNA = "always")
+
+```
+I was going to combine to a "number of parents one can talk" but I'll leave for now
+and will try as interactions later.
+
+### bullying victim  
+There are 2 variables that measure if kid has been bullied. a) beenbullied: Been bullied past months
+and b) cbeenbullied: Been cyber bullied. Answers range from 1 Haven't to 5 Several times a week.  
+
+These are dichotomized as Yes if [2-5] and No if [1].
+
+```{r}
+
+dat <- dat %>%
+  mutate(beenbulliedYes = 
+           case_when(beenbullied == 1 ~ 0,
+                     between(beenbullied, 2, 5) ~ 1,
+                     TRUE ~ NA),
+         cbeenbulliedYes = 
+           case_when(cbeenbullied == 1 ~ 0,
+                     between(cbeenbullied, 2, 5) ~ 1,
+                     TRUE ~ NA)
+           )
+
+cat("## Table for beenbullied x beenbulliedYes")
+table(dat$beenbullied, dat$beenbulliedYes, useNA = "always")
+
+cat("## Table for cbeenbullied x cbeenbulliedYes")
+table(dat$cbeenbullied, dat$cbeenbulliedYes, useNA = "always")
+
+```
+
+### age and sex(gender)  
+There are 3 age groups and 2 genders. I recode to friendly/actual value and they look
+like this.  
+
+```{r}
+
+dat <- dat %>%
+  mutate(
+    age_r = case_match(agecat,
+                             1 ~ 11,
+                             2 ~ 13,
+                             3 ~ 15,
+                             .default = NA
+                             ),
+    sex_r = case_match(sex,
+                             1 ~ "Boy",
+                             2 ~ "Girl",
+                             .default = NA)
+  )
+
+cat("## Table for agecat x age_r")
+table(dat$agecat, dat$age_r, useNA = "always")
+
+cat("## Table for sex x sex_r")
+table(dat$sex, dat$sex_r, useNA = "always")
+
+cat("## Table for age_r x sex_r")
+table(dat$age_r, dat$sex_r, useNA = "always")
+
+```
+
+### Continuos Online Communications
+This category measures how how often young person communicate online with 
+4 types of people in their life. Preamble of question is: How often do you have ONLINE 
+contact with the following people?
+Answers range from 1 (NA or don't know) to 6 (almost all of the time). 
+
+| Variable      | Description                         |
+|---------------|-------------------------------------|
+| emconlfreq1   | Online contact with close friends    |
+| emconlfreq2   | Online contact with larger friend group |
+| emconlfreq3   | Online contact with online friends   |
+| emconlfreq4   | Online contact with other            |
+
+I combine this into one dichotomized and adopt the HBSC definition of yes if 
+any of the variables is 6. 
+
+```{r}
+
+dat <- dat %>%
+  mutate(emconlfreqYes = case_when(
+    (emconlfreq1 == 6 | emconlfreq2 == 6 | emconlfreq3 == 6 | emconlfreq4 == 6) ~ 1,
+    (!is.na(emconlfreq1) | !is.na(emconlfreq2) | !is.na(emconlfreq3) | !is.na(emconlfreq4)) ~ 0,
+    TRUE ~ NA
+  )) 
+#still need to do something with 99
+
+table(dat$emconlfreqYes, useNA = "always")
+
+```
+
+### Prefer Online life
+I haven't found a paper that include this but I want to. It asks questions about
+preference of sharing important stuff online vs real-life. The three variables are:
+
+| Variable      | Description                     |
+|---------------|---------------------------------|
+| emconlpref1   | Secrets, more easily online     |
+| emconlpref2   | Feelings, more easily online    |
+| emconlpref3   | Concerns, more easily online    |
+
+The answers range from 1 (Strong disagree) to 5 (Strong agree).
+The counts are:
+
+```{r}
+
+online_life <- vars <- c("emconlpref1", "emconlpref2", "emconlpref3")
+
+for (i in seq_along(online_life)){
+  #print(online_life[i])
+  #print(table(dat[online_life[1]], useNA = "ifany"))
+  
+  print(
+    dat %>% 
+      group_by(.data[[ online_life[i] ]]) %>% 
+      tally() %>%
+      mutate(pct = round(n/sum(n),3))
+  )
+}
+
+```
+
+For this I copy the school approach which is avg and dichotomize with 4 as threshold:  
+
+```{r}
+
+dat <- dat %>%
+  mutate(lives_online = (emconlpref1 +  emconlpref2 +  emconlpref3)/3) %>%
+  mutate(lives_onlineYN = ifelse(lives_online >= 4, 1, 0)
+         )
+
+table(dat$lives_online %/% 1,
+      dat$lives_onlineYN,
+      useNA = "always")
+
+```
+
+# timeexe: Vigorous physical activity frequency
+Question is Outside school hours: how often do you usually exercise in your free time so much
+that you get out of breath or sweat? Answers go from 1 (every day) to 7 never. 
+
+HBSC shows proportions of those that do three or more times per week. But that is 2022 data,
+in our case we do 2-3 times per week or more.
+
+```{r}
+
+dat <- dat %>%
+  mutate(timeexe_r = case_when(
+    between(timeexe, 1, 3) ~ 1,
+    between(timeexe, 4, 7) ~ 0,
+    TRUE ~ NA
+  ))
+
+print(
+table(dat$timeexe,
+      dat$timeexe_r,
+      useNA = "ifany")
+)
+
+```
+
+# alc30d_2: Alcohol use last 30 days
+Question is  On how many days (if any) have you drunk alcohol?
+Answers are binned and go from 1 (never) to 7 (30 days or more).
+HBSC dichotomizes as Never vs Yes so I will do the same.
+
+```{r}
+
+dat <- dat %>%
+  mutate(alc30d_YN = case_when(
+    alc30d_2 == 1 ~ 0,
+    alc30d_2 != 1 ~ 1,
+    TRUE ~ NA
+  ))
+
+print(
+  table(dat$alc30d_2,
+        dat$alc30d_YN,
+        useNA = "ifany")
+)
+
+```
+
+
+## Dataset for Modeling  
+Only the relevant and prepared variables are exported to a csv so I can start the 
+modeling process with those. File goes to "data/processed/" and includes date.
+
+```{r}
+
+dat_out <- dat %>%
+  select(seqno_int,
+         country_name,
+         lifesat_low, 
+         mental_complaintsY, 
+         health_complaintsY, 
+         pmsu_lmh, 
+         pmsu_yn, 
+         family_support_high, 
+         family_support_hml, 
+         friends_support_high, 
+         friends_support_hml, 
+         teacher_support_high,
+         student_support_high,
+         school_support_high,
+         IRRELFAS_LMH_r, 
+         talkfatherYes, 
+         talkmotherYes, 
+         beenbulliedYes, 
+         cbeenbulliedYes, 
+         age_r, 
+         sex_r,
+         emconlfreqYes,
+         lives_onlineYN,
+         timeexe_r,
+         alc30d_YN
+         )
+
+summary(dat_out)
+
+dat_out_filename <- paste0(project_folder,
+                           "data/processed/",
+                           "dat_", Sys.Date(), ".csv")
+
+#write_csv(dat_out,
+ #         dat_out_filename)
+
+# output el full mejor
+write_csv(dat,
+          dat_out_filename)
+
+```
+
+
+
+
