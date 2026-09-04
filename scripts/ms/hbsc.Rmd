@@ -152,6 +152,189 @@ print(na_cnts)
 
 Now I explore all variables by group and feature engineer as appropriate.
 
+# [1] "Individual Information"                 
+
+11 vars here. So do 1x1.
+
+```{r ii, echo=FALSE}
+
+vars_indivinfo <- var_groups[["Individual Information"]]
+vars_indivinfo
+
+```
+
+seqno_int is just an identifier
+
+```{r, include=FALSE}
+
+length(table(dat$seqno_int)) == nrow(dat)
+
+```
+countryno is recoded to country_name and this is the distribution.
+
+```{r country, echo=FALSE}
+
+recode_map <- c(
+  "8000"   = "Albania",
+  "31000"  = "Azerbaijan",
+  "40000"  = "Austria",
+  "51000"  = "Armenia",
+  "56001"  = "Belgium (Flemish)",
+  "56002"  = "Belgium (French)",
+  "100000" = "Bulgaria",
+  "124000" = "Canada",
+  "191000" = "Croatia",
+  "203000" = "Czech Republic",
+  "208000" = "Denmark",
+  "233000" = "Estonia",
+  "246000" = "Finland",
+  "250000" = "France",
+  "268000" = "Georgia",
+  "276000" = "Germany",
+  "300000" = "Greece",
+  "304000" = "Greenland",
+  "348000" = "Hungary",
+  "352000" = "Iceland",
+  "372000" = "Ireland",
+  "376000" = "Israel",
+  "380000" = "Italy",
+  "398000" = "Kazakhstan",
+  "428000" = "Latvia",
+  "440000" = "Lithuania",
+  "442000" = "Luxembourg",
+  "470000" = "Malta",
+  "498000" = "Republic of Moldova",
+  "528000" = "Netherlands",
+  "578000" = "Norway",
+  "616000" = "Poland",
+  "620000" = "Portugal",
+  "642000" = "Romania",
+  "643000" = "Russia",
+  "688000" = "Serbia",
+  "703000" = "Slovakia",
+  "705000" = "Slovenia",
+  "724000" = "Spain",
+  "752000" = "Sweden",
+  "756000" = "Switzerland",
+  "792000" = "Turkey",
+  "804000" = "Ukraine",
+  "807000" = "Macedonia",
+  "826001" = "England",
+  "826002" = "Scotland",
+  "826003" = "Wales",
+  "826004" = "Northern Ireland",
+  "840000" = "USA"
+)
+
+dat$country_name <- recode_map[as.character(dat$countryno)]
+
+tbl_country <- dat %>%
+  group_by(country_name) %>%
+  summarise(n = n(),
+            .groups = "drop") %>%
+  #mutate(pct = round(100 * n / sum(n),1)) %>%
+  mutate(pct = n / sum(n)) %>%  
+  mutate(pct = percent(pct, accuracy = 1)) %>% 
+  arrange(country_name) 
+
+kable(tbl_country,
+      caption = "#/% of observations by country")
+
+dat <- dat %>% 
+  select(-countryno)
+
+```
+
+weight is unrelated so ignore/remove TBC?
+
+```{r weig, include=FALSE}
+
+dat$weight
+
+```
+
+bodyheight seems to be cm and range from 120 to 200 so will use. Impute NAs?
+
+```{r, echo=FALSE}
+
+summary(dat$bodyheight)
+
+ggplot(dat, aes(x = bodyheight)) +
+  geom_histogram() +
+  #facet_grid(sex ~ .) +
+  theme_minimal()
+
+```
+
+bodyweight seems to be kg? and range from 20 to 150 so will use maybe. Impute NAs?
+
+```{r, echo=FALSE}
+
+summary(dat$bodyweight)
+
+ggplot(dat, aes(x = bodyweight)) +
+  geom_histogram() +
+  #facet_grid(sex ~ .) +
+  theme_minimal()
+
+```
+
+
+MBMI TBC huge odd range of #s.
+
+```{r, echo=FALSE}
+
+summary(dat$MBMI)
+
+ggplot(dat, aes(x = MBMI)) +
+  geom_histogram() +
+  #facet_grid(sex ~ .) +
+  theme_minimal()
+
+```
+
+oweight_who seems to be binary??? TBC. Not sure if helpful to add.
+
+```{r ow, echo=FALSE}
+
+table(dat$oweight_who, useNA = "always")
+
+```
+
+agecat has 3 values and will leave as is: 1 ~ 11, 2 ~ 13, 3 ~ 15.
+
+```{r age, echo=FALSE}
+
+table(dat$agecat, useNA = "always")
+
+```
+
+sex is binary with 1 (boy), 2 (girl) so will leave as is.
+
+```{r sex, echo=FALSE}
+
+table(dat$sex, useNA = "always")
+
+```
+
+IRRELFAS_LMH is relative family affluence with 1 Low20, 2 Mid60, 3 High20. Leave as is.
+
+IRFAS is discrete [0,13]. TBC what it means and rel with LMH cause it's not mut exclusive. 
+
+```{r fas, echo=FALSE}
+
+#table(dat$IRRELFAS_LMH, useNA = "always")
+
+#table(dat$IRFAS)
+
+table(dat$IRFAS,
+      dat$IRRELFAS_LMH,
+      useNA = "always")
+
+```
+
+
+
 # [3] "Problematic Social Media Use (PMSU)"  
 9 binary variables are recoded to 0/1.
 
@@ -252,10 +435,49 @@ dat <-  dat %>%
 
 ```
 
+
+# [4] "Bullying"                               
+
+There are 2 variables that measure if kid has been bullied. a) beenbullied: Been bullied past months
+and b) cbeenbullied: Been cyber bullied. Answers range from 1 (Haven't) to 5 (Several times a week).  
+
+I will derive 2 to keep: cbeenbullied as y/n and bulliedsum as sum of both.
+
+```{r bully, echo=FALSE}
+
+dat <- dat %>%
+  mutate(cbullied = 
+           case_when(cbeenbullied == 1 ~ 0,
+                     between(cbeenbullied, 2, 5) ~ 1,
+                     TRUE ~ NA),
+         bulliedsum = beenbullied + cbeenbullied
+           )
+
+cat("cbullied recoding:")
+table(dat$cbeenbullied,
+      dat$cbullied,
+      useNA = "always")
+
+bullydf <- data.frame(table(dat$bulliedsum, useNA = "always")) %>%
+  rename(score = Var1,
+         n = Freq) %>%
+  mutate(pct = n / sum(n),
+         pct = percent(pct, accuracy = 1))
+
+cat("bullying score: (low is better)")
+kable(bullydf)
+
+```
+
+
 # [6] "Family Support" 
 4 questions going from 1 Very strongly disagree to 7 Very strongly agree.
 
 ```{r famprnt, echo=FALSE}
+
+vars_famsup <- var_groups[["Family Support"]]
+vars_famsup
+
 family_items <- data.frame(
   item = c(
     "famhelp",
@@ -274,14 +496,32 @@ family_items <- data.frame(
 kable(family_items) #, caption = "Family Support Items")
 ```
 
+And they are correlated.
+
+```{r famcorr2,echo=FALSE}
+
+#tetra_mat <- tetrachoric(dat[vars_famsup])$rho
+cor_famsup <- cor(dat[vars_famsup],
+    use = "pairwise.complete.obs")
+
+#tetra_mat <- round(tetra_mat, 2)
+
+corrplot::corrplot(
+  cor_famsup,
+  method = "color",
+  type = "upper",
+  tl.col = "black",
+  addCoef.col = "black"
+)
+
+```
+
 Summing them results in [4,28] and then grouped as H/M/L as L 4-11, M 12-19, H 20-28. Resulting in:
 
 ```{r fam_rec, echo=FALSE}
 
-vars_family_support <- c("famhelp", "famsup", "famtalk", "famdec")
-
 dat <- dat %>%
-   mutate(famsup_sum = rowSums(dat[,vars_family_support])
+   mutate(famsup_sum = rowSums(dat[,vars_famsup])
           ) %>%
    mutate(famsup_hml = case_when(
             famsup_sum >= 4 & famsup_sum <= 11 ~ 1, #"Low",
@@ -298,15 +538,150 @@ kable(tbl_famsup)
 
 ```
 
+
+# [7] "Friends Support"   
+4 questions going from 1 Very strongly disagree to 7 Very strongly agree.
+
+```{r friprnt, echo=FALSE}
+
+vars_frisup <- var_groups[["Friends Support"]]
+vars_frisup
+
+friend_items <- data.frame(
+  item = c(
+    "friendhelp",
+    "friendcounton",
+    "friendshare",
+    "friendtalk"
+  ),
+  topic = c(
+    "My friends really try to help me",
+    "I can count on my friends when things go wrong",
+    "I have friends with whom I can share my joys and sorrows",
+    "I can talk about my problems with my friends"
+  )
+)
+
+kable(friend_items)
+
+```
+
+And they are correlated.
+
+```{r frisup_r,echo=FALSE}
+
+#tetra_mat <- tetrachoric(dat[vars_famsup])$rho
+cor_frisup <- cor(dat[vars_frisup],
+    use = "pairwise.complete.obs")
+
+#tetra_mat <- round(tetra_mat, 2)
+
+corrplot::corrplot(
+  cor_frisup,
+  method = "color",
+  type = "upper",
+  tl.col = "black",
+  addCoef.col = "black"
+)
+
+```
+
+Summing them results in [4,28] and then grouped as H/M/L as L 4-11, M 12-19, H 20-28. Resulting in:
+
+```{r fri_rec, echo=FALSE}
+
+dat <- dat %>%
+   mutate(frisup_sum = rowSums(dat[,vars_frisup])
+          ) %>%
+   mutate(frisup_hml = case_when(
+            frisup_sum >= 4 & frisup_sum <= 11 ~ 1, #"Low",
+            frisup_sum >= 12 & frisup_sum <= 19 ~ 2, #"Med",
+            frisup_sum >= 20 & frisup_sum <= 28 ~ 3, #"High",
+            TRUE ~ NA))
+
+tbl_frisup <- table(dat$frisup_sum,
+                    dat$frisup_hml,
+                    useNA = "always"
+                    )
+
+kable(tbl_frisup)
+
+```
+
+# [9] "Communication with Parents"
+
+Two vars with answers from 1 (Very easy) to 5 (Don't have or see). With this counts and proportions in data.  
+
+```{r commp, echo=FALSE}
+
+vars_commparents <- var_groups[["Communication with Parents"]]
+vars_commparents
+
+table(dat[vars_commparents], useNA = "always")
+round(table(dat[vars_commparents], useNA = "always") / nrow(dat),3)
+
+```
+
+With some correlation between them (I expected more).
+
+```{r cpcorr, echo=FALSE}
+
+corrmat <- cor(dat[vars_commparents], 
+               use = "pairwise.complete.obs")
+
+```
+
+So I will dichotomize like HBSC and keep sum of both as well for SHAP. These are dichotomized for each parent as Yes if [1,2] and No if [3-5].  
+
+```{r, include=FALSE}
+
+dat <- dat %>%
+  mutate(talkf = 
+           case_when(talkfather %in% c(1,2) ~ 1,
+                     talkfather %in% c(3,4,5) ~ 0,
+                     TRUE ~ NA),
+         talkm = 
+           case_when(talkmother %in% c(1,2) ~ 1,
+                     talkmother %in% c(3,4,5) ~ 0,
+                     TRUE ~ NA),
+         talkscore = talkfather + talkmother
+         )
+
+```
+
+Where new vars look like this for dichotom values:
+
+```{r prcom, echo=FALSE}
+
+cat("Father:")
+table(dat$talkfather,
+      dat$talkf,
+      useNA = "always")
+
+cat("Mother:")
+table(dat$talkfather,
+      dat$talkf,
+      useNA = "always")
+
+```
+
+And the talk score looks like this. Will keep for now and orig vars as well.
+
+```{r prsum, echo=FALSE}
+
+#summary(dat$talkscore)
+
+ggplot(dat, aes(x = factor(talkscore))) +
+  geom_bar() +
+  #scale_x_discrete() +
+  theme_minimal()
+
+```
+
 voy
-[1] "Individual Information"                 
 [2] "Health Issues and Life Satisfaction"    
-[4] "Bullying"                               
 [5] "Communicates Online More Than Real Life"
-                        
-[7] "Friends Support"                        
 [8] "School Support"                         
-[9] "Communication with Parents"             
 [10] "Good/Bad Habits"
 
 

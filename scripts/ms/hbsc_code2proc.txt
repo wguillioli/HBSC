@@ -1,86 +1,4 @@
-
-
-
-### seqno_int
-This is the unique identifier of each record and I confirmed it's unique.
-
-
-
-length(unique(dat$seqno_int)) == nrow(dat)
-
-
-
-### countryno
-Number of countries in dataset is:
-
-
-
-length(unique(dat$countryno))
-
-
-And this is the count of survey responses by country:
-
-ecode_map <- c(
-  "8000"   = "Albania",
-  "31000"  = "Azerbaijan",
-  "40000"  = "Austria",
-  "51000"  = "Armenia",
-  "56001"  = "Belgium (Flemish)",
-  "56002"  = "Belgium (French)",
-  "100000" = "Bulgaria",
-  "124000" = "Canada",
-  "191000" = "Croatia",
-  "203000" = "Czech Republic",
-  "208000" = "Denmark",
-  "233000" = "Estonia",
-  "246000" = "Finland",
-  "250000" = "France",
-  "268000" = "Georgia",
-  "276000" = "Germany",
-  "300000" = "Greece",
-  "304000" = "Greenland",
-  "348000" = "Hungary",
-  "352000" = "Iceland",
-  "372000" = "Ireland",
-  "376000" = "Israel",
-  "380000" = "Italy",
-  "398000" = "Kazakhstan",
-  "428000" = "Latvia",
-  "440000" = "Lithuania",
-  "442000" = "Luxembourg",
-  "470000" = "Malta",
-  "498000" = "Republic of Moldova",
-  "528000" = "Netherlands",
-  "578000" = "Norway",
-  "616000" = "Poland",
-  "620000" = "Portugal",
-  "642000" = "Romania",
-  "643000" = "Russia",
-  "688000" = "Serbia",
-  "703000" = "Slovakia",
-  "705000" = "Slovenia",
-  "724000" = "Spain",
-  "752000" = "Sweden",
-  "756000" = "Switzerland",
-  "792000" = "Turkey",
-  "804000" = "Ukraine",
-  "807000" = "Macedonia",
-  "826001" = "England",
-  "826002" = "Scotland",
-  "826003" = "Wales",
-  "826004" = "Northern Ireland",
-  "840000" = "USA"
-)
-
-dat$country_name <- recode_map[as.character(dat$countryno)]
-
-dat %>%
-  group_by(country_name) %>%
-  summarise(n = n(),
-            .groups = "drop") %>%
-  mutate(pct = round(100 * n / sum(n),1)) %>%
-  arrange(desc(n)) %>%
-  print(n=Inf)
+voy 9/4
 
 # Variables to Predict
 
@@ -89,8 +7,6 @@ Q: Here is a picture of a ladder. The top of the ladder “10” is the best pos
 you and the bottom “0” is the worst possible life for you. In general, where on the
 ladder do you feel you stand at the moment?
 A: 0-10 
-
-
 
 ggplot(dat, aes(y = factor(lifesat))) +
   geom_bar(fill = "steelblue") +
@@ -225,79 +141,7 @@ dat %>%
   mutate(pct = n / sum(n))
 
 
-### Friends (Peer) Support  
-There are 4 friends support questions. The questions start with: 
-We are interested in how you feel about the following statements.
-Please show how much you agree or disagree with each one.
-Please tick one box for each line.  
 
-The answers range from 1 Very strongly disagree to 7 Very strongly agree.  
-
-
-friend_items <- data.frame(
-  item = c(
-    "friendhelp",
-    "friendcounton",
-    "friendshare",
-    "friendtalk"
-  ),
-  topic = c(
-    "My friends really try to help me",
-    "I can count on my friends when things go wrong",
-    "I have friends with whom I can share my joys and sorrows",
-    "I can talk about my problems with my friends"
-  )
-)
-
-kable(friend_items)
-
-
-These variables are then combined to create a categorical predictor. For now,
-I will keep two options like I did for family but will select only one when modeling.
-These are:  
-a) H/L based on avg of 4 vars. L if [1,5.5) and H if [5.5, 7]  
-b) H/M/L based on sum of 4 vars. L if 4-11, M if 12-19, H if 20-28.
-
-
-
-
-vars_friends_support <- c("friendhelp", "friendcounton", "friendshare", "friendtalk")
-# recode friends/peer support as yn and hml
-dat <- dat %>%
-  mutate(friends_support_avg = rowMeans(dat[,vars_friends_support]),
-         friends_support_sum = rowSums(dat[,vars_friends_support])
-  ) %>%
-  mutate(friends_support_high = case_when(
-    friends_support_avg >= 1 & friends_support_avg < 5.5 ~ 0,
-    friends_support_avg >= 5.5 & friends_support_avg <= 7 ~ 1,
-    TRUE ~ NA)) %>%
-  mutate(friends_support_hml = case_when(
-    friends_support_sum >= 4 & friends_support_sum <= 11 ~ "Low",
-    friends_support_sum >= 12 & friends_support_sum <= 19 ~ "Med",
-    friends_support_sum >= 20 & friends_support_sum <= 28 ~ "High",
-    TRUE ~ NA))
-
-Their counts after recoding are:  
-
-
-
-t <- data.frame(
-          table(dat$friends_support_high, useNA = "always")
-          ) %>%
-  mutate(pct = round(Freq / sum(Freq),3))
-
-kable(t, caption = "friends_support_high")
-
-t <- data.frame(
-          table(dat$friends_support_hml, useNA = "always")
-          ) %>%
-  mutate(pct = round(Freq / sum(Freq),3))
-
-kable(t, caption = "friends_support_hml")
-
-# table(dat$friends_support_high, dat$friends_support_hml, useNA = "always")
-# table(dat$friends_support_high, useNA = "always")
-# table(dat$friends_support_hml, useNA = "always")
 
 
 ### School support  
@@ -430,118 +274,6 @@ kable(t, caption = "school_support_high")
 
 
 
-### IRRELFAS_LMH: Relative family affluence categorical  
-Derived from IRFAS. So check list of fas-variables in the dataset. 
-It is a cut based on percentiles so I recode to friendly.
-1 Lowest 20 pct  
-2 Medium 60 pct  
-3 Highest 20 pct  
-
-
-
-dat <- dat %>%
-  mutate(IRRELFAS_LMH_r = 
-           case_when(IRRELFAS_LMH == 1 ~ "Low20",
-                     IRRELFAS_LMH == 2 ~ "Med60",
-                     IRRELFAS_LMH == 3 ~ "High20",
-                     TRUE ~ NA)
-  )
-
-t <- table(dat$IRRELFAS_LMH,
-           dat$IRRELFAS_LMH_r,
-           useNA = "always")
-
-kable(t,
-       caption = "IRRELFAS_LMH x IRRELFAS_LMH_r")
-
-
-### talkfather and talkmother
-Two questions measure parent communication. The pre-question is:
-How easy is it for you to talk to the following persons about things that
-really bother you?
-Please tick one box for each line  
-
-Answers go from 1 Very easy to 5 Don't have or see.  
-
-These are dichotomized for each parent as Yes if [1,2] and No if [3-5].  
-
-
-dat <- dat %>%
-  mutate(talkfatherYes = 
-           case_when(talkfather %in% c(1,2) ~ 1,
-                     talkfather %in% c(3,4,5) ~ 0,
-                     TRUE ~ NA),
-         talkmotherYes = 
-           case_when(talkmother %in% c(1,2) ~ 1,
-                     talkmother %in% c(3,4,5) ~ 0,
-                     TRUE ~ NA)
-         )
-
-cat("## Table for talkfatherYes x talkfather")
-table(dat$talkfather, dat$talkfatherYes, useNA = "always")
-
-cat("## Table for talkmotherYes x talkmother")
-table(dat$talkmother, dat$talkmotherYes, useNA = "always")
-
-I was going to combine to a "number of parents one can talk" but I'll leave for now
-and will try as interactions later.
-
-### bullying victim  
-There are 2 variables that measure if kid has been bullied. a) beenbullied: Been bullied past months
-and b) cbeenbullied: Been cyber bullied. Answers range from 1 Haven't to 5 Several times a week.  
-
-These are dichotomized as Yes if [2-5] and No if [1].
-
-
-
-dat <- dat %>%
-  mutate(beenbulliedYes = 
-           case_when(beenbullied == 1 ~ 0,
-                     between(beenbullied, 2, 5) ~ 1,
-                     TRUE ~ NA),
-         cbeenbulliedYes = 
-           case_when(cbeenbullied == 1 ~ 0,
-                     between(cbeenbullied, 2, 5) ~ 1,
-                     TRUE ~ NA)
-           )
-
-cat("## Table for beenbullied x beenbulliedYes")
-table(dat$beenbullied, dat$beenbulliedYes, useNA = "always")
-
-cat("## Table for cbeenbullied x cbeenbulliedYes")
-table(dat$cbeenbullied, dat$cbeenbulliedYes, useNA = "always")
-
-
-### age and sex(gender)  
-There are 3 age groups and 2 genders. I recode to friendly/actual value and they look
-like this.  
-
-
-
-dat <- dat %>%
-  mutate(
-    age_r = case_match(agecat,
-                             1 ~ 11,
-                             2 ~ 13,
-                             3 ~ 15,
-                             .default = NA
-                             ),
-    sex_r = case_match(sex,
-                             1 ~ "Boy",
-                             2 ~ "Girl",
-                             .default = NA)
-  )
-
-cat("## Table for agecat x age_r")
-table(dat$agecat, dat$age_r, useNA = "always")
-
-cat("## Table for sex x sex_r")
-table(dat$sex, dat$sex_r, useNA = "always")
-
-cat("## Table for age_r x sex_r")
-table(dat$age_r, dat$sex_r, useNA = "always")
-
-
 ### Continuos Online Communications
 This category measures how how often young person communicate online with 
 4 types of people in their life. Preamble of question is: How often do you have ONLINE 
@@ -658,61 +390,6 @@ print(
 )
 
 
-## Dataset for Modeling  
-Only the relevant and prepared variables are exported to a csv so I can start the 
-modeling process with those. File goes to "data/processed/" and includes date.
-
-
-
-dat_out <- dat %>%
-  select(seqno_int,
-         country_name,
-         lifesat_low, 
-         mental_complaintsY, 
-         health_complaintsY, 
-         pmsu_lmh, 
-         pmsu_yn, 
-         family_support_high, 
-         family_support_hml, 
-         friends_support_high, 
-         friends_support_hml, 
-         teacher_support_high,
-         student_support_high,
-         school_support_high,
-         IRRELFAS_LMH_r, 
-         talkfatherYes, 
-         talkmotherYes, 
-         beenbulliedYes, 
-         cbeenbulliedYes, 
-         age_r, 
-         sex_r,
-         emconlfreqYes,
-         lives_onlineYN,
-         timeexe_r,
-         alc30d_YN
-         )
-
-summary(dat_out)
-
-dat_out_filename <- paste0(project_folder,
-                           "data/processed/",
-                           "dat_", Sys.Date(), ".csv")
-
-#write_csv(dat_out,
- #         dat_out_filename)
-
-# output el full mejor
-write_csv(dat,
-          dat_out_filename)
-
-
-
-
-
-rm(list = ls())
-
-setwd("C:/MisLocalFiles/Github/HBSC/scripts/modeling/")
-project_folder <- "C:/MisLocalFiles/Github/HBSC/"
 
 require(tidyverse)
 require(caret)
@@ -725,33 +402,6 @@ require(shapviz)
 require(xgboost)
 
 
-
-# Data Overview
-This data is prepared in hbsc.rmd file. It's dimensions are:
-
-
-# ---------------------------------------------------------
-# load dataset
-# ---------------------------------------------------------
-
-d <- read_csv(paste0(project_folder, "data/processed/dat_2026-08-16.csv"))
-
-dim(d) #244097     25
-
-
-The list of vars and it's type is:
-
-
-
-glimpse(d)
-
-
-# Missing Values
-Most features have missing values. 
-
-
-
-summary(d)
 
 
 For now, I will just keep complete observations to simplify my life. 
@@ -1554,5 +1204,22 @@ https://www.tidymodels.org/
 https://www.tmwr.org/
 https://medium.com/data-science/shap-for-binary-and-multiclass-target-variables-ff2f43de0cf4
 https://benhay.es/posts/interpreting-ml-shap/
+
+
+
+
+
+
+BACKLOG
+
+1. NA impute or wtf
+
+
+
+
+
+
+
+
 
 
