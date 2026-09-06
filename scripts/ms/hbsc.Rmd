@@ -9,34 +9,40 @@ urlcolor: blue
 ---
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r projset, echo=FALSE}
 
 rm(list = ls())
 
 require(tidyverse)
+require(tidymodels)
 library(knitr)
 require(stringr)
 library(scales)
 library(corrplot)
 library(psych)
+require(rsample)
 
-
-
-#prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
-prj_fldr <- "C:/Github/HBSC/"
-#setwd(prj_fldr)
-#knitr::opts_knit\$set(root.dir = "C:/MisLocalFiles/Github/HBSC")
+prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
+#prj_fldr <- "C:/Github/HBSC/"
 
 ```
+
 
 ```{r dat_read, echo=FALSE}
 
 dat_fldr <- paste0(prj_fldr,"data/")
 
-hbsc2018 <- read_delim(paste0(dat_fldr, "raw/HBSC2018OAed1.1.csv"),
-                       delim = ";",
-                       na = c("", " "),
-                       show_col_types = FALSE
-                       )
+# hbsc2018 <- read_delim(paste0(dat_fldr, "raw/HBSC2018OAed1.1.csv"),
+#                        delim = ";",
+#                        na = c("", " "),
+#                        show_col_types = FALSE
+#                        )
+
+# the european way with ; and ,
+hbsc2018 <- read_csv2(paste0(dat_fldr, "raw/HBSC2018OAed1.1.csv"))
 
 ```
 
@@ -72,8 +78,8 @@ So after selecting and grouping variables, create dat with :
 
 var_groups <- list(
   "Individual Information" = c(
-    "seqno_int", "countryno", "weight", "agecat", "sex",
-    "MBMI", "IRFAS", "IRRELFAS_LMH", "oweight_who",
+    "seqno_int", "countryno",  "agecat", "sex",
+    "MBMI", "IRFAS", "IRRELFAS_LMH", "IOTF4",
     "bodyweight", "bodyheight"
   ),
   "Health Issues and Life Satisfaction" = c(
@@ -163,13 +169,14 @@ vars_indivinfo
 
 ```
 
-seqno_int is just an identifier
+seqno_int is just an identifier.
 
 ```{r, include=FALSE}
 
 length(table(dat$seqno_int)) == nrow(dat)
 
 ```
+
 countryno is recoded to country_name and this is the distribution.
 
 ```{r country, echo=FALSE}
@@ -245,15 +252,7 @@ dat <- dat %>%
 
 ```
 
-weight is unrelated so ignore/remove TBC?
-
-```{r weig, include=FALSE}
-
-dat$weight
-
-```
-
-bodyheight seems to be cm and range from 120 to 200 so will use. Impute NAs?
+bodyheight is in cm and range from 120 to 200 so will use. Impute NAs?
 
 ```{r, echo=FALSE}
 
@@ -266,7 +265,7 @@ ggplot(dat, aes(x = bodyheight)) +
 
 ```
 
-bodyweight seems to be kg? and range from 20 to 150 so will use maybe. Impute NAs?
+bodyweight is in kilo and range from 20 to 150 so will use maybe. Impute NAs?
 
 ```{r, echo=FALSE}
 
@@ -279,12 +278,14 @@ ggplot(dat, aes(x = bodyweight)) +
 
 ```
 
-
-MBMI TBC huge odd range of #s.
+MBMI is body mass index from [Range= 11.02-44.9] and 0 meaning outside overall range so make those NA.
 
 ```{r, echo=FALSE}
 
 summary(dat$MBMI)
+
+dat <- dat %>% 
+  mutate(MBMI = ifelse(MBMI==0, NA, MBMI))
 
 ggplot(dat, aes(x = MBMI)) +
   geom_histogram() +
@@ -293,11 +294,11 @@ ggplot(dat, aes(x = MBMI)) +
 
 ```
 
-oweight_who seems to be binary??? TBC. Not sure if helpful to add.
+IOTF4 is a BMI group from 1(thin) to 4(obesse) so leave as is.
 
-```{r ow, echo=FALSE}
+```{r iot, echo=FALSE}
 
-table(dat$oweight_who, useNA = "always")
+table(dat$IOTF4, useNA = "always")
 
 ```
 
@@ -319,7 +320,7 @@ table(dat$sex, useNA = "always")
 
 IRRELFAS_LMH is relative family affluence with 1 Low20, 2 Mid60, 3 High20. Leave as is.
 
-IRFAS is discrete [0,13]. TBC what it means and rel with LMH cause it's not mut exclusive. 
+IRFAS is discrete [0,13] and shows affluence.
 
 ```{r fas, echo=FALSE}
 
@@ -333,7 +334,112 @@ table(dat$IRFAS,
 
 ```
 
+# [2] "Health Issues and Life Satisfaction"   
+10 vars here:
 
+```{r hea, echo=FALSE}
+
+var_groups[[2]]
+
+```
+health is self rating of health from 1(Excellent) to 4(poor). Won't use for now
+
+```{r}
+
+table(dat$health, useNA = "always")
+
+```
+
+lifesat asks for life satisfaction as ladder where 0(botton) to 10(best). I'll dichotomize and keep num for shap.
+
+```{r lifesat, echo=FALSE}
+
+cat("lifesat distribution: ")
+table(dat$lifesat, useNA = "always")
+
+cat("lifesat %: ")
+round(table(dat$lifesat, useNA = "always") / nrow(dat),3)
+
+dat <- dat %>%
+  mutate(
+    lifesat_low = case_when(
+      between(lifesat, 0, 5) ~ 1,
+      between(lifesat, 6, 10) ~ 0,
+      TRUE ~ NA))
+
+cat("lifesat_low as y/n: ")
+table(dat$lifesat,
+      dat$lifesat_low,
+      useNA = "always"
+      )
+
+```
+
+headache, stomachache, backache, and dizzy are physical and will ignore for now. But many papers report on psychosomatic issues so I might come back.
+
+feellow, irritable, nervous, sleepdificulty and mental health issues. They answer a question In the last 6 months: how often have you had the following….? And the answers goes from 1 (About every day) to 5 (Rarely or never). Their distribution is:
+
+```{r vm1, echo=FALSE}
+
+vars_mental <- c("feellow", "irritable", "nervous", "sleepdificulty")
+
+# tabulate the tidy way with purrr
+tables_list <- map(1:4, ~ table(dat[[vars_mental[.x]]]))
+names(tables_list) <- vars_mental[1:4]
+print(tables_list)
+
+```
+
+Their correlation is modest.
+
+```{r mhcor, echo=FALSE}
+
+mh_cor <- cor(dat[vars_mental],
+              use = "pairwise.complete.obs")
+mh_cor <- round(mh_cor, 2)
+print(mh_cor)
+
+```
+
+These variables are then recoded to a binary where it flags if the complaint
+occurs more than once per week (values 1/2).
+
+```{r mrrec, echo=FALSE}
+
+dat <- dat %>%
+  mutate(
+#    headache_frequent = ifelse(headache <= 2, 1, 0),
+#    stomachache_frequent = ifelse(stomachache <= 2, 1, 0),
+#    backache_frequent = ifelse(backache <= 2, 1, 0),
+#    dizzy_frequent = ifelse(dizzy <= 2, 1, 0),
+    feellow_is = ifelse(feellow <= 2, 1, 0),
+    irritable_is = ifelse(irritable <= 2, 1, 0),
+    nervous_is = ifelse(nervous <= 2, 1, 0),
+    sleepdificulty_is = ifelse(sleepdificulty <= 2, 1, 0)
+  )
+
+```
+
+These frequency 1/0 vars are summed up and if sum is 2+ then there's an issue. And counts look like this:
+
+```{r mh_rec, echo=FALSE}
+
+dat <- dat %>%
+  # add the frequency of complaints
+  mutate(mental_sum = feellow_is +
+                      irritable_is +
+                      nervous_is +
+                      sleepdificulty_is
+  ) %>%
+  # derive index based on sum
+  mutate(mental_issue = ifelse(mental_sum >=2, 1, 0)#,
+      ) 
+
+table(dat$mental_sum,
+      dat$mental_issue,
+      useNA = "always")
+
+```
 
 # [3] "Problematic Social Media Use (PMSU)"  
 9 binary variables are recoded to 0/1.
@@ -469,6 +575,129 @@ kable(bullydf)
 
 ```
 
+# [5] "Communicates Online More Than Real Life"  
+
+7 vars here in 2 themes - a) continuos online communications and b) preference to communicate online.
+
+For a) continuos online communications, measures how how often young person communicate online with 
+4 types of people in their life. Answers range from 1 (NA or don't know) to 6 (almost all of the time). 
+
+| Variable      | Description                         |
+|---------------|-------------------------------------|
+| emconlfreq1   | Online contact with close friends    |
+| emconlfreq2   | Online contact with larger friend group |
+| emconlfreq3   | Online contact with online friends   |
+| emconlfreq4   | Online contact with other            |
+
+And they are somewhat correlated but not much.
+
+```{r corr_emconlfreqX,echo=FALSE}
+
+vars_onlfe <- var_groups[["Communicates Online More Than Real Life"]]
+vars_onlfe
+
+corr_emconlfreqX <- cor(dat[vars_onlfe[1:4]],
+                        use = "pairwise.complete.obs")
+
+corr_emconlfreqX <- round(corr_emconlfreqX, 2)
+
+corrplot::corrplot(
+  corr_emconlfreqX,
+  method = "color",
+  type = "upper",
+  tl.col = "black",
+  addCoef.col = "black"
+)
+
+```
+
+I combine them into two options. a) one dichotomized and adopt the HBSC definition of yes if 
+any of the variables is 6; and b) a sum for our shap tests with values in [4,24].  
+
+```{r livingonline, echo=FALSE}
+
+dat <- dat %>%
+  mutate(
+    # 1 if any of the 4 is 6
+    onlfreq_is = case_when(
+      (emconlfreq1 == 6 | emconlfreq2 == 6 | emconlfreq3 == 6 | emconlfreq4 == 6) ~ 1,
+      (!is.na(emconlfreq1) | !is.na(emconlfreq2) | !is.na(emconlfreq3) | !is.na(emconlfreq4)) ~ 0,
+      TRUE ~ NA #still need to do something with 99
+    ),
+    # sums the 4
+    onlfreq_sum = emconlfreq1 + emconlfreq2 + emconlfreq3 + emconlfreq4
+  )
+    
+cat("Online frequence is (onlfreq_is): ")
+table(dat$onlfreq_is, useNA = "always")
+
+summary(dat$onlfreq_sum)
+
+ggplot(dat, aes(x=onlfreq_sum)) +
+  geom_bar() +
+  theme_minimal()
+
+```
+
+For b) preference to communicate online, 3 questions ask about preference of sharing important stuff online vs real-life. The three variables are:
+
+| Variable      | Description                     |
+|---------------|---------------------------------|
+| emconlpref1   | Secrets, more easily online     |
+| emconlpref2   | Feelings, more easily online    |
+| emconlpref3   | Concerns, more easily online    |
+
+The answers range from 1 (Strong disagree) to 5 (Strong agree).
+
+And they are correlated. Remove 99s????
+
+```{r corr_emconlprefX,echo=FALSE}
+
+#vars_emconlpref <- var_groups[["Communicates Online More Than Real Life"]]
+#vars_onlfe
+
+corr_emconlprefX <- cor(dat[vars_onlfe[5:7]],
+                        use = "pairwise.complete.obs")
+
+corr_emconlprefX <- round(corr_emconlprefX, 2)
+
+corrplot::corrplot(
+  corr_emconlprefX,
+  method = "color",
+  type = "upper",
+  tl.col = "black",
+  addCoef.col = "black"
+)
+
+```
+
+Haven't found a paper that uses them so I will replicated method of friends support below. Summing them results in [3,15] and then grouped as H/M/L as L 3-6, M 7-10, H 11-15. Resulting in:
+
+```{r emconlprefX, echo=FALSE}
+
+dat <- dat %>%
+  mutate(# sum should give 3-15
+        onlpref_sum = emconlpref1 + emconlpref2 + emconlpref3,
+        onlpref_sum = ifelse(onlpref_sum > 15, NA, onlpref_sum), #for now, 99 issue
+        # create hml
+        onlpref = case_when(
+          between(onlpref_sum, 3, 6) ~ 1,
+          between(onlpref_sum, 7, 10) ~ 2,
+          between(onlpref_sum, 11, 15) ~ 3,
+          TRUE ~ NA
+        )
+  )
+    
+cat("onlpref: ")
+table(dat$onlpref, useNA = "always")
+
+summary(dat$onlpref_sum)
+
+ggplot(dat, aes(x=onlpref_sum)) +
+  geom_bar() +
+  theme_minimal()
+
+```
 
 # [6] "Family Support" 
 4 questions going from 1 Very strongly disagree to 7 Very strongly agree.
@@ -608,6 +837,136 @@ kable(tbl_frisup)
 
 ```
 
+# [8] "School Support"                         
+8 variables related to school.
+
+```{r sc1, echo=FALSE}
+var_groups[8]
+
+```
+likeschool ask if they like school and goes from 1 (lots) to 4 (no). I won't use for now.
+
+schoolpressure ask if they feel pressure and goes from 1(no) to 4(a lot). I won't use for now.
+
+Then there are 3 questions about relationship with students and 3 with relationship with teachers. The answers go from 1 (strong agree) to 5 (strong disagree).
+
+```{r skool1, echo=FALSE}
+
+school_items <- data.frame(
+  category = c("teacher", "teacher", "teacher",
+               "classmates", "classmates", "classmates"),
+  item = c("teacheraccept",
+           "teachercare",
+           "teachertrust",
+           "studtogether",
+           "studhelpful",
+           "studaccept"),
+  topic = c("Teacher accepts me",
+            "Teacher cares about me",
+            "Feel trust in teacher",
+            "Students enjoy being together",
+            "Students kind and helpful",
+            "Students accept me")
+)
+
+kable(school_items)
+
+
+```
+
+Scales are reversed so 1 is the negative and 5 is the positive.
+
+```{r skurecode, echo=FALSE}
+
+# recodes from 1-5 to 0-4 
+recode_school_vars <- function(old_values){
+  new_values <- case_when(
+    old_values == 5 ~ 1,
+    old_values == 4 ~ 2,
+    old_values == 3 ~ 3,
+    old_values == 2 ~ 4,
+    old_values == 1 ~ 5,
+    TRUE ~ NA
+  )
+  return(new_values)
+}
+
+dat <- dat %>%
+  # recode so they can be added
+  mutate(teacheraccept_r = recode_school_vars(teacheraccept),
+         teachercare_r = recode_school_vars(teachercare),
+         teachertrust_r = recode_school_vars(teachertrust),
+         studtogether_r = recode_school_vars(studtogether),
+         studhelpful_r = recode_school_vars(studhelpful),
+         studaccept_r = recode_school_vars(studaccept)
+         ) 
+
+```
+
+And there is moderate correlation between groups but lowers across stud/teach.
+
+```{r skulr, echo=FALSE}
+
+vars_school <- c("teacheraccept", "teachercare","teachertrust",
+                 "studtogether", "studhelpful", "studaccept")
+vars_school_r <- paste0(vars_school, "_r")
+
+school_r <- cor(dat[vars_school_r],
+              use = "pairwise.complete.obs")
+print(round(school_r,2))
+
+```
+
+A few features are derived. For stud/teach separate a binary following HBSC and a sum for shap test.
+
+```{r skulfe, echo=FALSE}
+
+dat <- dat %>%
+  # derive avg by teacher/student
+  mutate(teacher_support_avg = (teacheraccept_r 
+                               + teachercare_r
+                               + teachertrust_r) / 3,
+         student_support_avg = (studtogether_r
+                                + studhelpful_r
+                                + studaccept_r) / 3
+         ) %>%
+  # derive support yn based on hbsc
+  mutate(
+    teachersup = case_when(
+      teacher_support_avg >= 4 ~ 1,
+      teacher_support_avg < 4 ~ 0,
+      TRUE ~ NA),
+      studsup = case_when(
+        student_support_avg >= 4 ~ 1,
+        student_support_avg < 4 ~ 0,
+        TRUE ~ NA)
+  ) %>%
+  # derive support sum for shap
+  mutate(teachersup_sum = teacheraccept_r 
+                            + teachercare_r
+                            + teachertrust_r,
+         studsup_sum = studtogether_r
+                        + studhelpful_r
+                        + studaccept_r
+         )
+
+cat ("teachersup: ")
+table(dat$teachersup_sum,
+      dat$teachersup,
+      useNA = "always")
+
+cat ("studentsup: ")
+table(dat$studsup_sum,
+      dat$studsup,
+      useNA = "always")
+
+# clean a bit
+dat <- dat %>%
+  select(-c(teacher_support_avg, student_support_avg),
+         all_of(vars_school))
+
+```
+
 # [9] "Communication with Parents"
 
 Two vars with answers from 1 (Very easy) to 5 (Don't have or see). With this counts and proportions in data.  
@@ -678,17 +1037,489 @@ ggplot(dat, aes(x = factor(talkscore))) +
 
 ```
 
-voy
-[2] "Health Issues and Life Satisfaction"    
-[5] "Communicates Online More Than Real Life"
-[8] "School Support"                         
-[10] "Good/Bad Habits"
+# [10] "Good/Bad Habits"
+
+physact60 is just past week so ignore.
+
+timeexe ask how often exercise in free time going from 1 (every day) to 7 never. HBSC shows proportions of those that do 3+ per week. But that is 2022 data, in our case we do 2-3 times per week or more. And I keep timexe as is for shap test.
+
+```{r timeexe_rec, echo=FALSE}
+
+dat <- dat %>%
+  mutate(timeexe_r = case_when(
+    between(timeexe, 1, 3) ~ 1,
+    between(timeexe, 4, 7) ~ 0,
+    TRUE ~ NA
+  ))
+
+print(
+table(dat$timeexe,
+      dat$timeexe_r,
+      useNA = "ifany")
+)
+
+```
+
+alc30d_2 ask about alcohol use in past 30 days and will ignore for now
+
+# Clean Dataset for Modeling
+
+```{r dclean, include=FALSE}
+
+glimpse(dat)
+
+# Create the structured list of variables
+vars_list_mdls <- list(
+  personal = c(
+    "seqno_int", "country_name", "bodyheight", "bodyweight", 
+    "MBMI", "IOTF4", "agecat", "sex", "IRRELFAS_LMH", "IRFAS"
+  ),
+  health = c(
+    "lifesat_low", "mental_issue", "mental_sum"
+  ),
+  pmsu = c(
+    "pmsu_lmh", "pmsu_sum"
+  ),
+  bullying = c(
+    "cbullied", "bulliedsum"
+  ),
+  online_comms = c(
+    "onlfreq_is", "onlfreq_sum", "onlpref", "onlpref_sum"
+  ),
+  afmsup = c(
+    "famsup_hml", "famsup_sum"
+  ),
+  friend_support = c(
+    "frisup_hml", "frisup_sum"
+  ),
+  school_support = c(
+    "teachersup", "teachersup_sum", "studsup", "studsup_sum"
+  ),
+  parent_comms = c(
+    "talkf", "talkm", "talkscore"
+  ),
+  habits = c(
+    "timeexe_r", "timeexe"
+  )
+)
+
+vars_mdls <- unlist(vars_list_mdls, use.names = FALSE)
+d <- dat %>% select(all_of(vars_mdls))
+
+# How to select #1 personal:
+#personal_vars <- variables_list$personal
+#print(personal_vars)
+
+```
+
+# Missing Values
+Need to plan for this. For now, just keeping complete obs, but note some countries are very affected. 
+
+```{r na, echo=FALSE}
+
+d <- d %>% 
+  mutate(any_na = if_any(everything(), is.na))
+
+d %>%
+  group_by(country_name, any_na) %>%
+  tally() %>%
+  pivot_wider(names_from = any_na,
+              names_prefix = "na_",
+              values_from = n,
+              values_fill = 0) %>%
+  mutate(n = na_FALSE + na_TRUE) %>%
+  mutate(pct_complete = round(na_FALSE / n,3)) %>%
+  select(n, na_FALSE, pct_complete) %>%
+  arrange(desc(pct_complete))-> tbl_nas_country
+
+kable(tbl_nas_country)
+
+d <- d[complete.cases(d),] %>%
+  select(-any_na)
+
+#summary(dc)
+
+```
+
+# Data Type Coercions
+
+```{r}
+
+# # vars to coerce to fact (i looked 1x1)
+# country_name
+# IOTF4 ordered 1-4
+# agecat ordered 1-3
+# sex
+# IRRELFAS_LMH ordered 1-3
+# lifesat_low ordered 0-1
+# mental_issue ordered 0-1
+# pmsu_lmh order 1-3
+# cbullied order 0-1
+# onlfreq_is order 0-1
+# onlpref order 1-3
+# famsup_hml order 1-3
+# frisup_hml order 1-3
+# teachersup order 0-1
+# studsup order 0-1
+# talkf order 0-1
+# talkm order 0-1
+# timeexe_r order 0-1
+
+d <- d %>%
+  mutate(
+    # --- Unordered (Nominal) Factors ---
+    country_name = as.factor(country_name),
+    sex          = as.factor(sex),
+    # --- Ordered Factors (1 to 4) ---
+    IOTF4        = factor(IOTF4, levels = c("1", "2", "3", "4"), ordered = TRUE),
+    # --- Ordered Factors (1 to 3) ---
+    agecat       = factor(agecat,       levels = c("1", "2", "3"), ordered = TRUE),
+    IRRELFAS_LMH = factor(IRRELFAS_LMH, levels = c("1", "2", "3"), ordered = TRUE),
+    pmsu_lmh     = factor(pmsu_lmh,     levels = c("1", "2", "3"), ordered = TRUE),
+    onlpref      = factor(onlpref,      levels = c("1", "2", "3"), ordered = TRUE),
+    famsup_hml   = factor(famsup_hml,   levels = c("1", "2", "3"), ordered = TRUE),
+    frisup_hml   = factor(frisup_hml,   levels = c("1", "2", "3"), ordered = TRUE),
+    # --- Ordered Factors (0 to 1 Binary / Dummy Scales) ---
+    lifesat_low  = factor(lifesat_low,  levels = c("0", "1"), ordered = TRUE),
+    mental_issue = factor(mental_issue, levels = c("0", "1"), ordered = TRUE),
+    cbullied     = factor(cbullied,     levels = c("0", "1"), ordered = TRUE),
+    onlfreq_is   = factor(onlfreq_is,   levels = c("0", "1"), ordered = TRUE),
+    teachersup   = factor(teachersup,   levels = c("0", "1"), ordered = TRUE),
+    studsup      = factor(studsup,      levels = c("0", "1"), ordered = TRUE),
+    talkf        = factor(talkf,        levels = c("0", "1"), ordered = TRUE),
+    talkm        = factor(talkm,        levels = c("0", "1"), ordered = TRUE),
+    timeexe_r    = factor(timeexe_r,    levels = c("0", "1"), ordered = TRUE)
+  )
+
+```
+
+# Tests for Potential of Prediction
+
+```{r predpowertests}
+
+#vars_for cochran (ordered)
+#vars_for_chi
+#vars_for_tt 
+
+# --- 1. SETUP YOUR TARGET VARIABLE NAME ---
+# Change "depression" to your exact binary response column name
+# IMPORTANT: This target variable must have exactly two levels (e.g., "No" and "Yes")
+#target_var <- "depression"
+target_var <- "mental_issue"
+# Ensure target is a factor and identify the "success" level (the 2nd level)
+#d[[target_var]] <- as.factor(d[[target_var]])
+target_levels <- levels(d[[target_var]])
+success_level <- target_levels[2] 
+
+# --- 2. THE AUTOMATED LOOP ---
+for (col_name in names(d)) {
+  
+  # Skip the target variable itself
+  if (col_name %in% c(target_var, "seqno_int")) next
+  
+  cat("\n==================================================\n")
+  cat("Testing Relationship:", target_var, "vs", col_name, "\n")
+  cat("==================================================\n")
+  
+  # --- 1. IF ORDINAL -> RUN COCHRAN-ARMITAGE TREND TEST ---
+  if (is.ordered(d[[col_name]])) {
+    cat("Predictor Type: ORDINAL -> Running Cochran-Armitage Trend Test...\n\n")
+    
+    # Build table: rows = target, columns = ordinal levels
+    contingency_table <- table(d[[target_var]], d[[col_name]])
+    print(contingency_table)
+    cat("\n")
+    
+    # Extract successes for the 2nd level (e.g., "Yes") and column totals
+    successes <- contingency_table[success_level, ]
+    totals    <- colSums(contingency_table)
+    
+    test_result <- tryCatch({
+      prop.trend.test(successes, totals)
+    }, error = function(e) { return(NULL) })
+    
+    if (!is.null(test_result)) {
+      print(test_result)
+    } else {
+      cat("Error: Could not run Trend Test. Verify your variable setup.\n")
+    }
+    
+  # --- 2. IF NUMERIC -> RUN T-TEST ---
+  } else if (is.numeric(d[[col_name]])) {
+    cat("Predictor Type: NUMERIC -> Running Independent t-test...\n\n")
+    
+    test_result <- tryCatch({
+      t.test(d[[col_name]] ~ d[[target_var]])
+    }, error = function(e) { return(NULL) })
+    
+    if (!is.null(test_result)) {
+      print(test_result)
+    } else {
+      cat("Error: Could not run t-test. Check for missing values.\n")
+    }
+    
+  # --- 3. IF NOMINAL / BINARY -> RUN CHI-SQUARE ---
+  } else if (is.factor(d[[col_name]]) || is.character(d[[col_name]])) {
+    cat("Predictor Type: NOMINAL/BINARY -> Running Chi-Square Test...\n\n")
+    
+    contingency_table <- table(d[[target_var]], d[[col_name]])
+    print(contingency_table)
+    cat("\n")
+    
+    test_result <- tryCatch({
+      chisq.test(contingency_table)
+    }, error = function(e) { return(NULL) })
+    
+    if (!is.null(test_result)) {
+      print(test_result)
+    } else {
+      cat("Error: Could not run Chi-Square test.\n")
+    }
+  }
+}
+
+
+# # chi for nominal
+# cont_tbl <- table(d[["mental_issue"]], d[["pmsu_lmh"]])
+# print(cont_tbl)
+# chi <- chisq.test(cont_tbl)
+# print(chi)
+# print(chi$p.value)
+# print(chi$statistic)
+# 
+# # cochran for ordered
+# cont_tbl <- table(d[["mental_issue"]], d[["pmsu_lmh"]])
+# cont_tbl
+# successes <- cont_tbl["1", ]
+# successes
+# totals <- colSums(cont_tbl)
+# coch <- prop.trend.test(successes, totals)
+# coch
+# 
+# # t.test for num
+# tt <- t.test(d[["pmsu_sum"]] ~ d[["mental_issue"]])
+# tt    
+
+
+    
 
 
 
+```
 
 
+```{r}
+# --- 1. SETUP YOUR TARGET VARIABLE NAME ---
+# Target variable is set to "mental_issue" and dataset is named "d"
+target_var <- "mental_issue"
 
+# Ensure target is a factor and identify the "success" level (the 2nd level)
+d[[target_var]] <- as.factor(d[[target_var]])
+target_levels <- levels(d[[target_var]])
+success_level <- target_levels[2] # Grabs group 1 / "Yes" status automatically
+
+# --- 2. INITIALIZE AN EMPTY DATAFRAME FOR THE SUMMARY TABLE ---
+summary_table <- data.frame(
+  Predictor_Variable = character(),
+  Variable_Type      = character(),
+  Statistical_Test   = character(),
+  Test_Statistic     = character(),
+  p_value            = character(),
+  stringsAsFactors   = FALSE
+)
+
+# --- 3. THE AUTOMATED LOOP ---
+for (col_name in names(d)) {
+  
+  # Skip the target variable itself
+  if (col_name == target_var) next
+  
+  # Create baseline variables for storing this row's data
+  var_type <- "Unknown"
+  test_name <- "None"
+  stat_val <- "N/A"
+  p_val_str <- "N/A"
+  
+  # --- 1. IF ORDINAL -> RUN COCHRAN-ARMITAGE TREND TEST ---
+  if (is.ordered(d[[col_name]])) {
+    var_type <- "Ordinal"
+    test_name <- "Cochran-Armitage Trend Test"
+    
+    contingency_table <- table(d[[target_var]], d[[col_name]])
+    successes <- contingency_table[success_level, ]
+    totals    <- colSums(contingency_table)
+    
+    test_result <- tryCatch({ prop.trend.test(successes, totals) }, error = function(e) { return(NULL) })
+    
+    if (!is.null(test_result)) {
+      stat_val <- paste0("X-squared = ", round(test_result$statistic, 2))
+      p_val_str <- if(test_result$p.value < 0.001) "< 0.001" else format(round(test_result$p.value, 4), scientific = FALSE)
+    }
+    
+  # --- 2. IF NUMERIC -> RUN T-TEST ---
+  } else if (is.numeric(d[[col_name]])) {
+    var_type <- "Numeric"
+    test_name <- "Welch Two Sample t-test"
+    
+    test_result <- tryCatch({ t.test(d[[col_name]] ~ d[[target_var]]) }, error = function(e) { return(NULL) })
+    
+    if (!is.null(test_result)) {
+      stat_val <- paste0("t(", round(test_result$parameter, 1), ") = ", round(test_result$statistic, 2))
+      p_val_str <- if(test_result$p.value < 0.001) "< 0.001" else format(round(test_result$p.value, 4), scientific = FALSE)
+    }
+    
+  # --- 3. IF NOMINAL / BINARY -> RUN CHI-SQUARE ---
+  } else if (is.factor(d[[col_name]]) || is.character(d[[col_name]])) {
+    var_type <- if(length(unique(d[[col_name]])) == 2) "Binary" else "Nominal"
+    test_name <- "Pearson's Chi-Square Test"
+    
+    contingency_table <- table(d[[target_var]], d[[col_name]])
+    test_result <- tryCatch({ chisq.test(contingency_table) }, error = function(e) { return(NULL) })
+    
+    if (!is.null(test_result)) {
+      stat_val <- paste0("X-squared(", test_result$parameter, ") = ", round(test_result$statistic, 2))
+      p_val_str <- if(test_result$p.value < 0.001) "< 0.001" else format(round(test_result$p.value, 4), scientific = FALSE)
+    }
+  }
+  
+  # --- 4. APPEND THE RESULT ROW TO OUR TABLE ---
+  new_row <- data.frame(
+    Predictor_Variable = col_name,
+    Variable_Type      = var_type,
+    Statistical_Test   = test_name,
+    Test_Statistic     = stat_val,
+    p_value            = p_val_str,
+    stringsAsFactors   = FALSE
+  )
+  summary_table <- rbind(summary_table, new_row)
+}
+
+# --- 4. VIEW THE FINAL SUMMARY TABLE ---
+print(summary_table)
+
+```
+
+```{r my1sttidyLR}
+
+# # create modeling dat
+# dat <- dat %>%
+#   mutate(y = ifelse(lifesat >5,1,0),
+#          y = factor(y))
+
+d_mdl <- d %>% 
+  select(country_name, MBMI, agecat, sex, IRRELFAS_LMH, mental_issue, pmsu_lmh, cbullied, onlfreq_is, onlpref, famsup_hml, frisup_hml, teachersup, studsup, talkf, talkm, timeexe_r)
+
+#baseline
+d_mdl %>%
+  group_by(mental_issue) %>%
+  tally() %>%
+  mutate(prop = n/sum(n))
+
+# data split
+set.seed(67)
+data_split <- initial_split(d_mdl, prop = 0.8, strata = mental_issue)
+train_data <- training(data_split)
+test_data  <- testing(data_split)
+
+# 3. Create a Preprocessing Recipe -----------------------------------------
+# Define formula (Outcome ~ Predictors) and add preprocessing steps
+lr_recipe <- recipe(mental_issue ~ . , 
+                    data = train_data) %>%
+  step_rm(country_name)
+ # step_zv(all_predictors()) %>%          # Remove zero-variance predictors
+#  step_normalize(all_numeric_predictors()) # Center and scale numeric variables
+
+# 4. Define the Logistic Regression Model Spec -------------------------------
+lr_spec <- logistic_reg() %>%
+  set_engine("glm") %>%                  # Use standard generalized linear model
+  set_mode("classification")             # Specify binary classification mode
+
+# 5. Create the Workflow ----------------------------------------------------
+# Bundle the recipe and model specification together
+lr_workflow <- workflow() %>%
+  add_recipe(lr_recipe) %>%
+  add_model(lr_spec)
+
+# 6. Fit the Model (Train) --------------------------------------------------
+# This automatically preps the recipe and trains the model on train data
+lr_fit <- fit(lr_workflow, data = train_data)
+
+# 7. Evaluate on Test Data --------------------------------------------------
+# Predict classes (labels)
+predictions_class <- predict(lr_fit, new_data = test_data)
+predictions_class
+
+# Predict probabilities
+predictions_prob  <- predict(lr_fit, new_data = test_data, type = "prob")
+predictions_prob
+
+# Combine test data with predictions
+evaluation_data <- test_data %>%
+  bind_cols(predictions_class, predictions_prob)
+
+# Print confusion matrix and accuracy metrics
+evaluation_data %>% conf_mat(truth = mental_issue, estimate = .pred_class)
+evaluation_data %>% metrics(truth = mental_issue, estimate = .pred_class)
+
+# Extract and print clean model coefficients
+lr_fit %>% 
+  extract_fit_parsnip() %>% 
+  tidy() %>%
+  print(n = Inf)
+
+# Print coefficients as Odds Ratios
+lr_fit %>% 
+  extract_fit_parsnip() %>% 
+  tidy(exponentiate = TRUE) %>%
+  mutate(is_sig = ifelse(p.value < .05, 1, 0)) %>%
+  print(n = Inf)
+
+# Calculate ROC AUC
+evaluation_data %>% 
+  roc_auc(truth = mental_issue, .pred_0)
+
+# Generate and plot the ROC Curve
+evaluation_data %>% 
+  roc_curve(truth = mental_issue, .pred_0) %>% 
+  autoplot()
+
+
+```
+
+
+```{r}
+# 1. Isolate just your predictor columns (exclude your target "mental_issue")
+# Hint: Use a subset of up to 1,000-2,000 rows for speed
+X_explain <- d[1:1000, ] %>% select(-mental_issue)
+
+require(kernelshap)
+require(shapviz)
+
+# 2. Compute the SHAP values 
+# Type = "prob" ensures R looks at the predicted probabilities (e.g., .pred_Yes)
+shap_results <- kernelshap(
+  object = lr_fit, 
+  X = X_explain, 
+  bg_X = d[1:200, ] %>% select(-mental_issue), # Small background baseline
+  type = "prob"
+)
+
+# 3. Convert to a shapviz object for instant plotting
+shp_viz <- shapviz(shap_results)
+
+# Replace ".pred_1" with your positive class prediction column name if different
+sv_importance(shp_viz$.pred_1, kind = "beeswarm")
+
+sv_dependence(shp_viz$.pred_1, v = "pmsu_lmh")
+
+for (i in 1:10){
+print(sv_waterfall(shp_viz$.pred_1, row_id = i))
+}
+
+sv_waterfall(shp_viz$.pred_1, row_id = 5)
+
+
+```
 
 
 
