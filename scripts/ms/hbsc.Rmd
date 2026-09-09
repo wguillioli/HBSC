@@ -1106,6 +1106,9 @@ vars_list_mdls <- list(
 vars_mdls <- unlist(vars_list_mdls, use.names = FALSE)
 d <- dat %>% select(all_of(vars_mdls))
 
+write_csv(d, 
+          paste0(dat_fldr, "processed/d.csv"))
+
 # How to select #1 personal:
 #personal_vars <- variables_list$personal
 #print(personal_vars)
@@ -1141,7 +1144,7 @@ d <- d[complete.cases(d),] %>%
 
 ```
 
-# Data Type Coercions
+# Data Type Coercions & Potential for Prediction
 
 ```{r}
 
@@ -1298,15 +1301,10 @@ for (col_name in names(d)) {
 # 
 # # t.test for num
 # tt <- t.test(d[["pmsu_sum"]] ~ d[["mental_issue"]])
-# tt    
-
-
-    
-
-
+# tt  
 
 ```
-
+More tests huhg?
 
 ```{r}
 # --- 1. SETUP YOUR TARGET VARIABLE NAME ---
@@ -1395,9 +1393,102 @@ for (col_name in names(d)) {
 }
 
 # --- 4. VIEW THE FINAL SUMMARY TABLE ---
-print(summary_table)
+kable(summary_table)
 
 ```
+
+```{r LR_tuned}
+
+# # Split into training and testing sets
+# set.seed(67)
+# data_split <- initial_split(d, strata = mental_issue)
+# train_data <- training(data_split)
+# test_data  <- testing(data_split)
+# 
+# # Create cross-validation folds
+# cv_folds <- vfold_cv(train_data, v = 10, strata = mental_issue)
+# 
+# lr_spec <- logistic_reg(
+#   penalty = tune(), 
+#   mixture = 1
+# ) |> 
+#   set_engine("glmnet") |> 
+#   set_mode("classification")
+# 
+# lr_recipe <- recipe(mental_issue ~ pmsu_lmh + MBMI, data = train_data) |>
+#   step_dummy(all_nominal_predictors()) |> 
+#   step_normalize(all_numeric_predictors())
+# 
+# lr_workflow <- workflow() |> 
+#   add_model(lr_spec) |> 
+#   add_recipe(lr_recipe)
+# 
+# # Define a grid of penalty values to test
+# penalty_grid <- grid_regular(penalty(), levels = 20)
+# #penalty_grid
+# 
+# # Tune the model using ROC AUC as the metric
+# tuned_results <- tune_grid(
+#   lr_workflow,
+#   resamples = cv_folds,
+#   grid = penalty_grid,
+#   metrics = metric_set(roc_auc)
+# )
+# #tuned_results
+# 
+# # Find best penalty parameter
+# best_penalty <- select_best(tuned_results, metric = "roc_auc")
+# best_penalty
+# 
+# # Finalize workflow and run last fit
+# final_workflow <- finalize_workflow(lr_workflow, best_penalty)
+# final_fit <- last_fit(final_workflow, data_split)
+# 
+# # Collect final test metrics
+# collect_metrics(final_fit)
+# 
+# # 7. Evaluate on Test Data --------------------------------------------------
+# # Predict classes (labels)
+# predictions_class <- predict(final_fit, new_data = test_data)
+# predictions_class
+# 
+# # Predict probabilities
+# predictions_prob  <- predict(lr_fit, new_data = test_data, type = "prob")
+# predictions_prob
+# 
+# # Combine test data with predictions
+# evaluation_data <- test_data %>%
+#   bind_cols(predictions_class, predictions_prob)
+# 
+# # Print confusion matrix and accuracy metrics
+# evaluation_data %>% conf_mat(truth = mental_issue, estimate = .pred_class)
+# evaluation_data %>% metrics(truth = mental_issue, estimate = .pred_class)
+# 
+# # Extract and print clean model coefficients
+# lr_fit %>% 
+#   extract_fit_parsnip() %>% 
+#   tidy() %>%
+#   print(n = Inf)
+# 
+# # Print coefficients as Odds Ratios
+# lr_fit %>% 
+#   extract_fit_parsnip() %>% 
+#   tidy(exponentiate = TRUE) %>%
+#   mutate(is_sig = ifelse(p.value < .05, 1, 0)) %>%
+#   print(n = Inf)
+# 
+# # Calculate ROC AUC
+# evaluation_data %>% 
+#   roc_auc(truth = mental_issue, .pred_0)
+# 
+# # Generate and plot the ROC Curve
+# evaluation_data %>% 
+#   roc_curve(truth = mental_issue, .pred_0) %>% 
+#   autoplot()
+
+```
+
+
 
 ```{r my1sttidyLR}
 
@@ -1406,18 +1497,17 @@ print(summary_table)
 #   mutate(y = ifelse(lifesat >5,1,0),
 #          y = factor(y))
 
-d_mdl <- d %>% 
-  select(country_name, MBMI, agecat, sex, IRRELFAS_LMH, mental_issue, pmsu_lmh, cbullied, onlfreq_is, onlpref, famsup_hml, frisup_hml, teachersup, studsup, talkf, talkm, timeexe_r)
+
 
 #baseline
-d_mdl %>%
+d %>%
   group_by(mental_issue) %>%
   tally() %>%
   mutate(prop = n/sum(n))
 
 # data split
 set.seed(67)
-data_split <- initial_split(d_mdl, prop = 0.8, strata = mental_issue)
+data_split <- initial_split(d, prop = 0.8, strata = mental_issue)
 train_data <- training(data_split)
 test_data  <- testing(data_split)
 
@@ -1487,20 +1577,20 @@ evaluation_data %>%
 ```
 
 
-```{r}
+```{r shap}
 # 1. Isolate just your predictor columns (exclude your target "mental_issue")
 # Hint: Use a subset of up to 1,000-2,000 rows for speed
-X_explain <- d[1:1000, ] %>% select(-mental_issue)
+X_explain <- d[1:100, ] %>% select(-mental_issue)
 
 require(kernelshap)
 require(shapviz)
 
-# 2. Compute the SHAP values 
+# 2. Compute the SHAP valuese
 # Type = "prob" ensures R looks at the predicted probabilities (e.g., .pred_Yes)
 shap_results <- kernelshap(
   object = lr_fit, 
   X = X_explain, 
-  bg_X = d[1:200, ] %>% select(-mental_issue), # Small background baseline
+  bg_X = d[1:100, ] %>% select(-mental_issue), # Small background baseline
   type = "prob"
 )
 
@@ -1511,15 +1601,179 @@ shp_viz <- shapviz(shap_results)
 sv_importance(shp_viz$.pred_1, kind = "beeswarm")
 
 sv_dependence(shp_viz$.pred_1, v = "pmsu_lmh")
+sv_dependence(shp_viz$.pred_1, v = "MBMI")
 
-for (i in 1:10){
+
+for (i in c(1,3,5)){
 print(sv_waterfall(shp_viz$.pred_1, row_id = i))
 }
 
-sv_waterfall(shp_viz$.pred_1, row_id = 5)
+#sv_waterfall(shp_viz$.pred_1, row_id = 5)
 
 
 ```
 
+# Fit Classification following DC
+https://campus.datacamp.com/courses/modeling-with-tidymodels-in-r/classification-models?ex=1
+
+```{r}
+
+#data resampling
+hbsc_split <- initial_split(d, prop = .8, strata = mental_issue)
+d_training <- hbsc_split %>% training()
+d_test <- hbsc_split %>% testing()
+nrow(d_training)
+nrow(d_test)
+
+# Specify a logistic regression model
+logistic_model <- logistic_reg() %>% 
+  set_engine('glm') %>% 
+  set_mode('classification')
+
+logistic_model
+
+# Fit to training data
+logistic_fit <- logistic_model %>% 
+  fit(mental_issue ~ pmsu_lmh,
+      data = d_training)
+
+logistic_fit
+
+# Predict 
+class_preds <- predict(logistic_fit, new_data = d_test, type = 'class')
+prob_preds <- predict(logistic_fit, new_data = d_test, type = 'prob')
+
+# Combine test set results
+results <- d_test %>% 
+  select(mental_issue) %>% 
+  bind_cols(class_preds, prob_preds)
+
+results
+
+# Calculate the confusion matrix
+conf_mat(telecom_results, truth = canceled_service,
+         estimate = .pred_class)
+
+# Calculate the accuracy
+accuracy(telecom_results, truth = canceled_service,
+         estimate = .pred_class)
+
+# Calculate the sensitivity
+sens(telecom_results, truth = canceled_service,
+     estimate = .pred_class)
+
+# Calculate the specificity
+spec(telecom_results, truth = canceled_service,
+     estimate = .pred_class)
+
+# Create a custom metric function
+telecom_metrics <- metric_set(accuracy, sens, spec)
+
+# Create a custom metric function
+telecom_metrics <- metric_set(accuracy, sens, spec)
+
+# Calculate metrics using model results tibble
+telecom_metrics(telecom_results, truth = canceled_service,
+                estimate = .pred_class)
+
+# Create a custom metric function
+metrics <- metric_set(accuracy, sens, spec)
+
+metrics(results, truth = mental_issue, estimate = .pred_class)
+
+conf_mat(results,
+         truth = mental_issue,
+         estimate = .pred_class) %>% 
+  # Pass to the summary() function
+  summary()
+
+# Create a confusion matrix
+conf_mat(results,
+         truth = mental_issue,
+         estimate = .pred_class) %>% 
+  # Create a heat map
+  autoplot(type = "heatmap")
+
+# Calculate metrics across thresholds
+threshold_df <- results %>% 
+  roc_curve(truth = mental_issue, .pred_0)
+
+threshold_df
+
+# Plot ROC curve
+threshold_df %>% 
+  autoplot()
+
+# Calculate ROC AUC
+roc_auc(results,
+        truth = mental_issue, 
+        .pred_0)
+
+# Train model with last_fit()
+last_fit <- logistic_model %>% 
+  last_fit(mental_issue ~ pmsu_lmh,
+           split = hbsc_split)
+
+# View test set metrics
+last_fit %>% 
+  collect_metrics()
+
+# Collect predictions
+last_fit_results <- last_fit %>% 
+  collect_predictions()
+
+# View results
+last_fit_results
+
+# Custom metrics function
+last_fit_metrics <- metric_set(accuracy, sens,
+                               spec, roc_auc)
+
+# Collect predictions
+last_fit_results <- last_fit %>% 
+  collect_predictions()
+
+# View results
+last_fit_results
+
+# Custom metrics function
+last_fit_metrics <- metric_set(accuracy, sens,
+                               spec, roc_auc)
+
+# Calculate metrics
+last_fit_metrics(last_fit_results,
+                 truth = mental_issue,
+                 estimate = .pred_class,
+                 .pred_1)
+
+
+# Train a logistic regression model
+logistic_fit <- logistic_model %>% 
+  last_fit(lifesat_low ~ pmsu_lmh, 
+           split = hbsc_split)
+
+# Collect metrics
+logistic_fit %>% 
+  collect_metrics()
+
+# Collect model predictions
+logistic_fit %>% 
+  collect_predictions() %>% 
+  # Plot ROC curve
+  roc_curve(truth = lifesat_low, .pred_0) %>% 
+  autoplot()
+
+
+```
+
+```{r sandox, include=FALSE}
+
+# lifesat_low baseline
+d %>%
+  group_by(lifesat_low) %>%
+  tally() %>%
+  mutate(p = n/sum(n))
+
+```
 
 
