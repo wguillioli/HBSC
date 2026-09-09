@@ -1,6 +1,8 @@
 
 rm (list = ls())
 
+#install.packages("vip", repos = c("https://bgreenwell.r-universe.dev", "https://cloud.r-project.org"))
+
 require(coefplot)
 #require(vip)
 library(ROCR)
@@ -8,6 +10,8 @@ library(tidymodels)
 require(rpart.plot)
 require(tidyverse)
 require(randomForest)
+require(ranger)
+require(vip)
 
 prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
 dat_fldr <- paste0(prj_fldr,"data/")
@@ -18,10 +22,6 @@ glimpse(d)
 #vars_list_mdls
 
 summary(d)
-
-# ----------------------------------------------
-# fit one good LR model WW
-# ----------------------------------------------
 
 # get baseline of potential y
 ys <- c("lifesat_low", "mental_issue")
@@ -124,6 +124,10 @@ mdl_results <- data.frame(
   stringsAsFactors = FALSE
 )
 
+# Create CV folds of the customers tibble
+set.seed(67)
+folds <- vfold_cv(dmdl1, 10)
+
 
 # -----------------------------------------------------------------
 # Fit a mickey mouse tree for all vars
@@ -212,9 +216,7 @@ tree_grid <- tree_spec %>%
   extract_parameter_set_dials() %>%
   grid_regular(levels = 10)
 
-# Create CV folds of the customers tibble
-set.seed(67)
-folds <- vfold_cv(dmdl1, 10)
+
 
 # Tune along the grid
 start_time <- Sys.time()
@@ -336,6 +338,80 @@ rf_res <- data.frame(
 
 mdl_results <- mdl_results %>%
   bind_rows(rf_res)
+
+
+# -----------------------------------------------------------------
+# Fit a tuned rf for all vars
+# -----------------------------------------------------------------
+
+# 1. Specify the random forest with tune() placeholders
+spec <- rand_forest(
+  mtry = tune(),
+  trees = tune(),
+  min_n = tune()) %>%
+  set_mode("classification") %>%
+  set_engine("ranger", importance = "impurity")
+
+# 2. Set up a workflow (this binds the model and formula together)
+rf_wf <- workflow() %>% 
+  add_model(spec) %>% 
+  add_formula(mental_issue ~ . -seqno_int)
+
+# 3. Create a regular tuning grid (e.g., 3 levels per parameter = 27 combinations)
+# Note: mtry() requires seeing the training data to know the maximum number of columns available
+rf_grid <- grid_regular(
+  mtry(range = c(1, 10)), # Adjust '10' to match the number of predictors in your data
+  trees(),
+  min_n(),
+  levels = 3
+)
+rf_grid
+
+# 4. Run the cross-validation tuning process
+# (Assumes you have already defined your cross-validation object, e.g., cv_folds)
+# add time
+(start <- Sys.time())
+tune_results <- tune_grid(
+  rf_wf,
+  resamples = folds, # <-- Replace with your rsample folds object
+  grid = rf_grid,
+  metrics = metric_set(accuracy, roc_auc)
+)
+tune_results
+Sys.time() - start
+
+# Extract the best hyperparameters based on your preferred metric
+best_params <- select_best(tune_results, metric = "roc_auc")
+
+# 2. Finalize your workflow with those optimal parameters
+final_wf <- finalize_workflow(rf_wf, best_params)
+
+# 3. Fit on train and evaluate on test using last_fit()
+# (Assumes your original split object is named 'dmdl1_split')
+final_fit_res <- last_fit(final_wf, split = dmdl1_split)
+
+# 4. Extract all test predictions (automatically contains truth, class, and probabilities)
+test_predictions <- collect_predictions(final_fit_res)
+# Get accuracy and ROC AUC together in a clean table
+collect_metrics(final_fit_res)
+
+# Or call them individually from the predictions data frame:
+# test_predictions %>% accuracy(truth = mental_issue, estimate = .pred_class)
+# test_predictions %>% roc_auc(truth = mental_issue, starts_with(".pred_"))
+# Generate the raw text confusion matrix
+cm <- conf_mat(test_predictions, truth = mental_issue, estimate = .pred_class)
+print(cm)
+
+# Optional: Plot the matrix visually as a heatmap
+autoplot(cm, type = "heatmap")
+# Generate the coordinates for the ROC curve 
+# (Replace .pred_1 with the probability column for your target's first level)
+roc_curve_data <- test_predictions %>% 
+  roc_curve(truth = mental_issue, .pred_1)
+
+# Plot the ROC Curve visual graph instantly
+autoplot(roc_curve_data)
+
 
 
 
