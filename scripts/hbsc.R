@@ -16,7 +16,8 @@ library(corrplot)
 library(psych)
 require(rsample)
 require(countrycode)
-require(naniar)
+require(naniar) #na vis
+library(janitor) #cool new plots
 
 prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
 #setwd(paste0(prj_fldr, "scripts/"))
@@ -811,6 +812,288 @@ d_nas
 
 
 # --------------------------------------------------------------------------
+# select vars for models and make modeling df
+# --------------------------------------------------------------------------
+
+# get all columns printed sorted by name
+d |> relocate(sort(names(d))) |> glimpse()
+
+# since these 2 are same info I will prio MBMI but leave for now
+ggplot(d, aes(x = IOTF4_r, y = MBMI_r, fill = IOTF4_r)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+  #  geom_jitter(width = 0.2, alpha = 0.2, color = "darkgrey") +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "none") 
+
+# vars any of modeling datasets will always have
+vars_all_mdls <- c("seqno_int",
+              "mental_issue",
+              "age",
+              "gender",
+              "bodyheight",
+              "bodyweight",
+              "cbullied",
+              "bullied_s",
+              "country2",
+              "timeexe_r"
+)
+
+# vars for v1 mdl
+vars_mdl1 <- c(
+  "emconlfreq",
+  "emconlpref",
+  "famsupp",
+  "frisupp",
+  "IOTF4_r", "MBMI_r", #same info?
+  "IRRELFAS",
+  "pmsu",
+  "studsup",
+  "teachersup",
+  "talkf",
+  "talkm"
+)
+
+
+# vars for v2 mdls
+vars_mdl2 <- c(
+  "emconlfreq_s",
+  "emconlpref_s",
+  "famsup_s",
+  "frisup_s",
+  "IRFAS",
+  "pmsu_s",
+  "studsup_s",
+  "teachersup_s",
+  "talkscore"
+)
+
+# make v1 of dataset that we keep if shap makes sense
+# and it's consistent with papers I have seen
+d1 <- d %>%
+  select(all_of(vars_all_mdls),
+         all_of(vars_mdl1)
+         )
+
+glimpse(d1)
+# only dbl and fct
+
+# d2 <- d %>%
+#   select(all_of(vars_all_mdls),
+#          all_of(vars_mdl2)
+#   )
+
+
+# --------------------------------------------------------------------------
+# check final features distributions and potential of factor predictors
+# --------------------------------------------------------------------------
+
+# 1. Set the fixed target outcome variable
+target_var <- "mental_issue"
+
+# --- Baseline Display ---
+cat("==================================================\n")
+cat("BASELINE TARGET DISTRIBUTION\n")
+cat("==================================================\n")
+d1 %>% 
+  tabyl(!!sym(target_var)) %>% 
+  adorn_pct_formatting(digits = 0) %>% 
+  print()
+
+# 2. Automatically detect all OTHER factor variables in d1
+factor_vars <- d1 %>% 
+  select(where(is.factor)) %>% 
+  names() %>% 
+  setdiff(target_var)
+factor_vars
+
+# 3. Create an empty list to store results row-by-row
+results_list <- list()
+
+# 4. Loop through each discovered factor variable
+for (v in factor_vars) {
+  
+  cat("\n==================================================\n")
+  cat("ANALYSIS FOR PREDICTOR VARIABLE:", v, "\n")
+  cat("==================================================\n")
+  
+  # --- Step 1: Single Predictor Frequency ---
+  cat("Xtab of:", v, "\n")
+  d1 %>% 
+    tabyl(!!sym(v)) %>% 
+    adorn_pct_formatting(digits = 0) %>% 
+    print()
+  
+  # --- Step 2: Cross-Tabulation with Target ---
+  cat("\nXtab of:", target_var, "x", v, "\n")
+  
+  xtab <- d1 %>% 
+    tabyl(!!sym(v), !!sym(target_var)) %>% 
+    adorn_totals("col")
+  
+  if ("Yes" %in% names(xtab) && "Total" %in% names(xtab)) {
+    xtab <- xtab %>% 
+      mutate(Yes_pct = percent(Yes / Total, accuracy = 1))
+  }
+  print(xtab)
+  
+  # --- Step 3: Chi-Square Test & Components ---
+  cat("\nChi-Square Test:\n")
+  
+  tryCatch({
+    chisq <- chisq.test(d1[[v]], d1[[target_var]])
+    
+    print(chisq)
+    cat("\nStatistic (X-squared):", chisq$statistic, "\n")
+    cat("Formatted P-value:    ", format.pval(chisq$p.value, digits = 5), "\n")
+    
+    # NEW: Collect the row metrics into our tracking list
+    results_list[[v]] <- tibble(
+      variable     = v,
+      x_squared    = round(chisq$statistic, 3),
+      p_value_raw  = chisq$p.value,
+      p_value_fmt  = format.pval(chisq$p.value, digits = 5)
+    )
+    
+  }, error = function(e) {
+    cat("Could not run Chi-Square test for", v, ":", e$message, "\n")
+    
+    # Log the failure case so the row isn't missing entirely
+    results_list[[v]] <- tibble(
+      variable     = v,
+      x_squared    = NA_real_,
+      p_value_raw  = NA_real_,
+      p_value_fmt  = "Error/Failed"
+    )
+  })
+  
+  cat("\n")
+}
+
+# ==================================================
+# FINAL SUMMARY DATAFRAME GENERATION
+# ==================================================
+# Combines all collected individual rows into a single table
+chisq_results_df <- bind_rows(results_list)
+
+# View the final dataset summary table
+cat("\n==================================================\n")
+cat("FINAL STATISTICAL SUMMARY DATAFRAME\n")
+cat("==================================================\n")
+print(chisq_results_df)
+
+
+# --------------------------------------------------------------------------
+# check final features distributions and potential of NUMBER predictors
+# --------------------------------------------------------------------------
+
+# Set your target classification variable here
+target_var <- "mental_issue"
+
+# 1. Identify all numeric variables (excluding the target variable)
+numeric_vars <- d1 %>% 
+  select(where(is.numeric)) %>% 
+  names() %>%
+  setdiff("seqno_int")
+#numeric_vars <- setdiff(numeric_vars, target_var)
+numeric_vars
+
+# 2. Initialize the list for the summary dataframe
+ks_results_list <- list()
+
+# 3. Combined Loop
+for (var in numeric_vars) {
+  
+  #--- CONSOLE HEADERS & STATS ---
+  cat("\n==================================================\n")
+  cat("PROCESSING VARIABLE:", var, "\n")
+  cat("==================================================\n")
+  
+  cat("\n--- Summary Statistics by Group ---\n")
+  print(tapply(d1[[var]], d1[[target_var]], summary))
+  
+  #--- STATISTICAL TESTING ---
+  formula_form <- as.formula(paste(var, "~", target_var))
+  ks_out <- ks.test(formula_form, data = d1)
+  
+  # Calculate medians dynamically for the output table
+  medians <- d1 %>%
+    group_by(.data[[target_var]]) %>%
+    summarize(med = median(.data[[var]], na.rm = TRUE), .groups = 'drop')
+  
+  median_no  <- medians %>% filter(.data[[target_var]] == "No")  %>% pull(med)
+  median_yes <- medians %>% filter(.data[[target_var]] == "Yes") %>% pull(med)
+  
+  # Save metrics to our tracking list
+  ks_results_list[[var]] <- data.frame(
+    Variable = var,
+    D_Statistic = round(ks_out$statistic, 5),
+    #P_Value = ks_out$p.value,
+    P_Value_Formatted = format.pval(ks_out$p.value, digits = 4),
+    Median_No = ifelse(length(median_no) > 0, median_no, NA),
+    Median_Yes = ifelse(length(median_yes) > 0, median_yes, NA),
+    stringsAsFactors = FALSE
+  )
+  
+  #--- PLOTTING ---
+  # Boxplot
+  p1 <- ggplot(d1, aes(x = .data[[target_var]], y = .data[[var]], fill = .data[[target_var]])) +
+    geom_boxplot(alpha = 0.7, width = 0.5) +
+    scale_fill_manual(values = c("No" = "#5DADE2", "Yes" = "#E74C3C")) +
+    labs(title = paste("Boxplot of", var, "by", target_var), y = var, x = target_var) +
+    coord_flip() +
+    theme_minimal() +
+    theme(legend.position = "none")
+  
+  print(p1)
+  
+  # Histogram
+  p2 <- ggplot(d1, aes(x = .data[[var]], fill = .data[[target_var]])) +
+    geom_histogram(alpha = 0.6, position = "identity", bins = 30) +
+    scale_fill_manual(values = c("No" = "#5DADE2", "Yes" = "#E74C3C")) +
+    labs(title = paste("Histogram of", var, "by", target_var), x = var) +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+  
+  print(p2)
+}
+
+# 4. Bind the tracked rows into your final dataframe after the loop ends
+ks_summary_table <- bind_rows(ks_results_list)
+
+# View final table
+cat("\n\n==================================================\n")
+cat("FINAL STATISTICAL SUMMARY TABLE:\n")
+cat("==================================================\n")
+print(ks_summary_table)
+
+# graph for bullied_s sucked cause it's discrete [2,10]
+# so see in discrete var
+d1 %>%
+  filter(!is.na(bullied_s), !is.na(mental_issue)) %>%
+  ggplot(aes(x = factor(bullied_s), fill = mental_issue)) +
+  # position = "fill" converts counts to 100% proportional bars
+  geom_bar(position = "fill", alpha = 0.85) + 
+  scale_fill_manual(values = c("No" = "#5DADE2", "Yes" = "#E74C3C")) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal() +
+  labs(
+    title = "Proportion of Mental Health Issues across Bullying Scores",
+    x = "Bullying Scale Score (Discrete 2-10)",
+    y = "Percentage of Group",
+    fill = "Mental Issue"
+  )
+
+
+# --------------------------------------------------------------------------
+# model v1
+# --------------------------------------------------------------------------
+
+glimpse(d1)
+
+
+
+# --------------------------------------------------------------------------
 # outputs
 # --------------------------------------------------------------------------
 
@@ -819,3 +1102,59 @@ d_nas
 
 #write_csv(lifesat_low_rates,
 #          paste0(prj_fldr, "data/processed/lifesat_low_rates.csv"))
+
+
+# ---------------------------------------------------------------------------
+# Sandbox
+# --------------------------------------------------------------------------
+
+# one more cool chart to try for report
+#install.packages("ggridges")
+library(ggridges)
+ggplot(d1, aes(x = MBMI_r, y = mental_issue, fill = mental_issue)) +
+  geom_density_ridges(alpha = 0.7, scale = 1.2) +
+  scale_fill_manual(values = c("No" = "#5DADE2", "Yes" = "#E74C3C")) +
+  theme_minimal() +
+  theme(legend.position = "none")# +
+#labs(title = "Density Distribution of Bullying Scores by Mental Health Status")
+
+library(ggplot2)
+library(ggridges)
+library(dplyr)
+
+d1 %>%
+  # Filter out missing values to keep the gradient plot clean
+  filter(!is.na(IOTF4_r), !is.na(MBMI_r)) %>%
+  
+  # Change fill to stat(x) so color changes by the value on the x-axis
+  ggplot(aes(x = MBMI_r, y = IOTF4_r, fill = stat(x))) +
+  
+  # Crucial: Must use geom_density_ridges_gradient instead of the standard geom
+  geom_density_ridges_gradient(alpha = 0.9, scale = 1.3, color = "white") +
+  
+  # Apply a professional, readable color gradient palette (Viridis)
+  scale_fill_viridis_c(option = "inferno") + 
+  #scale_fill_gradient(low = "#5DADE2", high = "#E74C3C") +
+  
+  labs(x = "", y = "") +
+  theme_ridges() +
+  theme(
+    legend.position = "none"
+  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
