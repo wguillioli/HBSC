@@ -1,0 +1,48 @@
+countryno,country,n,continent,sub_region
+8000,Albania,1765,Europe,Southern Europe
+31000,Azerbaijan,4586,Asia,Western Asia
+40000,Austria,4129,Europe,Western Europe
+51000,Armenia,4717,Asia,Western Asia
+56001,Belgium (Flemish),4333,Europe,Western Europe
+56002,Belgium (French),5578,Europe,Western Europe
+100000,Bulgaria,4548,Europe,Eastern Europe
+124000,Canada,12950,Americas,Northern America
+191000,Croatia,5169,Europe,Southern Europe
+203000,Czech Republic,11564,Europe,Eastern Europe
+208000,Denmark,3181,Europe,Northern Europe
+233000,Estonia,4725,Europe,Northern Europe
+246000,Finland,3146,Europe,Northern Europe
+250000,France,9170,Europe,Western Europe
+268000,Georgia,4242,Asia,Western Asia
+276000,Germany,4347,Europe,Western Europe
+300000,Greece,3863,Europe,Southern Europe
+304000,Greenland,1243,Americas,Northern America
+348000,Hungary,3789,Europe,Eastern Europe
+352000,Iceland,6996,Europe,Northern Europe
+372000,Ireland,3833,Europe,Northern Europe
+376000,Israel,7712,Asia,Western Asia
+380000,Italy,4144,Europe,Southern Europe
+398000,Kazakhstan,4868,Asia,Central Asia
+428000,Latvia,4412,Europe,Northern Europe
+440000,Lithuania,3797,Europe,Northern Europe
+442000,Luxembourg,4070,Europe,Western Europe
+470000,Malta,2576,Europe,Southern Europe
+498000,Republic of Moldova,4686,Europe,Eastern Europe
+528000,Netherlands,4698,Europe,Western Europe
+578000,Norway,3127,Europe,Northern Europe
+616000,Poland,5224,Europe,Eastern Europe
+620000,Portugal,6126,Europe,Southern Europe
+642000,Romania,4567,Europe,Eastern Europe
+643000,Russia,4281,Europe,Eastern Europe
+688000,Serbia,3933,Europe,Southern Europe
+703000,Slovakia,4785,Europe,Eastern Europe
+705000,Slovenia,5667,Europe,Southern Europe
+724000,Spain,4320,Europe,Southern Europe
+752000,Sweden,4185,Europe,Northern Europe
+756000,Switzerland,7510,Europe,Western Europe
+792000,Turkey,5848,Asia,Western Asia
+804000,Ukraine,6660,Europe,Eastern Europe
+807000,Macedonia,4658,Europe,Southern Europe
+826001,England,3397,Europe,Northern Europe
+826002,Scotland,5021,Europe,Northern Europe
+826003,Wales,15951,Europe,Northern Europe

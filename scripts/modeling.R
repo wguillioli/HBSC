@@ -378,10 +378,11 @@ tune_results <- tune_grid(
   metrics = metric_set(accuracy, roc_auc)
 )
 tune_results
-Sys.time() - start
+Sys.time() - start #23 mins
 
 # Extract the best hyperparameters based on your preferred metric
 best_params <- select_best(tune_results, metric = "roc_auc")
+best_params
 
 # 2. Finalize your workflow with those optimal parameters
 final_wf <- finalize_workflow(rf_wf, best_params)
@@ -389,11 +390,16 @@ final_wf <- finalize_workflow(rf_wf, best_params)
 # 3. Fit on train and evaluate on test using last_fit()
 # (Assumes your original split object is named 'dmdl1_split')
 final_fit_res <- last_fit(final_wf, split = dmdl1_split)
+final_fit_res
 
 # 4. Extract all test predictions (automatically contains truth, class, and probabilities)
 test_predictions <- collect_predictions(final_fit_res)
+test_predictions
+
 # Get accuracy and ROC AUC together in a clean table
-collect_metrics(final_fit_res)
+cm_metrics <- collect_metrics(final_fit_res)
+cm_metrics$.estimate[1]
+
 
 # Or call them individually from the predictions data frame:
 # test_predictions %>% accuracy(truth = mental_issue, estimate = .pred_class)
@@ -411,6 +417,17 @@ roc_curve_data <- test_predictions %>%
 
 # Plot the ROC Curve visual graph instantly
 autoplot(roc_curve_data)
+
+row_mdl_results <- data.frame(
+  model = "rf_allvars_tuned",
+  test_accuracy = cm_metrics$.estimate[1],
+  test_auc = cm_metrics$.estimate[2])
+
+mdl_results <- mdl_results %>%
+  bind_rows(row_mdl_results)
+
+save.image(file = "my_entire_workspace.RData")
+#load("my_entire_workspace.RData")
 
 
 
@@ -532,3 +549,168 @@ autoplot(roc_curve_data)
 # # -----------------------------------------------
 # # end demo log reg con tuning
 # # -----------------------------------------------
+
+# Is google that good?
+
+# 1. Load Libraries and Create Dummy Data ---------------------------------
+library(tidymodels)
+library(tidyverse)
+library(xgboost)
+library(ranger)
+
+# Enable parallel processing to speed up tuning
+library(doParallel)
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+# Generate a dummy classification dataset for demonstration
+set.seed(123)
+data_dummy <- tibble(
+  target = factor(sample(c("Class_A", "Class_B"), 1000, replace = TRUE)),
+  num_1  = rnorm(1000),
+  num_2  = runif(1000, 1, 100),
+  cat_1  = factor(sample(c("Low", "Med", "High"), 1000, replace = TRUE))
+)
+
+# 2. Train / Test Split ----------------------------------------------------
+set.seed(456)
+data_split <- initial_split(dmdl1, prop = 0.80, strata = mental_issue)
+train_data <- training(data_split)
+test_data  <- testing(data_split)
+
+# 3. Cross-Validation Setup ------------------------------------------------
+set.seed(789)
+cv_folds <- vfold_cv(train_data, v = 5, strata = mental_issue)
+
+# 4. Data Preprocessing (Recipe) -------------------------------------------
+model_recipe <- recipe(mental_issue ~ pmsu_lmh + talkf + MBMI, data = train_data)
+  #step_novel(all_nominal_predictors()) %>% 
+  #step_dummy(all_nominal_predictors(), -all_outcomes()) %>% 
+  #step_zv(all_predictors()) %>% 
+  #step_normalize(all_numeric_predictors())
+
+# 5. Model Specifications --------------------------------------------------
+
+# Logistic Regression
+lr_spec <- logistic_reg(
+  penalty = tune(), 
+  mixture = tune()
+) %>% 
+  set_engine("glmnet") %>% 
+  set_mode("classification")
+
+# Decision Tree (rpart)
+tree_spec <- decision_tree(
+  cost_complexity = tune(),
+  tree_depth = tune()
+) %>% 
+  set_engine("rpart") %>% 
+  set_mode("classification")
+
+# Random Forest
+rf_spec <- rand_forest(
+  mtry = tune(),
+  trees = 500,
+  min_n = tune()
+) %>% 
+  set_engine("ranger") %>% 
+  set_mode("classification")
+
+# XGBoost
+xgb_spec <- boost_tree(
+  trees = tune(),
+  tree_depth = tune(),
+  learn_rate = tune()
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+
+# 6. Workflowset Creation (Bundling Models) -------------------------------
+model_set <- workflow_set(
+  preproc = list(base_rec = model_recipe),
+  models = list(
+    #logistic_reg = lr_spec,
+    decision_tree = tree_spec,
+    random_forest = rf_spec
+    #xgboost = xgb_spec
+  ),
+  cross = TRUE
+)
+
+# 7. Hyperparameter Tuning via Cross-Validation ----------------------------
+# Define metrics to track
+cls_metrics <- metric_set(roc_auc, accuracy)
+
+set.seed(101)
+tuned_results <- model_set %>% 
+  workflow_map(
+    fn = "tune_grid",
+    resamples = cv_folds,
+    grid = 10, # 10 random combinations per model
+    metrics = cls_metrics,
+    control = control_grid(save_pred = TRUE, parallel_over = "resamples"),
+    verbose = TRUE
+  )
+
+# Review CV performance metrics across all models
+autoplot(tuned_results)
+rank_results(tuned_results, rank_metric = "roc_auc", select_best = TRUE)
+
+# 8. Evaluate Best Model on Test Set ---------------------------------------
+
+# Extract the overall best model workflow ID (e.g., "base_rec_xgboost")
+best_model_id <- tuned_results %>% 
+  rank_results(rank_metric = "roc_auc", select_best = TRUE) %>% 
+  slice(1) %>% 
+  pull(wflow_id)
+
+# Extract the best hyperparameter configuration for that specific model
+best_params <- tuned_results %>% 
+  extract_workflow_set_result(best_model_id) %>% 
+  select_best(metric = "roc_auc")
+
+# Final fit: Trains on entire training set, evaluates on the test set
+final_fit <- tuned_results %>% 
+  extract_workflow(best_model_id) %>% 
+  finalize_workflow(best_params) %>% 
+  last_fit(split = data_split, metrics = cls_metrics)
+
+# 9. Performance Metrics & Predictions -------------------------------------
+
+# Collect metrics on the test data
+test_metrics <- collect_metrics(final_fit)
+print(test_metrics)
+
+# Extract test predictions for confusion matrix or visualization
+test_predictions <- collect_predictions(final_fit)
+
+# Confusion Matrix
+test_predictions %>% 
+  conf_mat(truth = mental_issue, estimate = .pred_class)
+
+# ROC Curve
+test_predictions %>% 
+  roc_curve(truth = mental_issue, .pred_0) %>% 
+  autoplot()
+
+# Stop parallel processing cluster
+stopCluster(cl)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

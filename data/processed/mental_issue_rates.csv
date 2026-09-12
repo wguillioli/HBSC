@@ -1,0 +1,39 @@
+continent,sub_region,country,is0,is1,n,is1_pct
+Americas,Northern America,Canada,4116,1466,5582,0.26262988176280905
+Asia,Central Asia,Kazakhstan,1838,329,2167,0.15182279649284725
+Asia,Western Asia,Armenia,1322,573,1895,0.30237467018469655
+Asia,Western Asia,Georgia,1611,467,2078,0.22473532242540906
+Asia,Western Asia,Israel,2582,1445,4027,0.3588279115967221
+Asia,Western Asia,Turkey,1634,1826,3460,0.5277456647398844
+Europe,Eastern Europe,Czech Republic,5721,2133,7854,0.27158135981665393
+Europe,Eastern Europe,Hungary,2007,769,2776,0.2770172910662824
+Europe,Eastern Europe,Republic of Moldova,2363,841,3204,0.2624843945068664
+Europe,Eastern Europe,Romania,1672,819,2491,0.3287836210357286
+Europe,Eastern Europe,Russia,1997,592,2589,0.22865971417535727
+Europe,Eastern Europe,Ukraine,2906,1426,4332,0.32917820867959374
+Europe,Northern Europe,England,158,95,253,0.37549407114624506
+Europe,Northern Europe,Estonia,2401,1061,3462,0.3064702484113229
+Europe,Northern Europe,Finland,1766,582,2348,0.24787052810902896
+Europe,Northern Europe,Iceland,3301,1121,4422,0.2535052012663953
+Europe,Northern Europe,Ireland,431,171,602,0.2840531561461794
+Europe,Northern Europe,Lithuania,2050,662,2712,0.24410029498525074
+Europe,Northern Europe,Norway,1206,261,1467,0.17791411042944785
+Europe,Northern Europe,Scotland,784,281,1065,0.26384976525821596
+Europe,Northern Europe,Sweden,1577,772,2349,0.3286504895700298
+Europe,Northern Europe,Wales,2012,817,2829,0.28879462707670556
+Europe,Southern Europe,Albania,788,266,1054,0.2523719165085389
+Europe,Southern Europe,Croatia,2240,668,2908,0.2297111416781293
+Europe,Southern Europe,Greece,1973,1122,3095,0.3625201938610662
+Europe,Southern Europe,Italy,1736,1268,3004,0.422103861517976
+Europe,Southern Europe,Malta,403,208,611,0.3404255319148936
+Europe,Southern Europe,Portugal,3750,1205,4955,0.24318869828456105
+Europe,Southern Europe,Serbia,1979,618,2597,0.23796688486715442
+Europe,Southern Europe,Slovenia,3064,885,3949,0.2241073689541656
+Europe,Southern Europe,Spain,2395,548,2943,0.18620455317703025
+Europe,Western Europe,Austria,2277,627,2904,0.2159090909090909
+Europe,Western Europe,Belgium (Flemish),2231,589,2820,0.20886524822695035
+Europe,Western Europe,Belgium (French),1505,693,2198,0.31528662420382164
+Europe,Western Europe,France,3505,1530,5035,0.3038728897715988
+Europe,Western Europe,Germany,2325,496,2821,0.17582417582417584
+Europe,Western Europe,Luxembourg,1559,607,2166,0.2802400738688827
+Europe,Western Europe,Netherlands,2489,567,3056,0.18553664921465968
