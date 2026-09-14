@@ -18,6 +18,11 @@ require(rsample)
 require(countrycode)
 require(naniar) #na vis
 library(janitor) #cool new plots
+require(rpart.plot)
+library(kernelshap)
+library(shapviz)
+library(vip) #needeD?
+
 
 prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
 #setwd(paste0(prj_fldr, "scripts/"))
@@ -312,8 +317,8 @@ dat <- dat %>%
   ) %>%
   mutate(mental_issue = factor(
           ifelse(mental_sum >=2, 1, 0),
-          levels = c(0, 1),
-          labels = c("No", "Yes")
+          levels = c(1, 0),
+          labels = c("Yes", "No")
          )
   )
 
@@ -606,29 +611,33 @@ ggplot(dat, aes(x=studsup)) + geom_bar() + theme_minimal()
 lapply(dat[vars_groups[["parents"]]], table, useNA = "always")
 
 # So I will dichotomize like HBSC and keep sum of both as well for SHAP.
+# improve on above by just keeping talk to a parent instead of talkf/talkm
 dat <- dat %>%
-  mutate(talkf = factor( 
-           case_when(talkfather %in% c(1,2) ~ 1,
-                     talkfather %in% c(3,4,5) ~ 0,
-                     TRUE ~ NA),
-           levels = c(0,1),
-           labels = c("No", "Yes")
-           ),
-         talkm = factor(
-           case_when(talkmother %in% c(1,2) ~ 1,
-                     talkmother %in% c(3,4,5) ~ 0,
-                     TRUE ~ NA),
-           levels = c(0,1),
-           labels = c("No", "Yes")
-         ),
-         talkscore = talkfather + talkmother
+  mutate(
+    talkf = case_when(talkfather %in% c(1,2) ~ 1,
+              talkfather %in% c(3,4,5) ~ 0),
+    talkm = case_when(talkmother %in% c(1,2) ~ 1,
+              talkmother %in% c(3,4,5) ~ 0),
+    talkp = talkf + talkm
+  ,
+  talkscore = talkfather + talkmother
+  ) %>%
+  # convert them to factors
+  mutate(
+    talkf = factor(talkf, levels = c(0,1), labels = c("No", "Yes")),
+    talkm = factor(talkm, levels = c(0,1), labels = c("No", "Yes")),
+    talkp = factor(talkp, levels = c("0","1","2"), ordered = TRUE)
   )
+
+#table(dat$talkp)
 
 table(dat$talkfather, dat$talkf, useNA = "always")
 ggplot(dat, aes(x=talkf)) + geom_bar() + theme_minimal()
 
 table(dat$talkmother, dat$talkm, useNA = "always")
 ggplot(dat, aes(x=talkm)) + geom_bar() + theme_minimal()
+
+ggplot(dat, aes(x=talkp)) + geom_bar() + theme_minimal()
 
 summary(dat$talkscore)
 ggplot(dat, aes(x=factor(talkscore))) + geom_bar() + theme_minimal()
@@ -773,7 +782,7 @@ lifesat_low_rates <-
   mutate(n = isNo + isYes,
          isYes_pct = isYes/n)
 
-# by area, lowest mental_health
+# by area, lowest mental_health, sample of bad countries in the west
 # see excel
 countries_to_keep <- c("Canada", 
                        "Turkey",
@@ -785,13 +794,13 @@ countries_to_keep <- c("Canada",
 # d is the data to use in modeling
 d <- d %>%
   filter(country %in% countries_to_keep) %>%
-  mutate(country2 = as.factor(case_when(
+  mutate(country_ = as.factor(case_when(
     country %in% c("England", "Ireland", "Scotland", "Wales") ~ "UnitedKingdom",
     TRUE ~ country
   ))
   )
 
-table(d$country2, d$country, useNA = "ifany")
+table(d$country_, d$country, useNA = "ifany")
 
 summary(d)
 
@@ -826,17 +835,27 @@ ggplot(d, aes(x = IOTF4_r, y = MBMI_r, fill = IOTF4_r)) +
   theme_minimal() +
   theme(legend.position = "none") 
 
+library(ggridges)
+
+ggplot(d, aes(x = MBMI_r, y = IOTF4_r, fill = stat(x))) +
+  geom_density_ridges_gradient(scale = 2, rel_min_height = 0.01, alpha = 0.8, color = "white") +
+  scale_fill_viridis_c(option = "inferno", direction = -1) + 
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.grid.major.y = element_blank(), # Cleans up the ridge background
+    axis.title.y = element_blank()
+  )
+
 # vars any of modeling datasets will always have
 vars_all_mdls <- c("seqno_int",
-              "mental_issue",
-              "age",
-              "gender",
-              "bodyheight",
-              "bodyweight",
-              "cbullied",
-              "bullied_s",
-              "country2",
-              "timeexe_r"
+                   "mental_issue",
+                   "age",
+                   "gender",
+                   #"bodyheight",
+                   #"bodyweight",
+                   "country_",
+                   "timeexe_r"
 )
 
 # vars for v1 mdl
@@ -844,14 +863,16 @@ vars_mdl1 <- c(
   "emconlfreq",
   "emconlpref",
   "famsupp",
+  "cbullied",
   "frisupp",
-  "IOTF4_r", "MBMI_r", #same info?
+  "IOTF4_r", 
   "IRRELFAS",
   "pmsu",
   "studsup",
   "teachersup",
-  "talkf",
-  "talkm"
+  #"talkf",
+  #"talkm"
+  "talkp"
 )
 
 
@@ -865,7 +886,9 @@ vars_mdl2 <- c(
   "pmsu_s",
   "studsup_s",
   "teachersup_s",
-  "talkscore"
+  "talkscore",
+  "bullied_s",
+  "MBMI_r"
 )
 
 # make v1 of dataset that we keep if shap makes sense
@@ -873,6 +896,7 @@ vars_mdl2 <- c(
 d1 <- d %>%
   select(all_of(vars_all_mdls),
          all_of(vars_mdl1)
+         #all_of(vars_mdl2)
          )
 
 glimpse(d1)
@@ -1067,18 +1091,335 @@ cat("FINAL STATISTICAL SUMMARY TABLE:\n")
 cat("==================================================\n")
 print(ks_summary_table)
 
-# graph for bullied_s sucked cause it's discrete [2,10]
-# so see in discrete var
-d1 %>%
-  filter(!is.na(bullied_s), !is.na(mental_issue)) %>%
-  ggplot(aes(x = factor(bullied_s), fill = mental_issue)) +
-  # position = "fill" converts counts to 100% proportional bars
-  geom_bar(position = "fill", alpha = 0.85) + 
-  scale_fill_manual(values = c("No" = "#5DADE2", "Yes" = "#E74C3C")) +
-  scale_y_continuous(labels = scales::percent) +
+
+# --------------------------------------------------------------------------
+# fit a good tuned tree and see in SHAP
+# --------------------------------------------------------------------------
+
+# https://parsnip.tidymodels.org/reference/decision_tree.html
+
+#baseline is
+table(d1$mental_issue)/nrow(d1)
+
+# WARNING - pick one of this:
+#d1 <- d1 %>% filter(country_ == "Turkey") %>% select(-country_)
+d1 <- d1 %>% select(-country_)
+
+# split data
+set.seed(67)
+d1_split <- initial_split(d1 |> select(-seqno_int), 
+                            strata = mental_issue)
+d1_train <- training(d1_split)
+d1_test  <- testing(d1_split)
+
+# create a model specification that identifies which hyperparameters we plan to tune
+# tune is a placeholder that will get values
+tune_spec <- 
+  decision_tree(
+    cost_complexity = tune(),
+    tree_depth = tune(), #max depth of tree
+    min_n = tune() #min # of observations in node
+  ) |> 
+  set_engine("rpart") |> 
+  set_mode("classification")
+
+tune_spec
+
+# create grid of values to try - 25 candiates
+tree_grid <- grid_regular(cost_complexity(),
+                          tree_depth(),
+                          min_n(),
+                          levels = 5) #5^3 models
+
+tree_grid
+
+# create folds for cv from train dat
+set.seed(67)
+d1_folds <- vfold_cv(d1_train, v = 10, repeats = 1, strata = mental_issue)
+
+#Tune a workflow() that bundles together a model specification and a recipe or model preprocessor.
+set.seed(67)
+tree_wf <- workflow() |>
+  add_model(tune_spec) |>
+  add_formula(mental_issue ~ .)
+
+tree_wf
+
+#tune_grid() to fit models at all the different values we chose for each tuned hyperparameter
+(Start <- Sys.time())
+tree_res <- 
+  tree_wf |> 
+  tune_grid(
+    resamples = d1_folds,
+    grid = tree_grid
+  )
+(Sys.time() - Start) #7.5 mins
+
+tree_res
+
+# get performance metrics of fitted trees
+tree_metrics <- tree_res |> 
+  collect_metrics()
+
+tree_metrics #tible with 5^3 models x 3 metrics of rows
+
+tree_res |>
+  collect_metrics() |>
+  mutate(tree_depth = factor(tree_depth)) |>
+  ggplot(aes(cost_complexity, mean, color = tree_depth)) +
+  geom_line(linewidth = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0) +
   theme_minimal()
 
+# get top 5 models based on a metric
+tree_res |>
+  show_best(metric = "accuracy")
+
+tree_res |>
+  show_best(metric = "roc_auc")
+
+# just get one
+best_tree <- tree_res |>
+  select_best(metric = "roc_auc")
+
+best_tree <- tree_res |>
+  select_best(metric = "accuracy")
+
+best_tree
+
+# finalize wf with best values (tuning is done)
+final_wf <- 
+  tree_wf |> 
+  finalize_workflow(best_tree)
+
+final_wf
+
+# The last fit
+# Finally, let’s fit final model to the training data and use our test data to 
+# estimate the model performance we expect to see with new data. so metrics here are on test.
+# The final_fit object contains a finalized, fitted workflow that you can use for 
+# predicting on new data or further understanding the results. 
+final_fit <- final_wf |>
+  last_fit(d1_split) 
+
+final_fit |>
+  collect_metrics()
+
+final_fit |>
+  collect_predictions() |>
+  roc_curve(mental_issue, .pred_Yes) |>
+  autoplot() +
+  theme_minimal()
+
+# get the final tree
+final_tree <- extract_workflow(final_fit)
+final_tree
+
+# 1. Define a helper function to calculate metrics for a specific dataset split
+get_split_metrics <- list(
+  train = d1_train,
+  test  = d1_test # Make sure this matches your test set variable name
+) %>% 
+  purrr::map_df(function(df) {
+    # Generate class and probability predictions
+    predict(final_tree, new_data = df, type = "class") %>% 
+      bind_cols(predict(final_tree, new_data = df, type = "prob")) %>% 
+      bind_cols(df) %>% 
+      # Calculate the metric set
+      metric_set(accuracy, roc_auc, sens, spec)(
+        truth       = mental_issue, 
+        estimate    = .pred_class, 
+        .pred_Yes, 
+        event_level = "first" # Adjust to "second" if "Yes" is your 2nd factor level
+      )
+  }, .id = "dataset") # Stitches them together and tracks which is train vs test
+
+# 2. Pivot the data into a clean, side-by-side print table
+comparison_table <- get_split_metrics %>%
+  select(dataset, .metric, .estimate) %>%
+  tidyr::pivot_wider(names_from = dataset, values_from = .estimate) %>%
+  rename(Metric = .metric, `Train Set` = train, `Test Set` = test) %>%
+  mutate(Metric = toupper(Metric)) # Cleans up metric names for printing
+
+# 3. Print the ready-to-use table
+print(comparison_table)
+
+# shap for tree
+# sample set of from test to explain, no Y
+set.seed(67)
+X_explain <- d1_test %>% 
+  slice_sample(n = 100) %>% 
+  select(-mental_issue)
+
+# Sample background rows (typically 100-200 rows from your training set is plenty)
+bg_X <- d1_train %>% 
+  dplyr::select(-mental_issue) %>% 
+  slice_sample(n = 100) 
+
+# Calculate SHAP values for all classes automatically
+(start <- Sys.time())
+shap_output <- kernelshap(
+  final_tree, 
+  X = X_explain, 
+  bg_X = bg_X, 
+  type = "prob"
+)
+Sys.time() - start #2 mins
+
+# Convert to a shapviz object and plot
+sv <- shapviz(shap_output)
+names(sv)
+
+sv_importance(sv$.pred_Yes, kind = "bar") + theme_minimal() #var imp plot
+sv_importance(sv$.pred_Yes, kind = "beeswarm") + theme_minimal() #bee
+
+# Yes pred
+sv_waterfall(sv$.pred_Yes, row_id = 20) + theme_minimal()
+sv_waterfall(sv$.pred_Yes, row_id = 7) + theme_minimal() 
+
+# No pred
+sv_waterfall(sv$.pred_Yes, row_id = 12) + theme_minimal() 
+sv_waterfall(sv$.pred_Yes, row_id = 4) + theme_minimal() 
+
+#sv_force(sv$.pred_Yes, row_id = 7) #Yes, individual
+#sv_force(sv$.pred_Yes, row_id = 9) #No, individual
+
+# dependence plots for top 10 predictors
+# single-var first and then with top interaction
+top_predictors <- final_tree |> 
+  extract_fit_parsnip() |> 
+  vi() %>%
+  tibble()
+
+top_predictors_ <- 
+top_predictors %>%
+  arrange(Importance) %>% #sort like this so last predictor is top predictor
+  select(Variable) %>%
+  unlist(use.names = FALSE)
+
+for (pred in top_predictors_){
+  print(pred)
+
+  # dependence plots
+  print(sv_dependence(sv$.pred_Yes, v = pred, color_var = NULL) + theme_minimal())
+  print(sv_dependence(sv$.pred_Yes, v = pred) + theme_minimal())
+  
+}
 
 
+# -------------------------------------------------------------------------
+# fit a tuned xgboost
+# -------------------------------------------------------------------------
+
+# https://juliasilge.com/blog/xgboost-tune-volleyball/
+
+xgb_spec <- boost_tree(
+  trees = 1000,
+  tree_depth = tune(), 
+  min_n = tune(),
+  loss_reduction = tune(),                     
+  sample_size = tune(), 
+  mtry = tune(),         
+  learn_rate = tune()                          
+) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+# pasar el sacle_pos asi segun ggl...
+# library(tidymodels)
+# xgboost_spec <- boost_tree(
+#   trees = 100,
+#   tree_depth = 6
+# ) %>%
+#   set_engine("xgboost", scale_pos_weight = 9) %>% # Pass ratio directly here
+#   set_mode("classification")
+
+xgb_spec
+
+xgb_grid <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), d1_train),
+  learn_rate(),
+  size = 30
+)
+
+xgb_grid
+
+# xgboost needs numeric predictors — step_dummy() one-hot-encodes any factors
+rec <- recipe(mental_issue ~ ., data = d1_train) |>
+  step_dummy(all_nominal_predictors())
+
+xgb_wf <- workflow() %>%
+  add_recipe(rec) %>%
+  #add_formula(mental_issue ~ .) %>%
+  add_model(xgb_spec)
+
+xgb_wf
+
+set.seed(67)
+vb_folds <- vfold_cv(d1_train, strata = mental_issue)
+vb_folds
+
+doParallel::registerDoParallel()
+(start <- Sys.time())
+set.seed(67)
+xgb_res <- tune_grid(
+  xgb_wf,
+  resamples = vb_folds,
+  grid = xgb_grid,
+  control = control_grid(save_pred = TRUE)
+)
+Sys.time() - start
+
+xgb_res
+
+collect_metrics(xgb_res)
+
+show_best(xgb_res, "roc_auc")
+
+best_auc <- select_best(xgb_res, "roc_auc")
+best_auc
+
+final_xgb <- finalize_workflow(
+  xgb_wf,
+  best_auc
+)
+
+final_xgb
+
+
+library(vip)
+
+final_xgb %>%
+  fit(data = d1_train) %>%
+  pull_workflow_fit() %>%
+  vip(geom = "point")
+
+
+final_res <- last_fit(final_xgb, d1_split)
+
+collect_metrics(final_res)
+
+final_rs %>%
+  collect_predictions() %>%
+  conf_mat(Churn, .pred_class)
+
+#adapt to me
+final_res %>%
+  collect_predictions() %>%
+  roc_curve(win, .pred_win) %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_line(size = 1.5, color = "midnightblue") +
+  geom_abline(
+    lty = 2, alpha = 0.5,
+    color = "gray50",
+    size = 1.2
+  )
 
 
