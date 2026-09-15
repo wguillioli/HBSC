@@ -85,6 +85,78 @@ dev.off()
 
 
 
+# xgb crap
+#adapt to me
+final_res %>%
+  collect_predictions() %>%
+  roc_curve(mental_issue, .pred_Yes) %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_line(size = 1.5, color = "midnightblue") +
+  geom_abline(
+    lty = 2, alpha = 0.5,
+    color = "gray50",
+    size = 1.2
+  )
+
+# get the final tree
+final_trees <- extract_workflow(final_fit_xgb)
+final_trees
+
+
+# Calculate SHAP values for all classes automatically
+#esto no es asi por las dummies
+(start <- Sys.time())
+shap_output <- kernelshap(
+  final_trees, 
+  X = X_explain, 
+  bg_X = bg_X, 
+  type = "prob"
+)
+Sys.time() - start #2 mins
+
+# Convert to a shapviz object and plot
+sv <- shapviz(shap_output)
+names(sv)
+
+sv_importance(sv$.pred_Yes, kind = "bar") + theme_minimal() #var imp plot
+sv_importance(sv$.pred_Yes, kind = "beeswarm") + theme_minimal() #bee
+
+# Yes pred
+sv_waterfall(sv$.pred_Yes, row_id = 20) + theme_minimal()
+sv_waterfall(sv$.pred_Yes, row_id = 7) + theme_minimal() 
+
+# No pred
+sv_waterfall(sv$.pred_Yes, row_id = 12) + theme_minimal() 
+sv_waterfall(sv$.pred_Yes, row_id = 4) + theme_minimal() 
+
+#sv_force(sv$.pred_Yes, row_id = 7) #Yes, individual
+#sv_force(sv$.pred_Yes, row_id = 9) #No, individual
+
+# dependence plots for top 10 predictors
+# single-var first and then with top interaction
+top_predictors <- final_trees |> 
+  extract_fit_parsnip() |> 
+  vi() %>%
+  tibble()
+
+top_predictors_ <- 
+  top_predictors %>%
+  arrange(Importance) %>% #sort like this so last predictor is top predictor
+  select(Variable) %>%
+  unlist(use.names = FALSE)
+
+for (pred in top_predictors_){
+  print(pred)
+  
+  # dependence plots
+  print(sv_dependence(sv$.pred_Yes, v = pred, color_var = NULL) + theme_minimal())
+  print(sv_dependence(sv$.pred_Yes, v = pred) + theme_minimal())
+  
+}
+
+
+
+
 
 
 

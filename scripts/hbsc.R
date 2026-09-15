@@ -1,6 +1,18 @@
 # HBSC 
 # Updated: 2026-09-1
 
+
+# ---------------------------------------------------
+# workspace stuff
+# ---------------------------------------------------
+
+save.image(file = "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260914.RData")
+
+img_file <- "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260914.RData"
+
+load(file = img_file)
+
+
 # ---------------------------------------------------
 # project setup
 # ---------------------------------------------------
@@ -1121,7 +1133,10 @@ tree_grid
 
 # create folds for cv from train dat
 set.seed(67)
-tree_folds <- vfold_cv(hbsc_train, v = 5, repeats = 1, strata = mental_issue)
+tree_folds <- vfold_cv(hbsc_train, 
+                       v = 10, 
+                       repeats = 3, 
+                       strata = mental_issue)
 
 tree_recipe <- recipe(mental_issue ~ ., 
                       data = hbsc_train) %>%
@@ -1146,7 +1161,7 @@ tree_res <-
     resamples = tree_folds,
     grid = tree_grid
   )
-(Sys.time() - Start) #3mins
+(Sys.time() - Start) #17 mins 
 
 tree_res
 
@@ -1157,20 +1172,6 @@ tree_res |> collect_metrics() |>
   filter(.metric == "roc_auc") %>%
   select(mean) %>%
   summary()
-
-#tree_metrics #tible with 5^3 models x 3 metrics of rows
-
-# fix if i want to use/show params combinations
-# tree_res |>
-#   collect_metrics() |>
-#   mutate(tree_depth = factor(tree_depth)) |>
-#   ggplot(aes(cost_complexity, mean, color = tree_depth)) +
-#   geom_line(linewidth = 1.5, alpha = 0.6) +
-#   geom_point(size = 2) +
-#   facet_wrap(~ .metric, scales = "free", nrow = 2) +
-#   scale_x_log10(labels = scales::label_number()) +
-#   scale_color_viridis_d(option = "plasma", begin = .9, end = 0) +
-#   theme_minimal()
 
 # get top 5 models based on a metric
 tree_res |> show_best(metric = "accuracy")
@@ -1237,13 +1238,13 @@ print(comparison_table)
 # sample set of from test to explain, no Y
 set.seed(67)
 X_explain <- hbsc_test %>% 
-  slice_sample(n = 100) %>% #increase?
+  slice_sample(n = 5000) %>% #increase? 100-500?
   select(-mental_issue)
 
 # Sample background rows (typically 100-200 rows from your training set is plenty)
 bg_X <- hbsc_train %>% 
   dplyr::select(-mental_issue) %>% 
-  slice_sample(n = 100) #100-500 sweetspot?
+  slice_sample(n = 250) #100-500 sweetspot?
 
 # Calculate SHAP values for all classes automatically
 (start <- Sys.time())
@@ -1253,7 +1254,7 @@ shap_output <- kernelshap(
   bg_X = bg_X, 
   type = "prob"
 )
-Sys.time() - start #7 mins
+Sys.time() - start #3.7 hrs
 
 # Convert to a shapviz object and plot
 tree_sv <- shapviz(shap_output)
@@ -1289,8 +1290,6 @@ for (pred in top_predictors_){
   print(sv_dependence(tree_sv$.pred_Yes, v = pred) + theme_minimal())
 }
 
-save.image(file = "hbsc_wkspace_20260914.RData")
-# load here and continue
 
 # -------------------------------------------------------------------------
 # fit a tuned xgboost
@@ -1309,7 +1308,8 @@ xgb_spec <- boost_tree(
   mtry = tune(),         
   learn_rate = tune()                          
 ) %>%
-  set_engine("xgboost", scale_pos_weight = 1.94) %>%
+  #set_engine("xgboost", scale_pos_weight = 1.94) %>%
+  set_engine("xgboost") %>%
   set_mode("classification")
 
 # pasar el sacle_pos asi segun ggl...
@@ -1328,41 +1328,43 @@ xgb_grid <- grid_latin_hypercube(
   min_n(),
   loss_reduction(),
   sample_size = sample_prop(),
-  finalize(mtry(), d1_train),
+  finalize(mtry(), hbsc_train),
   learn_rate(),
-  size = 30
+  size = 50
 )
 
 xgb_grid
 
 # xgboost needs numeric predictors — step_dummy() one-hot-encodes any factors
-rec <- recipe(mental_issue ~ ., data = d1_train) |>
+xgb_recipe <- #recipe(mental_issue ~ ., data = hbsc_train) |>
+  tree_recipe %>%
   step_dummy(all_nominal_predictors())
 
 xgb_wf <- workflow() %>%
-  add_recipe(rec) %>%
+  add_recipe(xgb_recipe) %>%
   #add_formula(mental_issue ~ .) %>%
   add_model(xgb_spec)
 
 xgb_wf
 
 set.seed(67)
-vb_folds <- vfold_cv(d1_train, 
-                     v = 2, #change later to 10
-                     repeats = 1,
-                     strata = mental_issue)
-vb_folds
+xgb_folds <- vfold_cv(hbsc_train, 
+                      v = 10, #change later to 10
+                      repeats = 3,
+                      strata = mental_issue
+                      )
+xgb_folds
 
 doParallel::registerDoParallel()
 (start <- Sys.time())
 set.seed(67)
 xgb_res <- tune_grid(
   xgb_wf,
-  resamples = vb_folds,
+  resamples = xgb_folds,
   grid = xgb_grid,
   control = control_grid(save_pred = TRUE)
 )
-Sys.time() - start
+Sys.time() - start #1.5 hrs
 
 xgb_res
 
@@ -1382,88 +1384,47 @@ final_xgb <- finalize_workflow(
 
 final_xgb
 
-
 library(vip)
 
 final_xgb %>%
-  fit(data = d1_train) %>%
+  fit(data = hbsc_train) %>%
   pull_workflow_fit() %>%
   vip(geom = "point")
 
-final_xgb <- last_fit(final_xgb, d1_split)
-
-collect_metrics(final_xgb)
-
-final_xgb %>%
-  collect_predictions() %>%
-  conf_mat(Churn, .pred_class)
-
-#adapt to me
-final_res %>%
-  collect_predictions() %>%
-  roc_curve(mental_issue, .pred_Yes) %>%
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
-  geom_line(size = 1.5, color = "midnightblue") +
-  geom_abline(
-    lty = 2, alpha = 0.5,
-    color = "gray50",
-    size = 1.2
-  )
-
-# get the final tree
-final_trees <- extract_workflow(final_res)
-final_trees
+final_fit_xgb <- last_fit(final_xgb, hbsc_split)
+final_fit_xgb
 
 
-# Calculate SHAP values for all classes automatically
-#esto no es asi por las dummies
-(start <- Sys.time())
-shap_output <- kernelshap(
-  final_trees, 
-  X = X_explain, 
-  bg_X = bg_X, 
-  type = "prob"
-)
-Sys.time() - start #2 mins
+# (This gives you the actual trained model needed for SHAP!)
+fitted_xgb_workflow <- fit(final_xgb, data = hbsc_train)
 
-# Convert to a shapviz object and plot
-sv <- shapviz(shap_output)
-names(sv)
+# 1. Extract the underlying fitted xgboost engine model
+fitted_xgb <- extract_fit_engine(fitted_xgb_workflow)
+fitted_xgb
+class(fitted_xgb)
 
-sv_importance(sv$.pred_Yes, kind = "bar") + theme_minimal() #var imp plot
-sv_importance(sv$.pred_Yes, kind = "beeswarm") + theme_minimal() #bee
+# 2. Extract the data processed by your recipe (bypassing the outcome variable)
+# Make sure to pass your evaluation/test data or your training data here
+processed_data <- extract_recipe(fitted_xgb_workflow) %>% 
+  bake(new_data = hbsc_test) %>% 
+  select(-mental_issue) %>% 
+  as.matrix()
+class(processed_data)
+processed_data
 
-# Yes pred
-sv_waterfall(sv$.pred_Yes, row_id = 20) + theme_minimal()
-sv_waterfall(sv$.pred_Yes, row_id = 7) + theme_minimal() 
+# Calculate SHAP values
+xgb_sv <- shapviz(fitted_xgb, X_pred = processed_data)
 
-# No pred
-sv_waterfall(sv$.pred_Yes, row_id = 12) + theme_minimal() 
-sv_waterfall(sv$.pred_Yes, row_id = 4) + theme_minimal() 
+sv_importance(xgb_sv, kind = "bar")
+sv_importance(xgb_sv, kind = "beeswarm")
 
-#sv_force(sv$.pred_Yes, row_id = 7) #Yes, individual
-#sv_force(sv$.pred_Yes, row_id = 9) #No, individual
+sv_dependence(xgb_sv, v = "pmsu_High") #sin gracia
 
-# dependence plots for top 10 predictors
-# single-var first and then with top interaction
-top_predictors <- final_trees |> 
-  extract_fit_parsnip() |> 
-  vi() %>%
-  tibble()
+# 4. SHAP Waterfall Plot for an individual prediction (e.g., the 1st observation)
+sv_waterfall(xgb_sv, row_id = 1)
 
-top_predictors_ <- 
-  top_predictors %>%
-  arrange(Importance) %>% #sort like this so last predictor is top predictor
-  select(Variable) %>%
-  unlist(use.names = FALSE)
 
-for (pred in top_predictors_){
-  print(pred)
-  
-  # dependence plots
-  print(sv_dependence(sv$.pred_Yes, v = pred, color_var = NULL) + theme_minimal())
-  print(sv_dependence(sv$.pred_Yes, v = pred) + theme_minimal())
-  
-}
+
+
 
 
