@@ -6,7 +6,7 @@
 # workspace stuff
 # ---------------------------------------------------
 
-save.image(file = "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260914.RData")
+save.image(file = "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260915.RData")
 
 img_file <- "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260914.RData"
 
@@ -1398,6 +1398,15 @@ final_fit_xgb
 # (This gives you the actual trained model needed for SHAP!)
 fitted_xgb_workflow <- fit(final_xgb, data = hbsc_train)
 
+# 4. Get Training Accuracy
+augment(fitted_xgb_workflow, new_data = hbsc_train) %>% 
+  accuracy(truth = mental_issue, estimate = .pred_class)
+
+augment(fitted_xgb_workflow, new_data = hbsc_test) %>% 
+  accuracy(truth = mental_issue, estimate = .pred_class)
+
+
+# shap
 # 1. Extract the underlying fitted xgboost engine model
 fitted_xgb <- extract_fit_engine(fitted_xgb_workflow)
 fitted_xgb
