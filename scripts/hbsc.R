@@ -1,16 +1,7 @@
 # HBSC 
-# Updated: 2026-09-1
+# Updated: 2026-09-16
 
 
-# ---------------------------------------------------
-# workspace stuff
-# ---------------------------------------------------
-
-save.image(file = "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260915.RData")
-
-img_file <- "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260914.RData"
-
-load(file = img_file)
 
 
 # ---------------------------------------------------
@@ -41,6 +32,16 @@ prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
 setwd(prj_fldr)
 
 options(scipen = 999)
+
+
+# ---------------------------------------------------
+# workspace stuff
+# ---------------------------------------------------
+
+img_file <- "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260915.RData"
+#save.image(file = "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260915.RData")
+load(file = img_file)
+
 
 # ---------------------------------------------------
 # load data, basic eda
@@ -1433,7 +1434,227 @@ sv_dependence(xgb_sv, v = "pmsu_High") #sin gracia
 sv_waterfall(xgb_sv, row_id = 1)
 
 
+# -------------------------------------------------------------------------
+# fit logistic regression with var selection
+# -------------------------------------------------------------------------
+
+# https://www.tidymodels.org/start/case-study/
+
+# for data use hbsc_split, hbsc_train and hbsc_test from above
+
+# confirm baseline
+table(hbsc_cmp$mental_issue) / nrow(hbsc_cmp) #34/66
+table(hbsc_train$mental_issue) / nrow(hbsc_train) #34/66
+table(hbsc_test$mental_issue) / nrow(hbsc_test) #34/66
+
+# specify lasso for var selection 
+lr_mod <- 
+  logistic_reg(penalty = tune(), 
+               mixture = 1) |> 
+  set_engine("glmnet")
+
+lr_mod
+
+# recipe
+lr_recipe <- xgb_recipe |>
+  step_normalize(all_predictors())
+  #step_dummy(all_nominal_predictors())
+
+lr_recipe
+
+lr_workflow <- 
+  workflow() |> 
+  add_model(lr_mod) |> 
+  add_recipe(lr_recipe)
+
+lr_workflow
+
+lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
+lr_reg_grid
+
+cv_folds <- vfold_cv(hbsc_train, 
+                     v = 10)
+cv_folds
+
+# train 30 models
+(start <- Sys.time())
+lr_res <- 
+  lr_workflow |> 
+  tune_grid(cv_folds,
+            #val_set,
+            grid = lr_reg_grid,
+            control = control_grid(save_pred = TRUE),
+            metrics = metric_set(roc_auc))
+Sys.time() - start #10 segs
+
+#visualize metric roc so small penalty is best
+lr_res |> 
+  collect_metrics() |> 
+  ggplot(aes(x = penalty, y = mean)) + 
+  geom_point() + 
+  geom_line() + 
+  ylab("Area under the ROC Curve") +
+  scale_x_log10(labels = scales::label_number())
+
+# get top models
+lr_res |> 
+  show_best(metric = "roc_auc", n = 25) |> 
+  arrange(penalty) %>%
+  print(n = Inf)
+
+# 17 seems good
+lr_best <- 
+  lr_res |> 
+  collect_metrics() |> 
+  arrange(penalty) |> 
+  slice(17)
+
+#lr_best <- lr_res |> 
+#  select_best(metric = "roc_auc")
+
+lr_best
+
+#roc 
+lr_auc <- 
+  lr_res |> 
+  collect_predictions(parameters = lr_best) |> 
+  roc_curve(mental_issue, .pred_Yes) |> 
+  mutate(model = "Logistic Regression")
+
+autoplot(lr_auc)
+
+# 1. Lock in the best penalty parameter into your workflow
+final_wf <- lr_workflow |> 
+  finalize_workflow(lr_best)
+
+# 2. Fit ONE last time on the entire training data and evaluate on the test split
+final_res <- final_wf |> 
+  last_fit(split = hbsc_split) # Pass your initial rsplit object here
+
+# 3. View your final performance metrics on the held-out test set
+final_res |> 
+  collect_metrics()
+
+# 1. Fit the finalized workflow explicitly to the training data
+final_train_fit <- final_wf |> 
+  fit(data = hbsc_train)
+
+# 2. Predict on the training data and calculate metrics
+final_train_fit |> 
+  augment(new_data = hbsc_train) |> 
+  roc_auc(truth = mental_issue, .pred_Yes) 
+
+# Define the metrics you want to see
+my_metrics <- metric_set(roc_auc, accuracy, sens, spec)
+
+# Generate predictions and evaluate them together
+final_train_fit |> 
+  augment(new_data = hbsc_train) |> 
+  my_metrics(truth = mental_issue, 
+             estimate = .pred_class,
+             .pred_Yes            # For accuracy/sens/spec
+             ) # For roc_auc
+
+# Extract and clean the final coefficients
+lasso_coefs <- final_train_fit |> 
+  extract_fit_parsnip() |> 
+  tidy(penalty = lr_best$penalty)
+
+print(lasso_coefs)
+
+library(ggplot2)
+
+lasso_coefs |>
+  # Remove the intercept and any variables Lasso dropped (zeroed out)
+  filter(term != "(Intercept)", estimate != 0) |>
+  # Sort by the size of the impact
+  mutate(term = reorder(term, estimate)) |>
+  ggplot(aes(x = estimate, y = term, fill = estimate > 0)) +
+  geom_col() +
+  scale_fill_manual(values = c("darkred", "darkgreen"), 
+                    #labels = c("Protective Factor", "Risk Factor"),
+                    name = "Impact Direction") +
+  labs(
+    title = "Lasso Coefficient Importance for Mental Issues",
+    x = "Standardized Coefficient (Log-Odds Impact per 1 SD)",
+    y = NULL
+  ) +
+  theme_minimal()
+
+#vip
+lasso_coefs |> 
+  filter(term != "(Intercept)", estimate != 0) |> 
+  mutate(abs_impact = abs(estimate)) |> 
+  arrange(desc(abs_impact)) |> 
+  select(Variable = term, `Standardized Coefficient` = estimate, `Absolute Impact` = abs_impact)
+
+#relative importance
+lasso_coefs |> 
+  filter(term != "(Intercept)", estimate != 0) |> 
+  mutate(
+    # Get absolute impact
+    abs_impact = abs(estimate),
+    # Scale relative to the maximum impact feature
+    relative_importance = (abs_impact / max(abs_impact)) * 100
+  ) |> 
+  select(term, estimate, relative_importance) |> 
+  arrange(desc(relative_importance))
+
+#2. Standardized Odds Ratios (OR)
+lasso_coefs |> 
+  filter(term != "(Intercept)", estimate != 0) |> 
+  mutate(
+    std_odds_ratio = exp(estimate)
+  ) |> 
+  select(term, standardized_log_odds = estimate, std_odds_ratio) |> 
+  arrange(desc(std_odds_ratio))
 
 
+lasso_coefs |> 
+  filter(term != "(Intercept)", estimate != 0) |> 
+  mutate(
+    std_or = exp(estimate),
+    direction = if_else(estimate > 0, "Risk Factor (Increases Odds)", "Protective Factor (Decreases Odds)")
+  ) |> 
+  select(
+    Variable = term, 
+    `Standardized Log-Odds` = estimate, 
+    `Standardized Odds Ratio` = std_or, 
+    Classification = direction
+  ) |> 
+  arrange(desc(abs(`Standardized Log-Odds`)))
 
+# que relajo
+corrected_coefs <- final_train_fit |> 
+  extract_fit_parsnip() |> 
+  tidy(penalty = lr_best$penalty) |> 
+  filter(term != "(Intercept)", estimate != 0) |> 
+  mutate(
+    # Multiply by -1 to flip the target from 'no' to 'yes'
+    corrected_log_odds = estimate * -1, 
+    # Calculate the true Odds Ratio for 'yes'
+    odds_ratio = exp(corrected_log_odds),
+    direction = if_else(corrected_log_odds > 0, "Risk Factor (+)", "Protective Factor (-)")
+  )
 
+# View your fully corrected results
+corrected_coefs |> 
+  select(term, original_raw = estimate, corrected_log_odds, odds_ratio, direction) |> 
+  arrange(desc(corrected_log_odds))
+
+corrected_coefs |>
+  # Remove the intercept and any variables Lasso dropped (zeroed out)
+  filter(term != "(Intercept)", estimate != 0) |>
+  # Sort by the size of the impact
+  mutate(term = reorder(term, corrected_log_odds)) |>
+  ggplot(aes(x = corrected_log_odds, y = term, fill = estimate > 0)) +
+  geom_col() +
+  scale_fill_manual(values = c("darkred", "darkgreen"), 
+                    labels = c("Bad", "Good"),
+                    name = "Impact Direction") +
+  labs(
+    title = "Lasso Coefficient Importance for Mental Issues",
+    x = "Standardized Coefficient (Log-Odds Impact per 1 SD)",
+    y = NULL
+  ) +
+  theme_minimal()
