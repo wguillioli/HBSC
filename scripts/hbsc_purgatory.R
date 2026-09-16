@@ -154,6 +154,29 @@ for (pred in top_predictors_){
   
 }
 
+#lr ta cansado
+
+
+# 1. Isolate the names of the non-zero variables from your Lasso model
+selected_vars <- corrected_coefs |> 
+  filter(term != "(Intercept)", estimate != 0) |> 
+  pull(term)
+
+# 2. Build a brand new formula using just those selected variables
+final_formula <- as.formula(
+  paste("mental_issue ~", paste(selected_vars, collapse = " + "))
+)
+
+# 3. Fit a standard, normal logistic regression (unpenalized)
+normal_lr_spec <- logistic_reg() |> 
+  set_engine("glm")
+
+normal_lr_fit <- normal_lr_spec |> 
+  fit(final_formula, data = hbsc_train)
+
+# 4. View traditional coefficients, standard errors, and p-values!
+normal_lr_fit |> 
+  tidy()
 
 
 

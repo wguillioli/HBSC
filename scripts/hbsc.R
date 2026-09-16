@@ -1658,3 +1658,145 @@ corrected_coefs |>
     y = NULL
   ) +
   theme_minimal()
+
+
+# refit in normal scale
+# 1. Isolate the dummy/engineered feature names from your Lasso model
+selected_features <- corrected_coefs |> 
+  filter(term != "(Intercept)", estimate != 0) |> 
+  pull(term)
+selected_features
+
+# 2. Build a new recipe that creates the dummies, but filters down to ONLY your selected features
+hybrid_recipe <- recipe(mental_issue ~ ., data = hbsc_train) |> 
+  step_dummy(all_nominal_predictors()) |> 
+  # step_normalize() is removed here so your new p-values reflect a normal 1-unit change!
+  step_select(mental_issue, all_of(selected_features))
+
+# 3. Define a standard, unpenalized logistic regression model
+normal_lr_spec <- logistic_reg() |> 
+  set_engine("glm")
+
+# 4. Bundle them into a workflow and fit
+hybrid_wf <- workflow() |> 
+  add_recipe(hybrid_recipe) |> 
+  add_model(normal_lr_spec)
+
+hybrid_fit <- hybrid_wf |> fit(data = hbsc_train)
+hybrid_fit
+
+library(dplyr)
+
+hybrid_fit |> 
+  extract_fit_parsnip() |> 
+  tidy(conf.int = TRUE) |> 
+  # Filter out the intercept
+  filter(term != "(Intercept)") |> 
+  mutate(
+    # 1. Flip the signs to correct the glm baseline back to predicting 'yes'
+    log_odds_estimate = estimate * -1,
+    
+    # 2. Derive the True Odds Ratios and Confidence Intervals based on 'yes'
+    odds_ratio = exp(log_odds_estimate),
+    or_lower_ci = exp((conf.high) * -1), # Note the bounds flip when multiplying by -1
+    or_upper_ci = exp((conf.low) * -1)
+  ) -> res
+  # Clean up column layout for presentation
+
+res  
+
+#forest plot
+library(ggplot2)
+library(dplyr)
+library(stringr)
+
+# 1. Clean up and format the labels for the plot
+plot_data <- res |> 
+  # Clean up variable names (replaces underscores with spaces, capitalizes first letter)
+  mutate(
+    clean_term = str_replace_all(term, "_", " "),
+    clean_term = str_to_sentence(clean_term),
+    # Force ggplot to sort the variables by their actual log odds estimate size
+    clean_term = reorder(clean_term, log_odds_estimate)
+  )
+
+# 2. Build the visual forest plot
+ggplot(plot_data, aes(x = log_odds_estimate, y = clean_term)) +
+  # Add a vertical dashed line at 0 (the line of no effect)
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray60", linewidth = 0.6) +
+  
+  # Add the horizontal 95% Confidence Interval error bars
+  geom_errorbarh(aes(xmin = or_lower_ci |> log(), xmax = or_upper_ci |> log()), 
+                 height = 0.2, color = "gray30", linewidth = 0.7) +
+  
+  # Add the point estimates on top (colored by risk vs protective)
+  geom_point(aes(color = log_odds_estimate > 0), size = 3.5) +
+  
+  # Define professional colors (Warm red for Risk, Soft blue for Protective)
+  scale_color_manual(values = c("TRUE" = "#c0392b", "FALSE" = "#2980b9"),
+                     labels = c("TRUE" = "Risk Factor (Increases Odds)", 
+                                "FALSE" = "Protective Factor (Decreases Odds)"),
+                     name = NULL) +
+  
+  # Set clean axis titles and clear naming
+  labs(
+    title = "Predictors of Mental Health Issues",
+    subtitle = "Standardized log-odds estimates with 95% confidence intervals",
+    x = "Log-Odds Estimate (Target: Yes)",
+    y = NULL
+  ) +
+  
+  # Modern, minimal styling layout
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(color = "gray95"),
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold", size = 15, margin = margin(b = 5)),
+    plot.subtitle = element_text(color = "gray40", size = 11, margin = margin(b = 15)),
+    axis.text.y = element_text(face = "bold", color = "gray20"),
+    axis.title.x = element_text(margin = margin(t = 10))
+  )
+
+# 2. Build the visual forest plot... repeat from above for odds
+ggplot(plot_data, aes(x = odds_ratio, y = clean_term)) +
+  # Add a vertical dashed line at 0 (the line of no effect)
+  geom_vline(xintercept = 1, linetype = "dashed", color = "gray60", linewidth = 0.6) +
+  
+  # Add the horizontal 95% Confidence Interval error bars
+  geom_errorbarh(aes(xmin = or_lower_ci, xmax = or_upper_ci), 
+                 height = 0.2, color = "gray30", linewidth = 0.7) +
+  
+  # Add the point estimates on top (colored by risk vs protective)
+  geom_point(aes(color = odds_ratio > 1), size = 3.5) +
+  
+  # Define professional colors (Warm red for Risk, Soft blue for Protective)
+  scale_color_manual(values = c("TRUE" = "#c0392b", "FALSE" = "#2980b9"),
+                     labels = c("TRUE" = "Risk Factor (Increases Odds)", 
+                                "FALSE" = "Protective Factor (Decreases Odds)"),
+                     name = NULL) +
+  
+  # Set clean axis titles and clear naming
+  labs(
+    title = "Predictors of Mental Health Issues",
+    subtitle = "odds_ratio estimates with 95% confidence intervals",
+    x = "odds_ratio Estimate (Target: Yes)",
+    y = NULL
+  ) +
+  
+  # Modern, minimal styling layout
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(color = "gray95"),
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold", size = 15, margin = margin(b = 5)),
+    plot.subtitle = element_text(color = "gray40", size = 11, margin = margin(b = 15)),
+    axis.text.y = element_text(face = "bold", color = "gray20"),
+    axis.title.x = element_text(margin = margin(t = 10))
+  )
+  
+
+
+
+
