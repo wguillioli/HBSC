@@ -1,7 +1,5 @@
 # HBSC 
-# Updated: 2026-09-16
-
-
+# Updated: 2026-09-17
 
 
 # ---------------------------------------------------
@@ -26,6 +24,7 @@ library(kernelshap)
 library(shapviz)
 library(vip) #needeD?
 library(ggridges)
+library(tinytable)
 
 prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
 #setwd(paste0(prj_fldr, "scripts/"))
@@ -38,9 +37,13 @@ options(scipen = 999)
 # workspace stuff
 # ---------------------------------------------------
 
-img_file <- "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260915.RData"
-#save.image(file = "C:/MisLocalFiles/Github/HBSC/images/hbsc_wkspace_20260915.RData")
+img_file <- paste0(prj_fldr,
+                   "/images/hbsc_wkspace_20260917.RData"
+)
+
 load(file = img_file)
+
+save.image(file = img_file)
 
 
 # ---------------------------------------------------
@@ -769,8 +772,6 @@ dat %>%
   print(n = Inf)
 
 
-
-
 # ---------------------------------------------------------
 # get rids of NAs and keep countries of interest based on Y
 # and final touches before mdl
@@ -796,6 +797,23 @@ mental_issue_rates <-
          isYes_pct = isYes/n) 
 
 mental_issue_rates %>% print(n = Inf)
+
+# tbl for latex
+mental_issues_country_tbl <- 
+mental_issue_rates %>% 
+  select(continent, sub_region, country1, n, isYes_pct)
+
+tt_mental_issues_country_tbl <- tt(mental_issues_country_tbl, output = "latex")
+tt_mental_issues_country_tbl
+print(tt_mental_issues_country_tbl, "latex") #copy/paste in latex and works but long
+# save_tt(tt_mental_issues_country_tbl, 
+#         output = "latex/tt_mental_issues_country_tbl.tex",
+#         theme = "booktabs")
+
+# Apply the theme to the table first, then save it
+tt_mental_issues_country_tbl |> 
+  theme_latex(environment = "tabular") |> 
+  save_tt(output = "latex/tt_mental_issues_country_tbl.tex", overwrite = TRUE)
 
 # # won't do
 # lifesat_low_rates <- 
@@ -828,11 +846,15 @@ hbsc_cmp <- hbsc_ww %>%
 
 table(hbsc_cmp$mental_issue) / nrow(hbsc_cmp) #34Y/66N
 
+# m issues by country for latex
 hbsc_cmp %>% group_by(country, mental_issue) %>% tally() %>%
-  mutate(pct = n / sum(n))
+  mutate(pct = n / sum(n)) 
+  
 
 # get all columns printed sorted by name
 hbsc_cmp |> relocate(sort(names(hbsc_cmp))) |> glimpse()
+
+nrow(hbsc_cmp)
 
 
 # since these 2 are same info I will prio MBMI but leave for now
@@ -1527,9 +1549,13 @@ autoplot(lr_auc)
 final_wf <- lr_workflow |> 
   finalize_workflow(lr_best)
 
+my_metrics <- metric_set(accuracy, precision, recall, f_meas, bal_accuracy,
+                         roc_auc)
+
 # 2. Fit ONE last time on the entire training data and evaluate on the test split
 final_res <- final_wf |> 
-  last_fit(split = hbsc_split) # Pass your initial rsplit object here
+  last_fit(split = hbsc_split,
+           metrics = my_metrics) # Pass your initial rsplit object here
 
 # 3. View your final performance metrics on the held-out test set
 final_res |> 
@@ -1667,11 +1693,18 @@ selected_features <- corrected_coefs |>
   pull(term)
 selected_features
 
+# want age, not just age_X15
+myselected_feature <- c("MBMI_r", "age", "cbullied", "emconlfreq", "emconlpref",
+                        "emconlpref", "fam_sup", "friends_sup", "gender", "IRRELFAS",
+                        "pmsu", "student_sup", "talk_parent", "teacher_sup", "timeexe_r")
+
 # 2. Build a new recipe that creates the dummies, but filters down to ONLY your selected features
-hybrid_recipe <- recipe(mental_issue ~ ., data = hbsc_train) |> 
-  step_dummy(all_nominal_predictors()) |> 
+hybrid_recipe <- recipe(mental_issue ~ MBMI_r + age + cbullied + emconlfreq + emconlpref + fam_sup + 
+                          friends_sup + gender + IRRELFAS + pmsu + student_sup + talk_parent + teacher_sup + 
+                          timeexe_r, data = hbsc_train) |> 
+  step_dummy(all_nominal_predictors()) #|> 
   # step_normalize() is removed here so your new p-values reflect a normal 1-unit change!
-  step_select(mental_issue, all_of(selected_features))
+  #step_select(mental_issue, all_of(selected_features))
 
 # 3. Define a standard, unpenalized logistic regression model
 normal_lr_spec <- logistic_reg() |> 
@@ -1684,8 +1717,6 @@ hybrid_wf <- workflow() |>
 
 hybrid_fit <- hybrid_wf |> fit(data = hbsc_train)
 hybrid_fit
-
-library(dplyr)
 
 hybrid_fit |> 
   extract_fit_parsnip() |> 
@@ -1700,22 +1731,42 @@ hybrid_fit |>
     odds_ratio = exp(log_odds_estimate),
     or_lower_ci = exp((conf.high) * -1), # Note the bounds flip when multiplying by -1
     or_upper_ci = exp((conf.low) * -1)
-  ) -> res
+  ) -> lr_res
   # Clean up column layout for presentation
 
-res  
+lr_res  
+
+require(scales)
+
+# output for paper
+lr_res_tbl <- 
+lr_res %>%
+  #arrange(desc(term)) %>% 
+  select(term, log_odds_estimate, odds_ratio, p.value,
+         ) %>%
+  mutate(p.value = format.pval(p.value, eps = 0.001, digits = 3))
+  #mutate(p.value = p_value(p.value, accuracy = 0.001)) # Cleans the whole column
+
+lr_res_tbl
+
+tt_lr_res_tbl <- tt(lr_res_tbl, output = "latex")
+tt_lr_res_tbl
+
+tt_lr_res_tbl |> 
+  theme_latex(environment = "tabular") |> 
+  save_tt(output = "latex/tt_lr_res_tbl.tex", overwrite = TRUE)
+
 
 #forest plot
-library(ggplot2)
-library(dplyr)
 library(stringr)
 
 # 1. Clean up and format the labels for the plot
 plot_data <- res |> 
   # Clean up variable names (replaces underscores with spaces, capitalizes first letter)
   mutate(
-    clean_term = str_replace_all(term, "_", " "),
-    clean_term = str_to_sentence(clean_term),
+    clean_term = term,
+    #clean_term = str_replace_all(term, "_", " "),
+    #clean_term = str_to_sentence(clean_term),
     # Force ggplot to sort the variables by their actual log odds estimate size
     clean_term = reorder(clean_term, log_odds_estimate)
   )
