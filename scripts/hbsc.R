@@ -38,12 +38,11 @@ options(scipen = 999)
 # ---------------------------------------------------
 
 img_file <- paste0(prj_fldr,
-                   "/images/hbsc_wkspace_20260917.RData"
-)
+                  "/Rimages/hbsc_wkspace_20260917.RData")
 
 load(file = img_file)
 
-save.image(file = img_file)
+# save.image(file = img_file)
 
 
 # ---------------------------------------------------
@@ -362,6 +361,25 @@ dat <- dat %>%
          emcsocmed9_r = recode_emcsocmed(emcsocmed9)
   ) 
 
+# corr plot of pmsu vars for paper
+
+r_pmsu <- dat %>%
+  select(emcsocmed1_r:emcsocmed9_r) %>%
+  cor(method = "pearson", use = "pairwise.complete.obs")
+
+corrplot(
+  cor_matrix,
+  method = "color",        # Fills the tiles completely with color
+  type = "lower",          # Hides the upper triangle to remove duplicates
+  diag = FALSE,            # Removes the diagonal completely!
+  addCoef.col = "black",   # Adds numeric correlation values on top
+  number.cex = 1,        # Adjusts font size of the text coefficients
+  tl.col = "black",        # Color of text labels (variable names)
+  tl.srt = 45,             # Rotates top/bottom labels by 45 degrees
+  col = colorRampPalette(c("#b2182b", "#f7f7f7", "#2166ac"))(200) # Matches your red-white-blue theme
+  )
+
+
 #sum and bin
 vars_pmsu_r <- paste0(vars_pmsu, "_r")
 dat <- dat %>%
@@ -378,7 +396,7 @@ dat <- dat %>%
     )
   ) %>%
   select(-c(
-    all_of(vars_pmsu),
+    #all_of(vars_pmsu),
     all_of(paste0(vars_pmsu, "_r")),
     pmsu_s
   ))
@@ -815,20 +833,6 @@ tt_mental_issues_country_tbl |>
   theme_latex(environment = "tabular") |> 
   save_tt(output = "latex/tt_mental_issues_country_tbl.tex", overwrite = TRUE)
 
-# # won't do
-# lifesat_low_rates <- 
-# hbsc_ww %>%
-#   #filter(continent == "continent")
-#   group_by(continent, sub_region, country1, lifesat_low) %>%
-#   tally() %>%
-#   pivot_wider(names_from = lifesat_low,
-#               names_prefix = "is",
-#               values_from = n,
-#               values_fill = 0) %>%
-#   mutate(n = isNo + isYes,
-#          isYes_pct = isYes/n)
-
-# by area, lowest mental_health, sample of bad countries in the west
 countries_to_keep <- c("Canada", 
                        "Turkey",
                        "England", "Ireland", "Scotland", "Wales",
@@ -846,10 +850,22 @@ hbsc_cmp <- hbsc_ww %>%
 
 table(hbsc_cmp$mental_issue) / nrow(hbsc_cmp) #34Y/66N
 
-# m issues by country for latex
+
+# mental issues % for paper countries for latex
+tbl_pct_missues <- 
 hbsc_cmp %>% group_by(country, mental_issue) %>% tally() %>%
-  mutate(pct = n / sum(n)) 
-  
+  pivot_wider(names_from = mental_issue,
+              values_from = n) %>%
+  mutate(n = Yes + No,
+         pct_mental_issues = Yes/n)
+
+tt_tbl_pct_missues <- tt(tbl_pct_missues, output = "latex")
+tt_tbl_pct_missues
+
+tt_tbl_pct_missues |> 
+  theme_latex(environment = "tabular") |> 
+  save_tt(output = "latex/tt_tbl_pct_missues.tex", overwrite = TRUE)
+
 
 # get all columns printed sorted by name
 hbsc_cmp |> relocate(sort(names(hbsc_cmp))) |> glimpse()
@@ -865,7 +881,7 @@ ggplot(hbsc_cmp, aes(x = IOTF4_r, y = MBMI_r, fill = IOTF4_r)) +
   theme_minimal() +
   theme(legend.position = "none") 
 
-# mejor aun, so quitar IOTF4_r
+# mejor aun, iotf4 o mbi?
 ggplot(hbsc_cmp, aes(x = MBMI_r, y = IOTF4_r, fill = stat(x))) +
   geom_density_ridges_gradient(scale = 2, rel_min_height = 0.01, alpha = 0.8, color = "white") +
   scale_fill_viridis_c(option = "inferno", direction = -1) + 
@@ -877,75 +893,42 @@ ggplot(hbsc_cmp, aes(x = MBMI_r, y = IOTF4_r, fill = stat(x))) +
   )
 
 # y mejor aun
-ggplot(hbsc_cmp, aes(x = IRFAS, y = IRRELFAS, fill = stat(x))) +
-  geom_density_ridges_gradient(scale = 2, rel_min_height = 0.01, alpha = 0.8, color = "white") +
-  scale_fill_viridis_c(option = "inferno", direction = -1) + 
+# ggplot(hbsc_cmp, aes(x = IRFAS, y = IRRELFAS, fill = stat(x))) +
+#   geom_density_ridges_gradient(scale = 2, rel_min_height = 0.01, alpha = 0.8, color = "white") +
+#   scale_fill_viridis_c(option = "inferno", direction = -1) + 
+#   theme_minimal() +
+#   theme(
+#     legend.position = "none",
+#     panel.grid.major.y = element_blank(), # Cleans up the ridge background
+#     axis.title.y = element_blank()
+#   )
+
+#heatmap of irfas vs irrelfas
+hbsc_counts <- hbsc_cmp %>%
+  count(IRFAS, IRRELFAS) %>%
+  filter(!is.na(IRFAS) & !is.na(IRRELFAS))
+
+ggplot(hbsc_counts, aes(x = factor(IRFAS), y = factor(IRRELFAS), fill = n)) +
+  geom_tile(color = "white", linewidth = 0.3) + # Thin white borders perfectly separate the tiles
+  scale_fill_viridis_c(
+    option = "inferno", 
+    direction = -1, 
+    na.value = "gray95" # Distinct color for any combinations with zero data
+  ) +
+  labs(
+    x = "IRFAS",
+    y = "IRRELFAS",
+    fill = "Count"
+  ) +
   theme_minimal() +
   theme(
-    legend.position = "none",
-    panel.grid.major.y = element_blank(), # Cleans up the ridge background
-    axis.title.y = element_blank()
-  )
+    panel.grid = element_blank(), # Removes background grid lines that clash with tiles
+    axis.text = element_text(color = "black"),
+    legend.position = "right"
+  ) +
+  coord_fixed() # Forces tiles to be perfectly square for better symmetry
 
-# # vars any of modeling datasets will always have
-# vars_all_mdls <- c("seqno_int",
-#                    "mental_issue",
-#                    "age",
-#                    "gender",
-#                    #"bodyheight",
-#                    #"bodyweight",
-#                    "country_",
-#                    "timeexe_r"
-# )
-# 
-# # vars for v1 mdl
-# vars_mdl1 <- c(
-#   "emconlfreq",
-#   "emconlpref",
-#   "famsupp",
-#   "cbullied",
-#   "frisupp",
-#   "IOTF4_r",  "MBMI_r",
-#   "IRRELFAS",
-#   "pmsu",
-#   "studsup",
-#   "teachersup",
-#   #"talkf",
-#   #"talkm"
-#   "talkp"
-# )
-# 
-# 
-# # vars for v2 mdls
-# vars_mdl2 <- c(
-#   "emconlfreq_s",
-#   "emconlpref_s",
-#   "famsup_s",
-#   "frisup_s",
-#   "IRFAS",
-#   "pmsu_s",
-#   "studsup_s",
-#   "teachersup_s",
-#   "talkscore",
-#   "bullied_s",
-#   "MBMI_r"
-# )
-# 
-# # make v1 of dataset that we keep if shap makes sense
-# # and it's consistent with papers I have seen
-# d1 <- d %>%
-#   select(all_of(vars_all_mdls),
-#          all_of(vars_mdl1)
-#          #all_of(vars_mdl2)
-#          )
-# 
-# glimpse(d1)
-# # only dbl and fct
-# 
-# # d2 <- d %>%
-# #   select(all_of(vars_all_mdls),
-# #          all_of(vars_mdl2)
-# #   )
+
 
 hbsc_cmp <- hbsc_cmp %>% 
   select(order(colnames(.))) %>%
@@ -971,6 +954,8 @@ factor_vars <- hbsc_cmp %>%
   setdiff(target_var)
 factor_vars
 
+#temp
+#factor_vars <- c("age", "pmsu")
 
 # 4. Loop through each discovered factor variable
 results_list <- list()
@@ -1036,6 +1021,63 @@ for (v in factor_vars) {
 # Combines all collected individual rows into a single table
 chisq_results_df <- bind_rows(results_list)
 print(chisq_results_df)
+
+
+# --------------------------------------------------------------
+# factors eda results to latex
+# --------------------------------------------------------------
+
+# above is good, but i need a simple table with same results from above
+# but for a latex table
+
+# generate table for R EDA results
+df <- hbsc_cmp %>%
+  select(mental_issue, all_of(factor_vars))
+
+df_long <- df %>%
+  pivot_longer(
+    cols = -mental_issue, # c(pmsu, age), 
+    names_to = "Predictor", 
+    values_to = "Value"
+  )
+
+df_counts <- df_long %>%
+  group_by(Predictor, Value) %>%
+  summarise(
+    TotalCount = n(),
+    YesCount = sum(mental_issue == "Yes"),
+    .groups = "drop_last"
+  )
+
+# 2. NEW STEP: Calculate Chi-Square values for each predictor
+chi_results <- tibble(Predictor = c(factor_vars)) %>% #c("pmsu", "age")) %>%
+  rowwise() %>%
+  mutate(
+    # Dynamically build a contingency table and run the chi-sq test
+    test = list(chisq.test(df[[Predictor]], df$mental_issue)),
+    # Extract the Chi-Square statistic and format the p-value
+    ChiSq = test$statistic,
+    PValue = test$p.value,
+    PValueFormatted = format.pval(PValue, eps = 0.00001, digits = 5)
+  ) %>%
+  select(Predictor, ChiSq, PValueFormatted) #, P_Value)
+#format.pval(p.value, eps = 0.00001, digits = 3))
+
+tbl_fact_eda_chi <- df_counts %>%
+  mutate(
+    CatPct = 100.0 * TotalCount / sum(TotalCount),
+    YesPct = 100.0 * YesCount / TotalCount
+  ) %>%
+  ungroup() %>%
+  left_join(chi_results, by = "Predictor") 
+
+print(tbl_fact_eda_chi) #for latex
+
+tt_tbl_fact_eda_chi <- tt(tbl_fact_eda_chi, output = "latex")
+
+tt_tbl_fact_eda_chi |> 
+  theme_latex(environment = "tabular") |> 
+  save_tt(output = "latex/tt_tbl_fact_eda_chi.tex", overwrite = TRUE)
 
 
 # --------------------------------------------------------------------------
@@ -1240,7 +1282,7 @@ get_split_metrics <- list(
       bind_cols(predict(final_tree, new_data = df, type = "prob")) %>% 
       bind_cols(df) %>% 
       # Calculate the metric set
-      metric_set(accuracy, roc_auc, sens, spec)(
+      metric_set(bal_accuracy, accuracy, roc_auc, sens, spec)(
         truth       = mental_issue, 
         estimate    = .pred_class, 
         .pred_Yes, 
@@ -1312,6 +1354,46 @@ for (pred in top_predictors_){
   print(sv_dependence(tree_sv$.pred_Yes, v = pred, color_var = NULL) + theme_minimal())
   print(sv_dependence(tree_sv$.pred_Yes, v = pred) + theme_minimal())
 }
+
+# plot the tree nicely
+raw_final_tree <- extract_fit_engine(final_tree)
+
+rpart.plot(raw_final_tree)
+
+rpart.plot(
+  raw_final_tree,
+  roundint = FALSE,        # FIXES Warning 1: Tells rpart.plot not to look for integers
+  tweak = 0.8,             # FIXES Warning 2: Safely shrinks font size globally
+  type = 5,                # Draws crisp split labels directly on the lines
+  extra = 104,             # Displays clean percentages and probability rates
+  under = TRUE,            # Places node data underneath the box
+  box.palette = "RdYlGn",  # Clear red/yellow/green color scheme
+  fallen.leaves = TRUE     # Forces all final decision nodes to line up at the bottom
+)
+
+# unreadable so prunning to plot
+pruned_tree <- prune(raw_final_tree, cp = 0.003)
+
+
+png(
+  filename = "plots/pruned_tree.png", 
+  width = 2400,          # 7.0 inches * 300 DPI
+  height = 1800,         # 5.25 inches * 300 DPI (4:3 Aspect Ratio)
+  res = 300              # Standard journal publication DPI
+)
+
+rpart.plot(
+  pruned_tree,
+  roundint = FALSE,
+#  font = 4,
+  #tweak = 1.5,  
+  type = 5,                    # Clear split labels directly on lines
+  extra = 100,
+  box.palette = list("#c0392b", "#2980b9") 
+)
+
+dev.off()
+
 
 
 # -------------------------------------------------------------------------
@@ -1396,7 +1478,6 @@ collect_metrics(xgb_res)
 show_best(xgb_res, metric = "accuracy")
 show_best(xgb_res, metric = "roc_auc")
 
-
 best_auc <- select_best(xgb_res, metric = "roc_auc")
 best_auc
 
@@ -1427,7 +1508,6 @@ augment(fitted_xgb_workflow, new_data = hbsc_train) %>%
 
 augment(fitted_xgb_workflow, new_data = hbsc_test) %>% 
   accuracy(truth = mental_issue, estimate = .pred_class)
-
 
 # shap
 # 1. Extract the underlying fitted xgboost engine model
