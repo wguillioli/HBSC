@@ -1355,25 +1355,41 @@ for (pred in top_predictors_){
   print(sv_dependence(tree_sv$.pred_Yes, v = pred) + theme_minimal())
 }
 
-# plot the tree nicely
+# plot the tree 
 raw_final_tree <- extract_fit_engine(final_tree)
-
-rpart.plot(raw_final_tree)
 
 rpart.plot(
   raw_final_tree,
-  roundint = FALSE,        # FIXES Warning 1: Tells rpart.plot not to look for integers
-  tweak = 0.8,             # FIXES Warning 2: Safely shrinks font size globally
-  type = 5,                # Draws crisp split labels directly on the lines
-  extra = 104,             # Displays clean percentages and probability rates
-  under = TRUE,            # Places node data underneath the box
-  box.palette = "RdYlGn",  # Clear red/yellow/green color scheme
-  fallen.leaves = TRUE     # Forces all final decision nodes to line up at the bottom
+  roundint = FALSE,
+  #  font = 4,
+  tweak = 1.5,  
+  type = 5,                    # Clear split labels directly on lines
+  extra = 100,
+  box.palette = list("#c0392b", "#2980b9") 
 )
 
-# unreadable so prunning to plot
-pruned_tree <- prune(raw_final_tree, cp = 0.003)
+# can't read so maybe in pdf
+# 1. Open a massive canvas layout (dimensions are in inches)
+pdf(
+  file = "plots/giant_zoomable_tree.pdf", 
+  width = 24,            # Massive 2-foot wide canvas
+  height = 18,           # 1.5-foot tall canvas
+  useDingbats = FALSE    # Ensures text renders perfectly across PDF readers
+)
 
+par(mar = c(0.5, 0.5, 0.5, 0.5)) 
+rpart.plot(
+  raw_final_tree,
+  roundint = FALSE,
+  tweak = 0.9,           # Dropped significantly so text scales with the 24" canvas
+  type = 5,                    
+  extra = 100,
+  box.palette = list("#c0392b", "#2980b9") 
+)
+dev.off()
+
+# prunning to plot
+pruned_tree <- prune(raw_final_tree, cp = 0.003)
 
 png(
   filename = "plots/pruned_tree.png", 
