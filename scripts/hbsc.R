@@ -509,6 +509,66 @@ ggplot(dat, aes(x=emconlpref)) + geom_bar() + coord_flip() + theme_minimal()
 vars_famsup <- c("famhelp", "famsup", "famtalk", "famdec")
 lapply(dat[vars_famsup], table, useNA = "always")
 
+# plot a cool diverging bar chart for paper
+# 1. Reshape, remove 4s entirely, and recalculate percentages based on the active sample
+final_plot_data <- dat %>%
+  select(famhelp, famsup, famtalk, famdec) %>%
+  pivot_longer(cols = everything(), names_to = "Question", values_to = "Response") %>%
+  filter(!is.na(Response) & Response != 4) %>% # <-- Removes missing values AND the neutral 4s
+  count(Question, Response) %>%
+  group_by(Question) %>%
+  mutate(Percentage = (n / sum(n)) * 100) %>%
+  ungroup() %>%
+  # Convert responses to factors to lock the scale order 1 to 7 (skipping 4)
+  mutate(Response = factor(Response, levels = c(1:3, 5:7))) %>%
+  # Assign absolute directional plot values (Negative vs Positive)
+  mutate(Plot_Value = case_when(
+    Response %in% 1:3 ~ -Percentage,
+    Response %in% 5:7 ~ Percentage
+  ))
+
+# 2. Generate the Diverging Stacked Bar Chart without Neutral 4s
+ggplot(final_plot_data, aes(x = Question, y = Plot_Value, fill = Response)) +
+  geom_col(width = 0.85) +
+  geom_hline(yintercept = 0, color = "black", linewidth = 0.6) + # Perfect central split line
+  scale_y_continuous(
+    limits = c(-25, 100),
+    breaks = seq(-25, 100, by = 25),
+    labels = function(x) paste0(abs(x), "%") # Keeps labels looking like absolute positive percentages
+  ) +
+  scale_fill_manual(
+    values = c(
+      "1" = "#b2182b", "2" = "#d6604d", "3" = "#f4a582", # Negative spectrum (Reds)
+      "5" = "#92c5de", "6" = "#4393c3", "7" = "#2166ac"  # Positive spectrum (Blues)
+    ),
+    labels = c(
+      "1" = "1 (Very strongly disagree)",
+      "2" = "2 (Strongly disagree)",
+      "3" = "3 (Disagree)",
+      "5" = "5 (Agree)",
+      "6" = "6 (Strongly agree)",
+      "7" = "7 (Very strongly agree)"
+    )
+  ) +
+  coord_flip() + 
+  labs(
+    x = NULL,
+    y = NULL,
+    #y = "Percentage of Non-Neutral Responses",
+    fill = "Scale"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major.y = element_blank(),
+    legend.position = "bottom"
+  )
+
+
+
+
+
+
+
 # Summing them results in [4,28] and then grouped as H/M/L as L 4-11, M 12-19, H 20-28.
 dat <- dat %>%
   mutate(famsup_s = rowSums(dat[,vars_famsup])
@@ -610,7 +670,7 @@ dat <- dat %>%
   # derive support yn based on hbsc
   mutate(
     teacher_sup = factor(case_when(
-      teacher_support_avg >= 4 ~ 1,
+      teacher_support_avg >= 4 ~ 1, # is this right??? 
       teacher_support_avg < 4 ~ 0,
       TRUE ~ NA),
       levels = c(0,1),
