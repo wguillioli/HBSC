@@ -1,5 +1,5 @@
 # HBSC 
-# Updated: 2026-09-17
+# Updated: 2026-09-22
 
 
 # ---------------------------------------------------
@@ -37,10 +37,10 @@ options(scipen = 999)
 # workspace stuff
 # ---------------------------------------------------
 
-img_file <- paste0(prj_fldr,
-                  "/Rimages/hbsc_wkspace_20260917.RData")
-
-load(file = img_file)
+# img_file <- paste0(prj_fldr,
+#                   "/Rimages/hbsc_wkspace_20260917.RData")
+# 
+# load(file = img_file)
 
 # save.image(file = img_file)
 
@@ -113,7 +113,7 @@ vars_groups <- list(
 dat <- hbsc2018 %>%
   select(all_of(unlist(vars_groups, use.names = FALSE)))
 
-rm(hbsc2018)
+#rm(hbsc2018)
 #gc()
 
 # Get an idea of missing values across data set with vars I need
@@ -271,18 +271,19 @@ ggplot(dat, aes(timeexe_r)) + geom_bar()
 # $ lifesat        <dbl> 7, 7, 10, NA, 6, 8, NA, 5, NA, NA, 9, 9, 10, 9, 10, 8, 8, NA, 9, NA, 10, 7, 8, 10, 10, 7…
 # life satisfaction as ladder: 0(botton) to 10(best). I'll dichotomize and keep num for shap.
 
-dat <- dat %>%
-  mutate(
-    lifesat_low = factor(case_when(
-      between(lifesat, 0, 5) ~ 1,
-      between(lifesat, 6, 10) ~ 0,
-      TRUE ~ NA),
-      levels = c(0, 1), 
-      labels = c("No", "Yes"))
-      )
+# dat <- dat %>%
+#   mutate(
+#     lifesat_low = factor(case_when(
+#       between(lifesat, 0, 5) ~ 1,
+#       between(lifesat, 6, 10) ~ 0,
+#       TRUE ~ NA),
+#       levels = c(0, 1), 
+#       labels = c("No", "Yes"))
+#       )
 
-table(dat$lifesat, dat$lifesat_low, useNA = "always")
-ggplot(dat, aes(lifesat_low)) + geom_bar()
+#table(dat$lifesat, dat$lifesat_low, useNA = "always")
+#ggplot(dat, aes(lifesat_low)) + geom_bar()
+ggplot(dat, aes(factor(lifesat))) + geom_bar()
 
 
 # $ headache       <dbl> 5, 5, 5, 5, 2, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 4, NA, NA, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5,…
@@ -368,7 +369,7 @@ r_pmsu <- dat %>%
   cor(method = "pearson", use = "pairwise.complete.obs")
 
 corrplot(
-  cor_matrix,
+  r_pmsu,
   method = "color",        # Fills the tiles completely with color
   type = "lower",          # Hides the upper triangle to remove duplicates
   diag = FALSE,            # Removes the diagonal completely!
@@ -562,12 +563,6 @@ ggplot(final_plot_data, aes(x = Question, y = Plot_Value, fill = Response)) +
     panel.grid.major.y = element_blank(),
     legend.position = "bottom"
   )
-
-
-
-
-
-
 
 # Summing them results in [4,28] and then grouped as H/M/L as L 4-11, M 12-19, H 20-28.
 dat <- dat %>%
@@ -849,6 +844,13 @@ dat %>%
   tally() %>%
   print(n = Inf)
 
+# South Europe it is
+dat %>%
+  filter(sub_region == "Southern Europe") %>% 
+  group_by(continent, sub_region, country1, countryno) %>%
+  tally() %>%
+  print(n = Inf)
+
 
 # ---------------------------------------------------------
 # get rids of NAs and keep countries of interest based on Y
@@ -893,38 +895,98 @@ tt_mental_issues_country_tbl |>
   theme_latex(environment = "tabular") |> 
   save_tt(output = "latex/tt_mental_issues_country_tbl.tex", overwrite = TRUE)
 
-countries_to_keep <- c("Canada", 
-                       "Turkey",
-                       "England", "Ireland", "Scotland", "Wales",
-                       "Italy",
-                       "France"
-)
-hbsc_cmp <- hbsc_ww %>%
-  filter(country1 %in% countries_to_keep) %>%
-  mutate(country = as.factor(case_when(
-  country1 %in% c("England", "Ireland", "Scotland", "Wales") ~ "UnitedKingdom",
-  TRUE ~ country1
-  ))) %>%
-  select(-c(countryno))
-  # maybe later remove contient, etc
+# countries_to_keep <- c("Canada", 
+#                        "Turkey",
+#                        "England", "Ireland", "Scotland", "Wales",
+#                        "Italy",
+#                        "France"
+# )
 
-table(hbsc_cmp$mental_issue) / nrow(hbsc_cmp) #34Y/66N
+hbsc_se <- hbsc_ww %>%
+  filter(sub_region == "Southern Europe") %>%
+  mutate(country = factor(country1)) %>%
+  select(-c(sub_region, continent, country1, countryno))
 
+summary(hbsc_se)
+glimpse(hbsc_se)
 
-# mental issues % for paper countries for latex
-tbl_pct_missues <- 
-hbsc_cmp %>% group_by(country, mental_issue) %>% tally() %>%
+table(hbsc_se$mental_issue) / nrow(hbsc_se) #27/73
+
+n <- 
+hbsc_se %>%
+  group_by(country,mental_issue) %>%
+  summarise(n = n(), .groups = "drop") %>%
   pivot_wider(names_from = mental_issue,
+              names_prefix = "mental_issue",
               values_from = n) %>%
-  mutate(n = Yes + No,
-         pct_mental_issues = Yes/n)
+  mutate(n = mental_issueYes + mental_issueNo,
+         
+         pct_mental_issueYes = mental_issueYes / n,
+         pct_mental_issueYes2 = percent(pct_mental_issueYes, accuracy = .1),
+         
+         pct_se = n / sum(n),
+         pct_se2 = percent(pct_se, accuracy = .1)
+         ) %>%
+  arrange(desc(pct_mental_issueYes)) %>%
+  select(country, n, pct_se2, pct_mental_issueYes2)
 
-tt_tbl_pct_missues <- tt(tbl_pct_missues, output = "latex")
-tt_tbl_pct_missues
+# 1. Define a scaling factor based on your maximum 'n'
+scale_factor <- 3500
 
-tt_tbl_pct_missues |> 
-  theme_latex(environment = "tabular") |> 
-  save_tt(output = "latex/tt_tbl_pct_missues.tex", overwrite = TRUE)
+ggplot(n, aes(x = country)) +
+  # 2. Plot 'n' as bars on the primary Y-axis
+  geom_col(aes(y = n, fill = "Total Count (n)"), alpha = 0.7) +
+  
+  # 3. Plot the percentage as a line on the secondary Y-axis (multiplied by factor)
+  geom_line(aes(y = pct_mental_issueYes2 , color = "Mental Issue %"), size = 1.2) +
+  geom_point(aes(y = pct_mental_issueYes2 * scale_factor, color = "Mental Issue %"), size = 3) +
+  
+  # 4. Configure the dual Y-axes
+  scale_y_continuous(
+    name = "Total Count (n)",
+    sec_axis = sec_axis(~ . / scale_factor, name = "Mental Issue Percentage", labels = label_percent())
+  ) +
+  
+  # 5. Clean up labels and legend colors
+  labs(
+    title = "Sample Size and Mental Issue Percentage by Country",
+    x = "Country",
+    fill = NULL,
+    color = NULL
+  ) +
+  scale_fill_manual(values = "#9ecae1") +
+  scale_color_manual(values = "#de2d26") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+
+# hbsc_cmp <- hbsc_ww %>%
+#   filter(country1 %in% countries_to_keep) %>%
+#   mutate(country = as.factor(case_when(
+#   country1 %in% c("England", "Ireland", "Scotland", "Wales") ~ "UnitedKingdom",
+#   TRUE ~ country1
+#   ))) %>%
+#   select(-c(countryno))
+#   # maybe later remove contient, etc
+# 
+# table(hbsc_cmp$mental_issue) / nrow(hbsc_cmp) #34Y/66N
+
+
+# # mental issues % for paper countries for latex
+# tbl_pct_missues <- 
+# hbsc_cmp %>% group_by(country, mental_issue) %>% tally() %>%
+#   pivot_wider(names_from = mental_issue,
+#               values_from = n) %>%
+#   mutate(n = Yes + No,
+#          pct_mental_issues = Yes/n)
+# 
+# tt_tbl_pct_missues <- tt(tbl_pct_missues, output = "latex")
+# tt_tbl_pct_missues
+# 
+# tt_tbl_pct_missues |> 
+#   theme_latex(environment = "tabular") |> 
+#   save_tt(output = "latex/tt_tbl_pct_missues.tex", overwrite = TRUE)
 
 
 # get all columns printed sorted by name
