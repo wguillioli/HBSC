@@ -1,5 +1,16 @@
 # HBSC 
-# Updated: 2026-09-22
+# Updated: 2026-09-25
+
+
+# ---------------------------------------------------
+# workspace stuff
+# ---------------------------------------------------
+
+img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20260923.RData")
+ 
+# load(file = img_file)
+
+save.image(file = img_file)
 
 
 # ---------------------------------------------------
@@ -10,8 +21,8 @@ rm(list = ls())
 
 require(tidyverse)
 require(tidymodels)
-#library(knitr)
 require(stringr)
+require(kableExtra)
 library(scales)
 library(corrplot)
 library(psych)
@@ -27,22 +38,9 @@ library(ggridges)
 library(tinytable)
 
 prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
-#setwd(paste0(prj_fldr, "scripts/"))
 setwd(prj_fldr)
 
 options(scipen = 999)
-
-
-# ---------------------------------------------------
-# workspace stuff
-# ---------------------------------------------------
-
-# img_file <- paste0(prj_fldr,
-#                   "/Rimages/hbsc_wkspace_20260917.RData")
-# 
-# load(file = img_file)
-
-# save.image(file = img_file)
 
 
 # ---------------------------------------------------
@@ -50,15 +48,9 @@ options(scipen = 999)
 # ---------------------------------------------------
 
 # the european way with ; and ,
-hbsc2018 <- read_csv2(paste0(prj_fldr, "data/raw/HBSC2018OAed1.1.csv"))
-
-dim(hbsc2018)
-glimpse(hbsc2018)
-
-# print column names in columns for ease of view
-vars_hbsc2018 <- colnames(hbsc2018)
-vars_hbsc2018_tbl <- matrix(vars_hbsc2018, ncol = 6, byrow = TRUE)
-vars_hbsc2018_tbl
+hbsc <- read_csv2(paste0(prj_fldr, "data/raw/HBSC2018OAed1.1.csv"))
+glimpse(hbsc)
+dim(hbsc)
 
 
 # ---------------------------------------------------
@@ -72,7 +64,6 @@ vars_groups <- list(
     "agecat", "sex",
     "IRFAS", "IRRELFAS_LMH", 
     "IOTF4", "MBMI", 
-    #"bodyweight", "bodyheight",
     "timeexe"
   ),
   "health" = c(
@@ -86,7 +77,6 @@ vars_groups <- list(
     "emcsocmed7", "emcsocmed8", "emcsocmed9"
   ),
   "bullying" = c(
-    #"beenbullied", 
     "cbeenbullied"
   ),
   "online" = c(
@@ -100,7 +90,6 @@ vars_groups <- list(
     "friendhelp", "friendcounton", "friendshare", "friendtalk"
   ),
   "school_support" = c(
-    #"likeschool", "schoolpressure", # ignore for now
     "studtogether", "studhelpful", "studaccept",
     "teacheraccept", "teachercare", "teachertrust"
   ),
@@ -110,11 +99,8 @@ vars_groups <- list(
 )
 
 # new df with cols of interest
-dat <- hbsc2018 %>%
+dat <- hbsc %>%
   select(all_of(unlist(vars_groups, use.names = FALSE)))
-
-#rm(hbsc2018)
-#gc()
 
 # Get an idea of missing values across data set with vars I need
 dat_nas <- data.frame(
@@ -131,27 +117,14 @@ dat_nas <- data.frame(
 
 dat_nas
 
-# dat %>%
-#   slice_sample(n = 10000) %>% 
-#   vis_miss(warn_large_data = FALSE) +
-#   theme(
-#     axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
-#     axis.text.y = element_blank(),
-#     axis.ticks.y = element_blank()
-#   )
-
 
 # ---------------------------------------------------
 # univariate EDA and feature eng 
 # ---------------------------------------------------
 
 glimpse(dat)
-#Rows: 244,097
-#Columns: 54
-
 
 # $ seqno_int      <dbl> 100001, 100002, 100004, 100005, 100007, 100008, 100009, 100010, 100011, 100012, 100013, …
-# just an id
 length(table(dat$seqno_int)) == nrow(dat)
 
 
@@ -170,24 +143,18 @@ dat <- dat |>
   ) %>% select(-agecat)
 
 ggplot(dat, aes(age)) + geom_bar()
-#ggplot(dat, aes(age2)) + geom_bar()
-#table(dat$age, dat$agecat, useNA = "always")
 str(dat$age)
 
 # $ sex            <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…
 dat <- dat |>
   mutate(
     gender = factor(
-      sex, # |>
-      # recode_values(
-      #   1 ~ "boy",
-      #   2 ~ "girl",
+      sex,
         levels = c(1,2),
         labels = c("Boy", "Girl")
       )
     ) %>% select(-sex)
 
-#table(dat$gender, dat$sex, useNA = "always")
 ggplot(dat, aes(gender)) + geom_bar()
 
 
@@ -201,7 +168,6 @@ dat <- dat |>
       #ordered = TRUE
   )) %>% select(-IRRELFAS_LMH)
 
-#table(dat$IRRELFAS, dat$IRRELFAS_LMH, useNA = "always")
 ggplot(dat, aes(IRRELFAS)) + geom_bar()
 
 
@@ -217,38 +183,24 @@ table(dat$IOTF4, useNA = "always")
 
 dat <- dat |>
   mutate(
-    IOTF4_r = factor(
+    IOTF4 = factor(
       IOTF4,
       levels = c(1, 2, 3, 4),
       labels = c("Thinness", "Normal", "Overweight", "Obesity")
     )
-  ) %>% select(-IOTF4)
+  )# %>% select(-IOTF4)
 
-ggplot(dat, aes(IOTF4_r)) + geom_bar()+ coord_flip() + theme_minimal()
+ggplot(dat, aes(IOTF4)) + geom_bar()+ coord_flip() + theme_minimal()
 
 
 # $ MBMI           <dbl> 17.98167, 17.78325, 24.24392, 15.03105, 15.57093, 18.25632, 14.26873, 20.88889, 14.46759…
 # Body mass index from [Range= 11.02-44.9] and 0 meaning outside overall range so make those NA.
-#summary(dat$MBMI)
 dat <- dat %>% 
-  mutate(MBMI_r = ifelse(MBMI == 0, NA, MBMI)) %>%
-  select(-MBMI)
+  mutate(MBMI = ifelse(MBMI == 0, NA, MBMI)) #%>%
 
-summary(dat$MBMI_r)
+summary(dat$MBMI)
 
-ggplot(dat, aes(x = MBMI_r)) +  geom_histogram() + theme_minimal()
-
-
-# $ bodyweight     <dbl> 41, 52, 59, 38, 45, 45, 30, 47, 30, 42, 34, 41, 49, 39, 75, 65, 64, NA, NA, NA, 31, 53, …
-# in kilo and range from 20 to 150 so will use maybe. 
-# summary(dat$bodyweight)
-# ggplot(dat, aes(x = bodyweight)) +  geom_histogram() + theme_minimal()
-
-
-# $ bodyheight     <dbl> 151, 171, 156, 159, 170, 157, 145, 150, 144, 158, 148, 160, 163, 165, 180, 167, 179, NA,…
-# in cm and range [120,200] so will use. 
-# summary(dat$bodyheight)
-# ggplot(dat, aes(x = bodyheight)) +  geom_histogram() + theme_minimal()
+ggplot(dat, aes(x = MBMI)) +  geom_histogram() + theme_minimal()
 
 
 # $ timeexe        <dbl> 3, 2, 2, 2, 6, 4, 3, 1, 3, 4, 1, 1, 1, 1, 1, 4, 2, NA, 3, NA, 4, 1, 6, 2, 2, 3, 4, 2, 2,…
@@ -256,7 +208,7 @@ ggplot(dat, aes(x = MBMI_r)) +  geom_histogram() + theme_minimal()
 # HBSC shows proportions of those that do 3+ per week (But that is 2022 data)
 # in our case we do 2-3 times per week or more. And I keep timexe as is for shap test.
 dat <- dat %>%
-  mutate(timeexe_r = factor(case_when(
+  mutate(exercise = factor(case_when(
     between(timeexe, 1, 3) ~ 1,
     between(timeexe, 4, 7) ~ 0,
     TRUE ~ NA),
@@ -264,33 +216,20 @@ dat <- dat %>%
     labels = c("No", "Yes"))
     ) %>% select(-timeexe)
 
-#table(dat$timeexe_r, dat$timeexe, useNA = "ifany")
-ggplot(dat, aes(timeexe_r)) + geom_bar()
+ggplot(dat, aes(exercise)) + geom_bar()
 
 
 # $ lifesat        <dbl> 7, 7, 10, NA, 6, 8, NA, 5, NA, NA, 9, 9, 10, 9, 10, 8, 8, NA, 9, NA, 10, 7, 8, 10, 10, 7…
 # life satisfaction as ladder: 0(botton) to 10(best). I'll dichotomize and keep num for shap.
-
-# dat <- dat %>%
-#   mutate(
-#     lifesat_low = factor(case_when(
-#       between(lifesat, 0, 5) ~ 1,
-#       between(lifesat, 6, 10) ~ 0,
-#       TRUE ~ NA),
-#       levels = c(0, 1), 
-#       labels = c("No", "Yes"))
-#       )
-
-#table(dat$lifesat, dat$lifesat_low, useNA = "always")
-#ggplot(dat, aes(lifesat_low)) + geom_bar()
+summary(dat$lifesat)
 ggplot(dat, aes(factor(lifesat))) + geom_bar()
-
 
 # $ headache       <dbl> 5, 5, 5, 5, 2, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 4, NA, NA, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5,…
 # $ stomachache    <dbl> 4, 5, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, NA, 5, 5, NA, NA, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5…
 # $ backache       <dbl> 5, 5, 5, 4, 1, 4, 5, NA, 5, 5, 5, 1, 5, 5, NA, 5, 5, NA, NA, 5, 5, 5, 5, 5, 5, 4, 1, 5, …
 # $ dizzy          <dbl> 5, 5, 5, 4, 5, 5, 2, NA, 5, 5, 5, NA, 5, 5, NA, 5, 5, NA, NA, 4, 5, 5, 5, 5, 5, 5, 5, 5,…
 # ignore for now the physical vars
+
 
 # $ feellow        <dbl> 3, 3, 5, 5, 1, 1, 5, NA, 5, 5, 4, NA, 5, 2, NA, 2, 5, NA, NA, 2, 5, 4, 5, 5, 5, 4, 5, 5,…
 # $ irritable      <dbl> 1, 4, 5, 5, 1, 2, 4, 5, 5, 4, 3, NA, 5, 5, NA, 1, 3, NA, NA, 3, 2, 4, 5, 5, 5, 4, 2, 5, …
@@ -309,33 +248,27 @@ dat <- dat %>%
     nervous_is = ifelse(nervous <= 2, 1, 0),
     sleepdificulty_is = ifelse(sleepdificulty <= 2, 1, 0)
   ) %>%
-  select(-all_of(vars_mental))
-
-# sum their frequency and issue if 2+
-dat <- dat %>%
   mutate(mental_sum = feellow_is +
                       irritable_is +
                       nervous_is +
                       sleepdificulty_is
   ) %>%
-  mutate(mental_issue = factor(
+  mutate(mentalissue = factor(
           ifelse(mental_sum >=2, 1, 0),
           levels = c(1, 0),
           labels = c("Yes", "No")
          )
   ) %>%
   select(-c(
+    all_of(vars_mental), 
     all_of(paste0(vars_mental, "_is")),
     mental_sum)
   )
 
-#table(dat$mental_sum, dat$mental_issue, useNA = "always")
-ggplot(dat, aes(mental_issue)) + geom_bar()
+ggplot(dat, aes(mentalissue)) + geom_bar()
 
 
-# $ emcsocmed1     <dbl> 2, 1, 2, 1, 1, 1, 1, 1, 1, NA, 1, 99, 1, 1, NA, 1, 1, 2, 1, 1, 1, NA, 1, 2, 2, 1, 2, 2, …
-#...
-# $ emcsocmed9     <dbl> 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 99, 1, 1, NA, 1, 1, 1, 1, 2, 1, NA, 1, 1, 1, 1, 1, 1, 1…
+# $ emcsocmed1 to 9     <dbl> 2, 1, 2, 1, 1, 1, 1, 1, 1, NA, 1, 99, 1, 1, NA, 1, 1, 2, 1, 1, 1, NA, 1, 2, 2, 1, 2, 2, …
 # "Problematic Social Media Use (PMSU)"
 vars_pmsu <- paste0("emcsocmed", rep(1:9))
 lapply(dat[vars_pmsu], table, useNA = "always")
@@ -363,7 +296,6 @@ dat <- dat %>%
   ) 
 
 # corr plot of pmsu vars for paper
-
 r_pmsu <- dat %>%
   select(emcsocmed1_r:emcsocmed9_r) %>%
   cor(method = "pearson", use = "pairwise.complete.obs")
@@ -393,12 +325,12 @@ dat <- dat %>%
         between(pmsu_s,0,1) ~ 1,
         TRUE ~ NA),
       levels = c(1,2,3),
-      labels = c("Low", "Medium", "High")
+      labels = c("Low", "Med", "High")
     )
   ) %>%
   select(-c(
-    #all_of(vars_pmsu),
-    all_of(paste0(vars_pmsu, "_r")),
+    all_of(vars_pmsu),
+    all_of(vars_pmsu_r),
     pmsu_s
   ))
 
@@ -406,33 +338,22 @@ dat <- dat %>%
 ggplot(dat, aes(pmsu)) + geom_bar()
 
 
-# $ beenbullied    <dbl> 1, 2, 1, 2, 1, 1, 1, 1, 4, 2, 1, 3, 1, 1, 1, 5, 1, 5, 1, 2, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1…
 # $ cbeenbullied   <dbl> 3, 2, 2, 1, 1, 1, 1, 1, NA, 1, 1, 1, 1, NA, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
-# There are 2 variables that measure if kid has been bullied. 
-# a) beenbullied: Been bullied past months and 
-# b) cbeenbullied: Been cyber bullied. 
 # Answers range from 1 (Haven't) to 5 (Several times a week).  
-
-# I will derive 2 to keep: cbeenbullied as y/n and bulliedsum as sum of both.
 dat <- dat %>%
-  mutate(cbullied = factor( 
+  mutate(cyberbullied = factor( 
            case_when(cbeenbullied == 1 ~ 0,
                      between(cbeenbullied, 2, 5) ~ 1,
                      TRUE ~ NA),
            levels = c(0,1),
            labels = c("No", "Yes")
            )#,
-         #bullied_s = beenbullied + cbeenbullied
         ) %>% select(-cbeenbullied)
 
-#table(dat$bullied_s, useNA = "always")
-#table(dat$cbeenbullied, dat$cbullied, useNA = "always")
-ggplot(dat, aes(cbullied)) + geom_bar()
+ggplot(dat, aes(cyberbullied)) + geom_bar()
 
 
-# $ emconlfreq1    <dbl> 4, 4, 1, 4, 3, 4, 2, 6, 6, 3, NA, 1, 5, 6, 4, 3, 5, 1, 5, 6, 1, 4, 6, 3, 3, 4, 6, 3, 6, …
-# ...
-# $ emconlfreq4    <dbl> 5, 5, 6, 3, 6, 1, 1, 1, 2, 4, NA, 1, 5, 6, 2, 5, 6, 2, 2, 6, 6, 3, 6, 3, 3, 5, 6, 3, 5, …
+# $ emconlfreq1 to 4    <dbl> 4, 4, 1, 4, 3, 4, 2, 6, 6, 3, NA, 1, 5, 6, 4, 3, 5, 1, 5, 6, 1, 4, 6, 3, 3, 4, 6, 3, 6, …
 # continuos online communications range from 1(NA/don't know) to 6(almost all time)
 # 1 close friends, 2 larger friend group, 3 online frriends, 4 other
 vars_emconlfreq <- paste0("emconlfreq", rep(1:4))
@@ -442,7 +363,7 @@ lapply(dat[vars_emconlfreq], table, useNA = "always")
 dat <- dat %>%
   mutate(
     # 1 if any of the 4 is 6
-    emconlfreq = factor(case_when(
+    onlcontcomms = factor(case_when(
       (emconlfreq1 == 6 | emconlfreq2 == 6 | emconlfreq3 == 6 | emconlfreq4 == 6) ~ 1,
       (!is.na(emconlfreq1) & !is.na(emconlfreq2) & !is.na(emconlfreq3) & !is.na(emconlfreq4)) ~ 0,
       TRUE ~ NA # if any reply is NA, drop observation
@@ -450,20 +371,13 @@ dat <- dat %>%
     levels = c(0,1),
     labels = c("No", "Yes")
     ),
-    # sums the 4
-    #emconlfreq_s = emconlfreq1 + emconlfreq2 + emconlfreq3 + emconlfreq4
   ) %>%
   select(- all_of(vars_emconlfreq))
 
-ggplot(dat, aes(emconlfreq)) + geom_bar() + theme_minimal()
-
-#summary(dat$emconlfreq_s)
-#ggplot(dat, aes(x=emconlfreq_s)) +  geom_bar() + theme_minimal()
+ggplot(dat, aes(onlcontcomms)) + geom_bar() + theme_minimal()
 
 
-# $ emconlpref1    <dbl> 2, 5, 5, 1, 1, 1, 1, 1, 2, 1, NA, 99, 1, 1, 1, 1, 3, 3, 3, 3, 1, 3, 1, 2, 2, 1, 5, 2, 1,…
-# $ emconlpref2    <dbl> 1, 5, 5, 1, 1, 1, 2, 1, 2, 1, NA, 99, 1, 1, 4, 1, 2, NA, 3, 2, 2, 4, 1, 2, 2, 1, 1, 2, 1…
-# $ emconlpref3    <dbl> 1, 5, 1, 1, 3, 1, NA, 1, 2, 1, NA, 99, 1, 1, 3, 1, 3, NA, 3, 3, 5, 4, 1, 2, 2, 2, 1, 2, …
+# $ emconlpref1 to 3    <dbl> 2, 5, 5, 1, 1, 1, 1, 1, 2, 1, NA, 99, 1, 1, 1, 1, 3, 3, 3, 3, 1, 3, 1, 2, 2, 1, 5, 2, 1,…
 # preference to communicate online on important stuff online vs real-life.
 # 1 secrets, 2 feelings, 3 concerns
 # The answers range from 1 (Strong disagree) to 5 (Strong agree).
@@ -479,9 +393,8 @@ dat <- dat %>%
 dat <- dat %>%
   mutate(# sum should give 3-15
         emconlpref_s = emconlpref1 + emconlpref2 + emconlpref3,
-        #onlpref_sum = ifelse(onlpref_sum > 15, NA, onlpref_sum), #for now, 99 issue
         # create hml
-        emconlpref = factor(case_when(
+        onlcommpref = factor(case_when(
           between(emconlpref_s, 3, 6) ~ 1,
           between(emconlpref_s, 7, 10) ~ 2,
           between(emconlpref_s, 11, 15) ~ 3,
@@ -496,16 +409,13 @@ dat <- dat %>%
     emconlpref_s
     ))
     
-#table(dat$emconlpref_s, dat$emconlpref, useNA = "always")
-#ggplot(dat, aes(x=emconlpref_s)) + geom_bar() + coord_flip() + theme_minimal()
-ggplot(dat, aes(x=emconlpref)) + geom_bar() + coord_flip() + theme_minimal()
+ggplot(dat, aes(x=onlcommpref)) + geom_bar() + coord_flip() + theme_minimal()
 
 
 # $ famhelp        <dbl> 7, 7, 7, 7, 2, 7, 7, NA, 7, 7, NA, NA, 7, 7, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7…
 # $ famsup         <dbl> 6, 7, 7, 7, 1, 7, 7, NA, 7, 7, NA, NA, 7, 7, 7, 7, 7, 3, 7, 7, 1, 7, 7, 7, 7, 6, 7, 7, 7…
 # $ famtalk        <dbl> 7, 7, 1, 7, 1, 7, 7, NA, 7, 7, NA, NA, 7, 7, 7, 7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 5, 1, 7, 7…
 # $ famdec         <dbl> 5, 7, 7, 7, 1, 7, 7, NA, 7, 6, NA, NA, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7…
-# Family Support" 
 # 4 questions going from 1 Very strongly disagree to 7 Very strongly agree.
 vars_famsup <- c("famhelp", "famsup", "famtalk", "famdec")
 lapply(dat[vars_famsup], table, useNA = "always")
@@ -555,7 +465,6 @@ ggplot(final_plot_data, aes(x = Question, y = Plot_Value, fill = Response)) +
   labs(
     x = NULL,
     y = NULL,
-    #y = "Percentage of Non-Neutral Responses",
     fill = "Scale"
   ) +
   theme_minimal() +
@@ -568,7 +477,7 @@ ggplot(final_plot_data, aes(x = Question, y = Plot_Value, fill = Response)) +
 dat <- dat %>%
   mutate(famsup_s = rowSums(dat[,vars_famsup])
   ) %>%
-  mutate(fam_sup = factor(case_when(
+  mutate(famsupp = factor(case_when(
     famsup_s >= 4 & famsup_s <= 11 ~ 1,
     famsup_s >= 12 & famsup_s <= 19 ~ 2,
     famsup_s >= 20 & famsup_s <= 28 ~ 3,
@@ -582,16 +491,13 @@ dat <- dat %>%
            )        
         )
 
-#table(dat$famsup_s, dat$famsupp, useNA = "always")
-#ggplot(dat, aes(x=factor(famsup_s))) + geom_bar() + theme_minimal()
-ggplot(dat, aes(x=fam_sup)) + geom_bar() + theme_minimal()
+ggplot(dat, aes(x=famsupp)) + geom_bar() + theme_minimal()
 
 
 # $ friendhelp     <dbl> 7, 5, 7, 7, 7, 3, 7, 7, 7, 7, NA, 4, 7, 7, 7, 1, 6, NA, 7, 2, 2, 7, 2, 7, 7, 7, NA, 7, 7…
 # $ friendcounton  <dbl> 6, 6, 1, 7, 3, 7, 7, 1, 7, 6, NA, 2, 7, 7, 2, 1, 6, NA, 7, 3, 7, 7, 2, 3, 3, 6, NA, 3, 7…
 # $ friendshare    <dbl> 7, 5, 7, 7, 5, 7, 7, 7, 7, 7, NA, 7, 7, 7, 7, 1, 7, NA, 7, 2, 7, 7, 3, 7, 7, 7, NA, 7, 7…
 # $ friendtalk     <dbl> 5, 7, 1, 7, 6, 7, 7, 7, 7, 7, NA, 2, 7, 7, 7, 1, 7, NA, 7, 2, 7, 7, 7, 2, 2, 7, NA, 2, 7…
-# "Friends Support"   
 # 4 questions going from 1 Very strongly disagree to 7 Very strongly agree.
 vars_frisup <- vars_groups[["friends_support"]]
 lapply(dat[vars_frisup], table, useNA = "always")
@@ -600,7 +506,7 @@ lapply(dat[vars_frisup], table, useNA = "always")
 dat <- dat %>%
   mutate(frisup_s = rowSums(dat[,vars_frisup])
   ) %>%
-  mutate(friends_sup = factor(case_when(
+  mutate(frisupp = factor(case_when(
     frisup_s >= 4 & frisup_s <= 11 ~ 1,
     frisup_s >= 12 & frisup_s <= 19 ~ 2,
     frisup_s >= 20 & frisup_s <= 28 ~ 3,
@@ -615,14 +521,13 @@ dat <- dat %>%
   )
   )
 
-#table(dat$frisup_s, dat$frisupp, useNA = "always")
-#ggplot(dat, aes(x=factor(frisup_s))) + geom_bar() + theme_minimal()
-ggplot(dat, aes(x=friends_sup)) + geom_bar() + theme_minimal()
+ggplot(dat, aes(x=frisupp)) + geom_bar() + theme_minimal()
 
 
 # $ studtogether   <dbl> 2, 2, 1, 1, 1, 2, 2, 1, 5, 2, 1, 3, 1, 1, 2, 3, 1, 1, 1, 2, 1, 2, 2, 1, 1, 1, 2, 1, 1, 2…
 # $ studhelpful    <dbl> 1, 2, 1, 1, 3, 2, 1, 1, 2, 3, 1, 3, 2, 1, 4, 5, 2, 1, 1, 2, 1, 1, 2, 3, 3, 1, 1, 3, 1, 4…
 # $ studaccept     <dbl> 1, 1, 1, 1, 3, 1, 1, 1, 2, 2, 1, 5, 1, 1, 2, 5, 1, 1, 1, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1…
+
 # $ teacheraccept  <dbl> 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 2, 2, 5, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1…
 # $ teachercare    <dbl> 1, 1, 1, 1, 1, 2, 2, 2, 1, 2, 2, 1, 1, 2, 4, 5, 2, 1, 1, 2, 2, 3, 2, 1, 1, 1, 1, 1, 1, 2…
 # $ teachertrust   <dbl> 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 4, 5, 1, 1, 2, 2, 2, 3, 4, 2, 2, 1, 1, 2, 1, 1…
@@ -664,14 +569,14 @@ dat <- dat %>%
   ) %>%
   # derive support yn based on hbsc
   mutate(
-    teacher_sup = factor(case_when(
+    teachsupp = factor(case_when(
       teacher_support_avg >= 4 ~ 1, # is this right??? 
       teacher_support_avg < 4 ~ 0,
       TRUE ~ NA),
       levels = c(0,1),
       labels = c("No", "Yes")
       ),
-    student_sup = factor(case_when(
+    studsupp = factor(case_when(
       student_support_avg >= 4 ~ 1,
       student_support_avg < 4 ~ 0,
       TRUE ~ NA),
@@ -679,14 +584,6 @@ dat <- dat %>%
       labels = c("No", "Yes")
     )
   ) %>%
-  # derive support sum for shap
-  # mutate(teachersup_s = teacheraccept_r 
-  #        + teachercare_r
-  #        + teachertrust_r,
-  #        studsup_s = studtogether_r
-  #        + studhelpful_r
-  #        + studaccept_r
-  # ) %>%
   select(-c(
     all_of(vars_school),
     all_of(paste0(vars_school, "_r")),
@@ -695,13 +592,9 @@ dat <- dat %>%
            )
   )
 
-#table(dat$teachersup_s, dat$teachersup, useNA = "always")
-#ggplot(dat, aes(x=factor(teachersup_s))) + geom_bar() + theme_minimal()
-ggplot(dat, aes(x=teacher_sup)) + geom_bar() + theme_minimal()
+ggplot(dat, aes(x=teachsupp)) + geom_bar() + theme_minimal()
 
-#table(dat$studsup_s, dat$studsup,  useNA = "always")
-#ggplot(dat, aes(x=factor(studsup_s))) + geom_bar() + theme_minimal()
-ggplot(dat, aes(x=student_sup)) + geom_bar() + theme_minimal()
+ggplot(dat, aes(x=studsupp)) + geom_bar() + theme_minimal()
 
 
 # $ talkfather     <dbl> 1, 2, 1, 1, 4, 3, 1, NA, NA, 2, NA, NA, 1, NA, 1, 1, 2, NA, 2, 3, 2, 2, 1, 1, 1, 2, 4, 1…
@@ -717,38 +610,19 @@ dat <- dat %>%
               talkfather %in% c(3,4,5) ~ 0),
     talkm = case_when(talkmother %in% c(1,2) ~ 1,
               talkmother %in% c(3,4,5) ~ 0),
-    talk_parent = as.integer(talkf | talkm)
-    #talkp = talkf + talkm
-  #,
-  #talkscore = talkfather + talkmother
+    talkparent = as.integer(talkf | talkm)
   ) %>%
-  # convert them to factors
   mutate(
-    talk_parent = factor(talk_parent, levels = c(0,1), labels = c("No", "Yes")),
-    #talkf = factor(talkf, levels = c(0,1), labels = c("No", "Yes")),
-    #talkm = factor(talkm, levels = c(0,1), labels = c("No", "Yes"))
-    #talkp = factor(talkp, levels = c("0","1","2"), ordered = TRUE)
+    talkparent = factor(talkparent, levels = c(0,1), labels = c("No", "Yes")),
   ) %>%
   select(-c(
     talkf,
     talkm,
-    #talkp,
     talkmother,
     talkfather
   ))
 
-#table(dat$talkp)
-
-#table(dat$talkfather, dat$talkf, useNA = "always")
-#ggplot(dat, aes(x=talkf)) + geom_bar() + theme_minimal()
-
-#table(dat$talkmother, dat$talkm, useNA = "always")
-#ggplot(dat, aes(x=talkm)) + geom_bar() + theme_minimal()
-
-ggplot(dat, aes(x=talk_parent)) + geom_bar() + theme_minimal()
-
-#summary(dat$talkscore)
-#ggplot(dat, aes(x=factor(talkscore))) + geom_bar() + theme_minimal()
+ggplot(dat, aes(x=talkparent)) + geom_bar() + theme_minimal()
 
 
 # $ countryno      <dbl> 8000, 8000, 8000, 8000, 8000, 8000, 8000, 8000, 8000, 8000, 8000, 8000, 8000, 8000, 8000…
@@ -805,19 +679,13 @@ recode_map <- c(
   "840000" = "USA"
 )
 
-dat$country1 <- recode_map[as.character(dat$countryno)]
-
-# countries <- 
-#   hbsc2018_filt %>%
-#   group_by(countryno, country) %>%
-#   tally()
-#sum(countries$n) == nrow(hbsc2018_filt) #has to be TRUE
+dat$country <- recode_map[as.character(dat$countryno)]
 
 # from name get continents info
 dat <- dat %>%
   mutate(
     continent = countrycode(
-      sourcevar = country1, 
+      sourcevar = country, 
       origin = "country.name", 
       destination = "continent",
       custom_match = c(
@@ -827,7 +695,7 @@ dat <- dat %>%
       )
     ),
     sub_region = countrycode(
-      sourcevar = country1, 
+      sourcevar = country, 
       origin = "country.name", 
       destination = "un.regionsub.name", # Changes destination to sub-regions
       custom_match = c(
@@ -840,14 +708,7 @@ dat <- dat %>%
 
 # sniff test looks good
 dat %>%
-  group_by(continent, sub_region, country1, countryno) %>%
-  tally() %>%
-  print(n = Inf)
-
-# South Europe it is
-dat %>%
-  filter(sub_region == "Southern Europe") %>% 
-  group_by(continent, sub_region, country1, countryno) %>%
+  group_by(continent, sub_region, country, countryno) %>%
   tally() %>%
   print(n = Inf)
 
@@ -860,151 +721,78 @@ dat %>%
 colSums(is.na(dat)) 
 
 ## WW complete
-hbsc_ww <- dat %>%
+hbsc_ww_cmp <- dat %>%
   drop_na()
 
-table(hbsc_ww$mental_issue) / nrow(hbsc_ww) #28Y/72N
+table(hbsc_ww_cmp$mentalissue) / nrow(hbsc_ww_cmp) #28Y/72N
 
-mental_issue_rates <- 
-  hbsc_ww %>%
-  group_by(continent, sub_region, country1, mental_issue) %>%
+# tbl with mental issues rate by country
+tbl_mentissue_countries <- 
+  hbsc_ww_cmp %>%
+  group_by(continent, sub_region, country, mentalissue) %>%
   tally() %>%
-  pivot_wider(names_from = mental_issue,
+  pivot_wider(names_from = mentalissue,
               names_prefix = "is",
               values_from = n,
               values_fill = 0) %>%
   mutate(n = isNo + isYes,
          isYes_pct = isYes/n) 
 
-mental_issue_rates %>% print(n = Inf)
+tbl_mentissue_countries %>% print(n = Inf)
 
-# tbl for latex
-mental_issues_country_tbl <- 
-mental_issue_rates %>% 
-  select(continent, sub_region, country1, n, isYes_pct)
-
-tt_mental_issues_country_tbl <- tt(mental_issues_country_tbl, output = "latex")
-tt_mental_issues_country_tbl
-print(tt_mental_issues_country_tbl, "latex") #copy/paste in latex and works but long
-# save_tt(tt_mental_issues_country_tbl, 
-#         output = "latex/tt_mental_issues_country_tbl.tex",
-#         theme = "booktabs")
-
-# Apply the theme to the table first, then save it
-tt_mental_issues_country_tbl |> 
-  theme_latex(environment = "tabular") |> 
-  save_tt(output = "latex/tt_mental_issues_country_tbl.tex", overwrite = TRUE)
-
-# countries_to_keep <- c("Canada", 
-#                        "Turkey",
-#                        "England", "Ireland", "Scotland", "Wales",
-#                        "Italy",
-#                        "France"
-# )
-
-hbsc_se <- hbsc_ww %>%
+# SE it is
+hbsc_se <- hbsc_ww_cmp %>%
   filter(sub_region == "Southern Europe") %>%
-  mutate(country = factor(country1)) %>%
-  select(-c(sub_region, continent, country1, countryno))
+  #mutate(country = factor(country1)) %>%
+  select(-c(sub_region, continent, countryno)) %>%
+  mutate(country = factor(country))
 
 summary(hbsc_se)
 glimpse(hbsc_se)
 
-table(hbsc_se$mental_issue) / nrow(hbsc_se) #27/73
+table(hbsc_se$mentalissue) / nrow(hbsc_se) #27/73
 
-n <- 
+# SE issues tally
+tbl_hbsc_se <- 
 hbsc_se %>%
-  group_by(country,mental_issue) %>%
-  summarise(n = n(), .groups = "drop") %>%
-  pivot_wider(names_from = mental_issue,
-              names_prefix = "mental_issue",
+  group_by(country, mentalissue) %>%
+  summarise(n = n_distinct(seqno_int),
+            .groups = "drop") %>%
+  pivot_wider(names_from = mentalissue,
               values_from = n) %>%
-  mutate(n = mental_issueYes + mental_issueNo,
-         
-         pct_mental_issueYes = mental_issueYes / n,
-         pct_mental_issueYes2 = percent(pct_mental_issueYes, accuracy = .1),
-         
-         pct_se = n / sum(n),
-         pct_se2 = percent(pct_se, accuracy = .1)
-         ) %>%
-  arrange(desc(pct_mental_issueYes)) %>%
-  select(country, n, pct_se2, pct_mental_issueYes2)
+  mutate(n = Yes + No,
+         pct_issues = Yes/n,
+         pct = n / sum(n)) %>%
+  arrange(desc(pct_issues)) %>%
+  select(country, n, pct_issues, pct) %>%
+  mutate(n = comma(n),
+         pct_issues = percent(pct_issues, accuracy = 0.1),
+         pct = percent(pct, accuracy = 0.1)
+         )
 
-# 1. Define a scaling factor based on your maximum 'n'
-scale_factor <- 3500
+tbl_hbsc_se  
 
-ggplot(n, aes(x = country)) +
-  # 2. Plot 'n' as bars on the primary Y-axis
-  geom_col(aes(y = n, fill = "Total Count (n)"), alpha = 0.7) +
-  
-  # 3. Plot the percentage as a line on the secondary Y-axis (multiplied by factor)
-  geom_line(aes(y = pct_mental_issueYes2 , color = "Mental Issue %"), size = 1.2) +
-  geom_point(aes(y = pct_mental_issueYes2 * scale_factor, color = "Mental Issue %"), size = 3) +
-  
-  # 4. Configure the dual Y-axes
-  scale_y_continuous(
-    name = "Total Count (n)",
-    sec_axis = sec_axis(~ . / scale_factor, name = "Mental Issue Percentage", labels = label_percent())
-  ) +
-  
-  # 5. Clean up labels and legend colors
-  labs(
-    title = "Sample Size and Mental Issue Percentage by Country",
-    x = "Country",
-    fill = NULL,
-    color = NULL
-  ) +
-  scale_fill_manual(values = "#9ecae1") +
-  scale_color_manual(values = "#de2d26") +
-  theme_minimal() +
-  theme(legend.position = "bottom")
+# for latex
+#kable(tbl_hbsc_se, format = "latex", booktabs = TRUE)
+tt_tbl_hbsc_se <- tt(tbl_hbsc_se) 
+save_tt(tt_tbl_hbsc_se, output = "./outputsR/tinytables/tt_tbl_hbsc_se.tex", overwrite = TRUE)
 
 
-
-# hbsc_cmp <- hbsc_ww %>%
-#   filter(country1 %in% countries_to_keep) %>%
-#   mutate(country = as.factor(case_when(
-#   country1 %in% c("England", "Ireland", "Scotland", "Wales") ~ "UnitedKingdom",
-#   TRUE ~ country1
-#   ))) %>%
-#   select(-c(countryno))
-#   # maybe later remove contient, etc
-# 
-# table(hbsc_cmp$mental_issue) / nrow(hbsc_cmp) #34Y/66N
-
-
-# # mental issues % for paper countries for latex
-# tbl_pct_missues <- 
-# hbsc_cmp %>% group_by(country, mental_issue) %>% tally() %>%
-#   pivot_wider(names_from = mental_issue,
-#               values_from = n) %>%
-#   mutate(n = Yes + No,
-#          pct_mental_issues = Yes/n)
-# 
-# tt_tbl_pct_missues <- tt(tbl_pct_missues, output = "latex")
-# tt_tbl_pct_missues
-# 
-# tt_tbl_pct_missues |> 
-#   theme_latex(environment = "tabular") |> 
-#   save_tt(output = "latex/tt_tbl_pct_missues.tex", overwrite = TRUE)
 
 
 # get all columns printed sorted by name
-hbsc_cmp |> relocate(sort(names(hbsc_cmp))) |> glimpse()
-
-nrow(hbsc_cmp)
+hbsc_se |> relocate(sort(names(hbsc_se))) |> glimpse()
 
 
 # since these 2 are same info I will prio MBMI but leave for now
-ggplot(hbsc_cmp, aes(x = IOTF4_r, y = MBMI_r, fill = IOTF4_r)) +
+ggplot(hbsc_se, aes(x = IOTF4, y = MBMI, fill = IOTF4)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7) +
-  #  geom_jitter(width = 0.2, alpha = 0.2, color = "darkgrey") +
   coord_flip() +
   theme_minimal() +
   theme(legend.position = "none") 
 
-# mejor aun, iotf4 o mbi?
-ggplot(hbsc_cmp, aes(x = MBMI_r, y = IOTF4_r, fill = stat(x))) +
+# mejor aun inferno ridges
+ggplot(hbsc_se, aes(x = MBMI, y = IOTF4, fill = stat(x))) +
   geom_density_ridges_gradient(scale = 2, rel_min_height = 0.01, alpha = 0.8, color = "white") +
   scale_fill_viridis_c(option = "inferno", direction = -1) + 
   theme_minimal() +
@@ -1014,45 +802,9 @@ ggplot(hbsc_cmp, aes(x = MBMI_r, y = IOTF4_r, fill = stat(x))) +
     axis.title.y = element_blank()
   )
 
-# y mejor aun
-# ggplot(hbsc_cmp, aes(x = IRFAS, y = IRRELFAS, fill = stat(x))) +
-#   geom_density_ridges_gradient(scale = 2, rel_min_height = 0.01, alpha = 0.8, color = "white") +
-#   scale_fill_viridis_c(option = "inferno", direction = -1) + 
-#   theme_minimal() +
-#   theme(
-#     legend.position = "none",
-#     panel.grid.major.y = element_blank(), # Cleans up the ridge background
-#     axis.title.y = element_blank()
-#   )
 
-#heatmap of irfas vs irrelfas
-hbsc_counts <- hbsc_cmp %>%
-  count(IRFAS, IRRELFAS) %>%
-  filter(!is.na(IRFAS) & !is.na(IRRELFAS))
-
-ggplot(hbsc_counts, aes(x = factor(IRFAS), y = factor(IRRELFAS), fill = n)) +
-  geom_tile(color = "white", linewidth = 0.3) + # Thin white borders perfectly separate the tiles
-  scale_fill_viridis_c(
-    option = "inferno", 
-    direction = -1, 
-    na.value = "gray95" # Distinct color for any combinations with zero data
-  ) +
-  labs(
-    x = "IRFAS",
-    y = "IRRELFAS",
-    fill = "Count"
-  ) +
-  theme_minimal() +
-  theme(
-    panel.grid = element_blank(), # Removes background grid lines that clash with tiles
-    axis.text = element_text(color = "black"),
-    legend.position = "right"
-  ) +
-  coord_fixed() # Forces tiles to be perfectly square for better symmetry
-
-
-
-hbsc_cmp <- hbsc_cmp %>% 
+# order by type
+hbsc_se <- hbsc_se %>% 
   select(order(colnames(.))) %>%
   select(
     where(is.factor),
@@ -1060,10 +812,306 @@ hbsc_cmp <- hbsc_cmp %>%
     everything()
   )
 
-glimpse(hbsc_cmp)
+glimpse(hbsc_se)
 
-# 1. Set the fixed target outcome variable
-target_var <- "mental_issue"
+
+# ------------------------------------------------------------
+# THE logistic regression
+# ------------------------------------------------------------
+
+#relevel arg
+hbsc_se$mentalissue <- relevel(hbsc_se$mentalissue, ref = "No")
+
+#split the data
+set.seed(67)
+se_split  <- initial_split(hbsc_se, 
+                            strata = mentalissue,
+                            )
+
+se_train <- training(se_split)
+se_test <- testing(se_split)
+
+nrow(se_train) + nrow(se_test) == nrow(hbsc_se) #must be TRUE
+
+round(table(se_train$mentalissue) / nrow(se_train),3)
+round(table(se_test$mentalissue) / nrow(se_test), 3) #must be same
+
+# specify model for glmnet with var sec
+lr_lasso_mod <- 
+  logistic_reg(penalty = tune(), 
+               mixture = 1) |> 
+  set_engine("glmnet")
+
+# recipe of pre proc steps
+lr_recipe <- 
+  recipe(mentalissue ~ ., data = se_train) |> 
+  step_rm(IOTF4,
+          IRRELFAS,
+          lifesat,
+          seqno_int
+          ) |>
+  step_dummy(all_nominal_predictors()) |> 
+  step_normalize(all_predictors())
+
+# workflow set
+lr_workflow <- 
+  workflow() |> 
+  add_model(lr_lasso_mod) |> 
+  add_recipe(lr_recipe)
+
+# make grid for tunning
+lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
+
+# create folds for tunning
+folds_10cv <- vfold_cv(se_train, v= 10)
+
+my_metrics <- metric_set(bal_accuracy, 
+                         accuracy,
+                         roc_auc,
+                         brier_class,
+                         j_index
+)
+
+# train and tune
+lr_res <- 
+  lr_workflow |> 
+  tune_grid(
+    resamples = folds_10cv, 
+    grid = lr_reg_grid,
+    control = control_grid(save_pred = TRUE),
+    metrics = my_metrics
+  )
+
+# collect all metrics
+lr_res_metrics <- 
+lr_res |> 
+  collect_metrics()
+
+#AUC by penalty
+lr_res_metrics |>
+  filter(.metric == "roc_auc") |> 
+  ggplot(aes(x = penalty, y = mean)) + 
+  geom_point() + 
+  geom_line() + 
+  ylab("Area under the ROC Curve") +
+  scale_x_log10(labels = scales::label_number()) +
+  theme_minimal()
+
+# select best model, finalize workflow and refit on whole train data
+best_lr_params <- lr_res |> 
+  select_best(metric = "roc_auc")
+
+# Update workflow with these optimal parameters
+final_lr_workflow <- lr_workflow |> 
+  finalize_workflow(best_lr_params)
+
+# get the last fit
+final_lr_fit <- final_lr_workflow |> 
+  last_fit(split = se_split, metrics = my_metrics)
+
+final_lr_fit
+
+# get test metrics
+(test_metrics <- final_lr_fit |> collect_metrics())
+
+# get train metrics
+trained_model <- final_lr_workflow |> 
+  fit(data = training(se_split))
+
+(train_metrics <- trained_model |> 
+    augment(new_data = training(se_split)) |> 
+    my_metrics(truth = mentalissue, 
+               estimate = .pred_class,
+               .pred_No)  
+)
+
+# combine metrics for train/test
+lr_metrics <- (train_metrics %>% 
+                 select(.metric, .estimate) %>%
+                 mutate(set = "train")
+) %>% bind_rows(
+  (test_metrics %>% 
+     select(.metric, .estimate) %>%
+     mutate(set = "test")
+  ) 
+)
+
+lr_metrics %>% pivot_wider(names_from = set,
+                           values_from = .estimate)
+
+# get for test set for each class (Y/N) get precision, recall, f1
+# it has to be done "manually 1x1
+
+lr_test_predictions <- collect_predictions(final_lr_fit)
+
+class_metrics <- metric_set(f_meas, precision, recall)
+
+(metrics_class1 <- class_metrics(
+  lr_test_predictions, 
+  truth = mentalissue, 
+  estimate = .pred_class,
+  event_level = "first"
+) %>% 
+  mutate(class = "Level1_NO mental issues")
+)
+
+(metrics_class2 <- class_metrics(
+  lr_test_predictions, 
+  truth = mentalissue, 
+  estimate = .pred_class,
+  event_level = "second"
+) %>% 
+    mutate(class = "Level2_YES mental issues")
+)
+
+#output pues
+bind_rows(metrics_class1, metrics_class2) %>%
+  select(-.estimator) %>%
+  pivot_wider(names_from = .metric,
+              values_from = .estimate
+              )
+
+
+# get vars selected by lasso to fit a normal GLM
+# get coeffs, flag kept, get var name
+(lasso_coefs <- final_lr_fit |> 
+  extract_fit_parsnip() |> 
+  tidy())
+
+(lasso_summary <- lasso_coefs |> 
+  filter(term != "(Intercept)") |> # Exclude the baseline intercept row
+  mutate(
+    lasso_status = if_else(estimate == 0, "Removed", "Kept")
+  ) |> 
+  select(term, estimate, lasso_status)
+)
+
+(lr_vars <- 
+lasso_summary %>%
+  mutate(feature = str_split_i(term, "_", 1)) %>%
+  distinct(feature)
+)
+
+# now, refit a normal GLM for my coeffs and OR
+
+#splits and cv reuse above
+
+# need a new recipe with right vars and without normalize
+lr_recipe2 <- 
+  recipe(mentalissue ~ ., data = se_train) |> 
+  step_rm(IOTF4,
+          IRRELFAS,
+          IRFAS,
+          lifesat,
+          seqno_int
+  )
+
+# Model specification using the "glm" engine (necessary for p-values)
+lr_spec <- logistic_reg() %>%
+  set_engine("glm") %>%
+  set_mode("classification")
+
+lr_workflow <- workflow() %>%
+  add_recipe(lr_recipe2) %>%
+  add_model(lr_spec)
+
+final_fit <- last_fit(
+  lr_workflow,
+  split = se_split
+)
+
+# Extract engine, fetch log-odds, and calculate odds ratios simultaneously
+model_inference <- final_fit %>% 
+  extract_fit_engine() %>% 
+  tidy(exponentiate = FALSE, conf.int = TRUE) %>% 
+  mutate(
+    odds_ratio   = exp(estimate),
+    or_conf_low  = exp(conf.low),
+    or_conf_high = exp(conf.high)
+  )
+
+(lr_coeffs <- 
+model_inference %>%
+  select(term,
+         coefficient = estimate,
+         odds_ratio, #or_conf_low, or_conf_high,
+         p.value
+         )
+)  
+
+
+    
+kable(lr_coeffs, format = "markdown") 
+
+# ------------------------------------------------------------
+# compute SHAP for LR
+# ------------------------------------------------------------
+
+# extract fitted wf for shap
+fit_wf <- extract_workflow(final_fit)
+fit_wf
+
+x_vars <- c("age", "pmsu")
+
+x_vars <- names(se_train)
+x_vars <- x_vars[-10]
+
+# step_rm(IOTF4,
+#         IRRELFAS,
+#         IRFAS,
+#         lifesat,
+#         seqno_int
+# )
+
+bg_data <- se_train[1:100, x_vars]
+to_explain <- se_test[1:100, x_vars]
+
+# calculate shap values
+(start <- Sys.time())
+ls_ks <- kernelshap(
+  fit_wf, 
+  X = to_explain, #se_test[, x_vars], 
+  bg_X = bg_data, # se_train[, x_vars], 
+  type = "prob"
+)
+(Sys.time() - start)
+
+ls_ks
+
+sv_multi <- shapviz(ls_ks)
+
+sv_event <- sv_multi$.pred_Yes
+
+sv_importance(sv_event) + theme_minimal() 
+
+sv_importance(sv_event, 
+              kind = "bee", 
+              alpha = 0.6, 
+              #color_bar_2 = c("#3182bd", "#e34a33"),
+              size = 1) +
+  theme_minimal() +
+  # Use standard ggplot2 layers to control the low/high color gradient
+  scale_colour_gradient(
+    low = "#3182bd", 
+    high = "#e34a33", 
+    name = "Feature value",  # Sets the legend title
+    breaks = c(0, 1),        # Maps to the min and max values
+    labels = c("Low", "High")
+  )
+
+#library(shapviz)
+# Generate a dependence plot for the single feature 'pmsu'
+
+print(sv_dependence(sv_event, v = "country", color_var = NULL) + theme_minimal()) + coord_flip()
+print(sv_dependence(sv_event, v = "country") + theme_minimal()) + coord_flip()
+
+#print(sv_dependence(tree_sv$.pred_Yes, v = pred) + theme_minimal())
+
+
+# FIN FOR NOW
+
+
+
 
 # --------------------------------------------------------------------------
 # check final features distributions and potential of FACTOR predictors
@@ -1672,400 +1720,3 @@ sv_dependence(xgb_sv, v = "pmsu_High") #sin gracia
 
 # 4. SHAP Waterfall Plot for an individual prediction (e.g., the 1st observation)
 sv_waterfall(xgb_sv, row_id = 1)
-
-
-# -------------------------------------------------------------------------
-# fit logistic regression with var selection
-# -------------------------------------------------------------------------
-
-# https://www.tidymodels.org/start/case-study/
-
-# for data use hbsc_split, hbsc_train and hbsc_test from above
-
-# confirm baseline
-table(hbsc_cmp$mental_issue) / nrow(hbsc_cmp) #34/66
-table(hbsc_train$mental_issue) / nrow(hbsc_train) #34/66
-table(hbsc_test$mental_issue) / nrow(hbsc_test) #34/66
-
-# specify lasso for var selection 
-lr_mod <- 
-  logistic_reg(penalty = tune(), 
-               mixture = 1) |> 
-  set_engine("glmnet")
-
-lr_mod
-
-# recipe
-lr_recipe <- xgb_recipe |>
-  step_normalize(all_predictors())
-  #step_dummy(all_nominal_predictors())
-
-lr_recipe
-
-lr_workflow <- 
-  workflow() |> 
-  add_model(lr_mod) |> 
-  add_recipe(lr_recipe)
-
-lr_workflow
-
-lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
-lr_reg_grid
-
-cv_folds <- vfold_cv(hbsc_train, 
-                     v = 10)
-cv_folds
-
-# train 30 models
-(start <- Sys.time())
-lr_res <- 
-  lr_workflow |> 
-  tune_grid(cv_folds,
-            #val_set,
-            grid = lr_reg_grid,
-            control = control_grid(save_pred = TRUE),
-            metrics = metric_set(roc_auc))
-Sys.time() - start #10 segs
-
-#visualize metric roc so small penalty is best
-lr_res |> 
-  collect_metrics() |> 
-  ggplot(aes(x = penalty, y = mean)) + 
-  geom_point() + 
-  geom_line() + 
-  ylab("Area under the ROC Curve") +
-  scale_x_log10(labels = scales::label_number())
-
-# get top models
-lr_res |> 
-  show_best(metric = "roc_auc", n = 25) |> 
-  arrange(penalty) %>%
-  print(n = Inf)
-
-# 17 seems good
-lr_best <- 
-  lr_res |> 
-  collect_metrics() |> 
-  arrange(penalty) |> 
-  slice(17)
-
-#lr_best <- lr_res |> 
-#  select_best(metric = "roc_auc")
-
-lr_best
-
-#roc 
-lr_auc <- 
-  lr_res |> 
-  collect_predictions(parameters = lr_best) |> 
-  roc_curve(mental_issue, .pred_Yes) |> 
-  mutate(model = "Logistic Regression")
-
-autoplot(lr_auc)
-
-# 1. Lock in the best penalty parameter into your workflow
-final_wf <- lr_workflow |> 
-  finalize_workflow(lr_best)
-
-my_metrics <- metric_set(accuracy, precision, recall, f_meas, bal_accuracy,
-                         roc_auc)
-
-# 2. Fit ONE last time on the entire training data and evaluate on the test split
-final_res <- final_wf |> 
-  last_fit(split = hbsc_split,
-           metrics = my_metrics) # Pass your initial rsplit object here
-
-# 3. View your final performance metrics on the held-out test set
-final_res |> 
-  collect_metrics()
-
-# 1. Fit the finalized workflow explicitly to the training data
-final_train_fit <- final_wf |> 
-  fit(data = hbsc_train)
-
-# 2. Predict on the training data and calculate metrics
-final_train_fit |> 
-  augment(new_data = hbsc_train) |> 
-  roc_auc(truth = mental_issue, .pred_Yes) 
-
-# Define the metrics you want to see
-my_metrics <- metric_set(roc_auc, accuracy, sens, spec)
-
-# Generate predictions and evaluate them together
-final_train_fit |> 
-  augment(new_data = hbsc_train) |> 
-  my_metrics(truth = mental_issue, 
-             estimate = .pred_class,
-             .pred_Yes            # For accuracy/sens/spec
-             ) # For roc_auc
-
-# Extract and clean the final coefficients
-lasso_coefs <- final_train_fit |> 
-  extract_fit_parsnip() |> 
-  tidy(penalty = lr_best$penalty)
-
-print(lasso_coefs)
-
-library(ggplot2)
-
-lasso_coefs |>
-  # Remove the intercept and any variables Lasso dropped (zeroed out)
-  filter(term != "(Intercept)", estimate != 0) |>
-  # Sort by the size of the impact
-  mutate(term = reorder(term, estimate)) |>
-  ggplot(aes(x = estimate, y = term, fill = estimate > 0)) +
-  geom_col() +
-  scale_fill_manual(values = c("darkred", "darkgreen"), 
-                    #labels = c("Protective Factor", "Risk Factor"),
-                    name = "Impact Direction") +
-  labs(
-    title = "Lasso Coefficient Importance for Mental Issues",
-    x = "Standardized Coefficient (Log-Odds Impact per 1 SD)",
-    y = NULL
-  ) +
-  theme_minimal()
-
-#vip
-lasso_coefs |> 
-  filter(term != "(Intercept)", estimate != 0) |> 
-  mutate(abs_impact = abs(estimate)) |> 
-  arrange(desc(abs_impact)) |> 
-  select(Variable = term, `Standardized Coefficient` = estimate, `Absolute Impact` = abs_impact)
-
-#relative importance
-lasso_coefs |> 
-  filter(term != "(Intercept)", estimate != 0) |> 
-  mutate(
-    # Get absolute impact
-    abs_impact = abs(estimate),
-    # Scale relative to the maximum impact feature
-    relative_importance = (abs_impact / max(abs_impact)) * 100
-  ) |> 
-  select(term, estimate, relative_importance) |> 
-  arrange(desc(relative_importance))
-
-#2. Standardized Odds Ratios (OR)
-lasso_coefs |> 
-  filter(term != "(Intercept)", estimate != 0) |> 
-  mutate(
-    std_odds_ratio = exp(estimate)
-  ) |> 
-  select(term, standardized_log_odds = estimate, std_odds_ratio) |> 
-  arrange(desc(std_odds_ratio))
-
-
-lasso_coefs |> 
-  filter(term != "(Intercept)", estimate != 0) |> 
-  mutate(
-    std_or = exp(estimate),
-    direction = if_else(estimate > 0, "Risk Factor (Increases Odds)", "Protective Factor (Decreases Odds)")
-  ) |> 
-  select(
-    Variable = term, 
-    `Standardized Log-Odds` = estimate, 
-    `Standardized Odds Ratio` = std_or, 
-    Classification = direction
-  ) |> 
-  arrange(desc(abs(`Standardized Log-Odds`)))
-
-# que relajo
-corrected_coefs <- final_train_fit |> 
-  extract_fit_parsnip() |> 
-  tidy(penalty = lr_best$penalty) |> 
-  filter(term != "(Intercept)", estimate != 0) |> 
-  mutate(
-    # Multiply by -1 to flip the target from 'no' to 'yes'
-    corrected_log_odds = estimate * -1, 
-    # Calculate the true Odds Ratio for 'yes'
-    odds_ratio = exp(corrected_log_odds),
-    direction = if_else(corrected_log_odds > 0, "Risk Factor (+)", "Protective Factor (-)")
-  )
-
-# View your fully corrected results
-corrected_coefs |> 
-  select(term, original_raw = estimate, corrected_log_odds, odds_ratio, direction) |> 
-  arrange(desc(corrected_log_odds))
-
-corrected_coefs |>
-  # Remove the intercept and any variables Lasso dropped (zeroed out)
-  filter(term != "(Intercept)", estimate != 0) |>
-  # Sort by the size of the impact
-  mutate(term = reorder(term, corrected_log_odds)) |>
-  ggplot(aes(x = corrected_log_odds, y = term, fill = estimate > 0)) +
-  geom_col() +
-  scale_fill_manual(values = c("darkred", "darkgreen"), 
-                    labels = c("Bad", "Good"),
-                    name = "Impact Direction") +
-  labs(
-    title = "Lasso Coefficient Importance for Mental Issues",
-    x = "Standardized Coefficient (Log-Odds Impact per 1 SD)",
-    y = NULL
-  ) +
-  theme_minimal()
-
-
-# refit in normal scale
-# 1. Isolate the dummy/engineered feature names from your Lasso model
-selected_features <- corrected_coefs |> 
-  filter(term != "(Intercept)", estimate != 0) |> 
-  pull(term)
-selected_features
-
-# want age, not just age_X15
-myselected_feature <- c("MBMI_r", "age", "cbullied", "emconlfreq", "emconlpref",
-                        "emconlpref", "fam_sup", "friends_sup", "gender", "IRRELFAS",
-                        "pmsu", "student_sup", "talk_parent", "teacher_sup", "timeexe_r")
-
-# 2. Build a new recipe that creates the dummies, but filters down to ONLY your selected features
-hybrid_recipe <- recipe(mental_issue ~ MBMI_r + age + cbullied + emconlfreq + emconlpref + fam_sup + 
-                          friends_sup + gender + IRRELFAS + pmsu + student_sup + talk_parent + teacher_sup + 
-                          timeexe_r, data = hbsc_train) |> 
-  step_dummy(all_nominal_predictors()) #|> 
-  # step_normalize() is removed here so your new p-values reflect a normal 1-unit change!
-  #step_select(mental_issue, all_of(selected_features))
-
-# 3. Define a standard, unpenalized logistic regression model
-normal_lr_spec <- logistic_reg() |> 
-  set_engine("glm")
-
-# 4. Bundle them into a workflow and fit
-hybrid_wf <- workflow() |> 
-  add_recipe(hybrid_recipe) |> 
-  add_model(normal_lr_spec)
-
-hybrid_fit <- hybrid_wf |> fit(data = hbsc_train)
-hybrid_fit
-
-hybrid_fit |> 
-  extract_fit_parsnip() |> 
-  tidy(conf.int = TRUE) |> 
-  # Filter out the intercept
-  filter(term != "(Intercept)") |> 
-  mutate(
-    # 1. Flip the signs to correct the glm baseline back to predicting 'yes'
-    log_odds_estimate = estimate * -1,
-    
-    # 2. Derive the True Odds Ratios and Confidence Intervals based on 'yes'
-    odds_ratio = exp(log_odds_estimate),
-    or_lower_ci = exp((conf.high) * -1), # Note the bounds flip when multiplying by -1
-    or_upper_ci = exp((conf.low) * -1)
-  ) -> lr_res
-  # Clean up column layout for presentation
-
-lr_res  
-
-require(scales)
-
-# output for paper
-lr_res_tbl <- 
-lr_res %>%
-  #arrange(desc(term)) %>% 
-  select(term, log_odds_estimate, odds_ratio, p.value,
-         ) %>%
-  mutate(p.value = format.pval(p.value, eps = 0.001, digits = 3))
-  #mutate(p.value = p_value(p.value, accuracy = 0.001)) # Cleans the whole column
-
-lr_res_tbl
-
-tt_lr_res_tbl <- tt(lr_res_tbl, output = "latex")
-tt_lr_res_tbl
-
-tt_lr_res_tbl |> 
-  theme_latex(environment = "tabular") |> 
-  save_tt(output = "latex/tt_lr_res_tbl.tex", overwrite = TRUE)
-
-
-#forest plot
-library(stringr)
-
-# 1. Clean up and format the labels for the plot
-plot_data <- res |> 
-  # Clean up variable names (replaces underscores with spaces, capitalizes first letter)
-  mutate(
-    clean_term = term,
-    #clean_term = str_replace_all(term, "_", " "),
-    #clean_term = str_to_sentence(clean_term),
-    # Force ggplot to sort the variables by their actual log odds estimate size
-    clean_term = reorder(clean_term, log_odds_estimate)
-  )
-
-# 2. Build the visual forest plot
-ggplot(plot_data, aes(x = log_odds_estimate, y = clean_term)) +
-  # Add a vertical dashed line at 0 (the line of no effect)
-  geom_vline(xintercept = 0, linetype = "dashed", color = "gray60", linewidth = 0.6) +
-  
-  # Add the horizontal 95% Confidence Interval error bars
-  geom_errorbarh(aes(xmin = or_lower_ci |> log(), xmax = or_upper_ci |> log()), 
-                 height = 0.2, color = "gray30", linewidth = 0.7) +
-  
-  # Add the point estimates on top (colored by risk vs protective)
-  geom_point(aes(color = log_odds_estimate > 0), size = 3.5) +
-  
-  # Define professional colors (Warm red for Risk, Soft blue for Protective)
-  scale_color_manual(values = c("TRUE" = "#c0392b", "FALSE" = "#2980b9"),
-                     labels = c("TRUE" = "Risk Factor (Increases Odds)", 
-                                "FALSE" = "Protective Factor (Decreases Odds)"),
-                     name = NULL) +
-  
-  # Set clean axis titles and clear naming
-  labs(
-    title = "Predictors of Mental Health Issues",
-    subtitle = "Standardized log-odds estimates with 95% confidence intervals",
-    x = "Log-Odds Estimate (Target: Yes)",
-    y = NULL
-  ) +
-  
-  # Modern, minimal styling layout
-  theme_minimal(base_size = 12) +
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.y = element_line(color = "gray95"),
-    legend.position = "bottom",
-    plot.title = element_text(face = "bold", size = 15, margin = margin(b = 5)),
-    plot.subtitle = element_text(color = "gray40", size = 11, margin = margin(b = 15)),
-    axis.text.y = element_text(face = "bold", color = "gray20"),
-    axis.title.x = element_text(margin = margin(t = 10))
-  )
-
-# 2. Build the visual forest plot... repeat from above for odds
-ggplot(plot_data, aes(x = odds_ratio, y = clean_term)) +
-  # Add a vertical dashed line at 0 (the line of no effect)
-  geom_vline(xintercept = 1, linetype = "dashed", color = "gray60", linewidth = 0.6) +
-  
-  # Add the horizontal 95% Confidence Interval error bars
-  geom_errorbarh(aes(xmin = or_lower_ci, xmax = or_upper_ci), 
-                 height = 0.2, color = "gray30", linewidth = 0.7) +
-  
-  # Add the point estimates on top (colored by risk vs protective)
-  geom_point(aes(color = odds_ratio > 1), size = 3.5) +
-  
-  # Define professional colors (Warm red for Risk, Soft blue for Protective)
-  scale_color_manual(values = c("TRUE" = "#c0392b", "FALSE" = "#2980b9"),
-                     labels = c("TRUE" = "Risk Factor (Increases Odds)", 
-                                "FALSE" = "Protective Factor (Decreases Odds)"),
-                     name = NULL) +
-  
-  # Set clean axis titles and clear naming
-  labs(
-    title = "Predictors of Mental Health Issues",
-    subtitle = "odds_ratio estimates with 95% confidence intervals",
-    x = "odds_ratio Estimate (Target: Yes)",
-    y = NULL
-  ) +
-  
-  # Modern, minimal styling layout
-  theme_minimal(base_size = 12) +
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.y = element_line(color = "gray95"),
-    legend.position = "bottom",
-    plot.title = element_text(face = "bold", size = 15, margin = margin(b = 5)),
-    plot.subtitle = element_text(color = "gray40", size = 11, margin = margin(b = 15)),
-    axis.text.y = element_text(face = "bold", color = "gray20"),
-    axis.title.x = element_text(margin = margin(t = 10))
-  )
-  
-
-
-
-
