@@ -1,0 +1,18 @@
+\begin{table}
+\centering
+\begin{tblr}[         %% tabularray outer open
+]                     %% tabularray outer close
+{                     %% tabularray inner open
+colspec={Q[]Q[]Q[]Q[]},
+hline{2}={1-4}{solid, black, 0.05em},
+hline{1}={1-4}{solid, black, 0.08em},
+hline{7}={1-4}{solid, black, 0.08em},
+}                     %% tabularray inner close
+Model & Metric & train & test \\
+Logistic Regression & bal_accuracy & 0.630 & 0.624 \\
+Logistic Regression & accuracy & 0.768 & 0.763 \\
+Logistic Regression & j_index & 0.259 & 0.247 \\
+Logistic Regression & roc_auc & 0.763 & 0.756 \\
+Logistic Regression & brier_class & 0.161 & 0.163 \\
+\end{tblr}
+\end{table}

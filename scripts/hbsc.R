@@ -1,6 +1,5 @@
 # HBSC 
-# Updated: 2026-09-25
-
+# Updated: 2026-09-27
 
 # ---------------------------------------------------
 # workspace stuff
@@ -770,6 +769,9 @@ hbsc_se %>%
          pct = percent(pct, accuracy = 0.1)
          )
 
+# add total row
+#total_row <- c("Total", nrow(hbsc_se),0)
+
 tbl_hbsc_se  
 
 # for latex
@@ -777,12 +779,13 @@ tbl_hbsc_se
 tt_tbl_hbsc_se <- tt(tbl_hbsc_se) 
 save_tt(tt_tbl_hbsc_se, output = "./outputsR/tinytables/tt_tbl_hbsc_se.tex", overwrite = TRUE)
 
-
-
-
 # get all columns printed sorted by name
 hbsc_se |> relocate(sort(names(hbsc_se))) |> glimpse()
 
+
+# ----------------------------------------------------------------------
+# one more thing on bmi and fas
+# ----------------------------------------------------------------------
 
 # since these 2 are same info I will prio MBMI but leave for now
 ggplot(hbsc_se, aes(x = IOTF4, y = MBMI, fill = IOTF4)) +
@@ -802,7 +805,6 @@ ggplot(hbsc_se, aes(x = MBMI, y = IOTF4, fill = stat(x))) +
     axis.title.y = element_blank()
   )
 
-
 # order by type
 hbsc_se <- hbsc_se %>% 
   select(order(colnames(.))) %>%
@@ -813,6 +815,142 @@ hbsc_se <- hbsc_se %>%
   )
 
 glimpse(hbsc_se)
+
+
+# ------------------------------------------------------------
+# factor vars - eda and potential of pred
+# for each fact predictor get a summary table with 
+# var name, n, % and % of mental issue and chi
+# ------------------------------------------------------------
+
+# get name of all factor vars (including mentalissue)
+# and define a df with only those vars
+factor_vars <- hbsc_se %>% 
+  select(where(is.factor)) %>% 
+  names()
+
+factor_vars
+
+hbsc_se_fct <- hbsc_se %>%
+  select(all_of(factor_vars))
+
+# tabulate for each var, n and % and % mental issues
+tbl_fct <- 
+hbs_se_fct %>%
+  pivot_longer(
+    cols = -mentalissue, 
+    names_to = "Predictor", 
+    values_to = "Value"
+  ) %>%
+group_by(Predictor, Value) %>%
+  summarise(
+    n = n(),
+    nmentalissue = sum(mentalissue == "Yes"),
+    .groups = "drop_last"
+  ) %>%
+  mutate(pct = n / sum(n)) %>%
+  mutate(pctmentalissues = nmentalissue / n) %>%
+  ungroup()
+  
+head(tbl_fct)
+
+chi_results <- 
+tibble(Predictor = c(factor_vars)) %>% 
+  rowwise() %>%
+  mutate(
+    # Dynamically build a contingency table and run the chi-sq test
+    test = list(chisq.test(hbsc_se_fct[[Predictor]], hbsc_se_fct$mentalissue)),
+    # Extract the Chi-Square statistic and format the p-value
+    chi = test$statistic,
+    pvalue = test$p.value
+  ) %>%
+  select(-test) %>%
+  ungroup()
+
+tbl_fct %>% group_by(Predictor) %>% summarise(n = sum(n), 
+                                              nvals = n_distinct(Value)) #triple check
+
+tbl_fct <- inner_join(tbl_fct, chi_results, by = "Predictor")
+
+# for latex
+tt_tbl_fct <- tbl_fct %>%
+  mutate(n = comma(n),
+         pct = percent(pct, accuracy = 0.1),
+         pctmentalissues = percent(pctmentalissues, accuracy = 0.1),
+         chi = comma(chi, accuracy = 0.1),
+         pvalue = round(pvalue,20)
+  ) %>%
+  select(-nmentalissue)
+
+head(tt_tbl_fct)
+
+tt_tbl_fct <- tt(tt_tbl_fct) 
+save_tt(tt_tbl_fct, output = "./outputsR/tinytables/tt_tbl_fct.tex", overwrite = TRUE)
+
+
+# ------------------------------------------------------------
+# number vars - eda and potential of pred
+# for each fact predictor get a summary table with 
+# var name, n, % and % of mental issue and chi
+# ------------------------------------------------------------
+
+library(purrr)
+
+num_vars <- c("IRFAS", "lifesat", "MBMI")
+
+group_stats <- hbsc_se %>%
+  group_by(mentalissue) %>%
+  summarise(
+    across(all_of(num_vars), list(mean = ~ mean(.x, na.rm = TRUE), sd = ~ sd(.x, na.rm = TRUE))),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(cols = -mentalissue, names_to = c("Variable", "Stat"), names_sep = "_") %>%
+  pivot_wider(names_from = c(mentalissue, Stat), values_from = value, names_sep = "_")
+
+all_stats <- hbsc_se %>%
+  summarise(
+    across(all_of(num_vars), list(All_mean = ~ mean(.x, na.rm = TRUE), All_sd = ~ sd(.x, na.rm = TRUE)))
+  ) %>%
+  pivot_longer(cols = everything(), names_to = c("Variable", "Stat"), names_pattern = "(.*)_(All_.*)") %>%
+  pivot_wider(names_from = Stat, values_from = value)
+
+desc_table <- left_join(all_stats, group_stats, by = "Variable")
+
+# 3. Iterate over variables using a loop/map to calculate KS D-Test parameters
+ks_results <- map_dfr(num_vars, function(v) {
+  # Subset variables into vectors, stripping out missing data points
+  vec_no  <- hbsc_se[[v]][hbsc_se$mentalissue == "No"]  %>% na.omit()
+  vec_yes <- hbsc_se[[v]][hbsc_se$mentalissue == "Yes"] %>% na.omit()
+  
+  # Run the two-sample KS test
+  test_out <- ks.test(vec_no, vec_yes)
+  
+  # Return data row
+  tibble(
+    Variable  = v,
+    KS_D      = test_out$statistic,
+    KS_pvalue = test_out$p.value
+  )
+})
+
+# 4. Join the KS D-test columns onto your table 
+final_table <- left_join(desc_table, ks_results, by = "Variable")
+
+# 5. View the complete workflow output
+print(final_table)
+
+# for latex
+tt_tbl_num <- final_table %>%
+  mutate(across(
+    .cols = where(is.numeric) & !c(KS_pvalue), # Numeric, but NOT the last column
+    .fns = ~ round(.x, digits = 2)
+  )) %>%
+  mutate(KS_pvalue = round(KS_pvalue,15))
+
+head(tt_tbl_num)
+
+tt_tbl_num <- tt(tt_tbl_num) 
+save_tt(tt_tbl_num, output = "./outputsR/tinytables/tt_tbl_num.tex", overwrite = TRUE)
 
 
 # ------------------------------------------------------------
@@ -936,8 +1074,24 @@ lr_metrics <- (train_metrics %>%
   ) 
 )
 
+lr_metrics <- 
 lr_metrics %>% pivot_wider(names_from = set,
                            values_from = .estimate)
+
+all_perf_metrics <- lr_metrics %>%
+  rename (Metric = .metric) %>%
+  mutate(Model = "Logistic Regression",
+         train = round(train,3),
+         test = round(test, 3)
+         ) %>%
+  select(Model, Metric, train, test) 
+
+# for latex
+tt_all_perf_metrics <- tt(all_perf_metrics) 
+save_tt(tt_all_perf_metrics, output = "./outputsR/tinytables/tt_all_perf_metrics.tex", overwrite = TRUE)
+
+#voy
+
 
 # get for test set for each class (Y/N) get precision, recall, f1
 # it has to be done "manually 1x1
@@ -1113,215 +1267,9 @@ print(sv_dependence(sv_event, v = "country") + theme_minimal()) + coord_flip()
 
 
 
-# --------------------------------------------------------------------------
-# check final features distributions and potential of FACTOR predictors
-# --------------------------------------------------------------------------
-
-# 2. Automatically detect all OTHER factor variables in d1
-factor_vars <- hbsc_cmp %>% 
-  select(where(is.factor)) %>% 
-  names() %>% 
-  setdiff(target_var)
-factor_vars
-
-#temp
-#factor_vars <- c("age", "pmsu")
-
-# 4. Loop through each discovered factor variable
-results_list <- list()
-for (v in factor_vars) {
-  
-#  cat("\n==================================================\n")
-  cat("\n\n\n *** ANALYSIS FOR PREDICTOR VARIABLE:", v, "\n")
-#  cat("==================================================\n")
-  
-  # --- Step 1: Single Predictor Frequency ---
-  cat("Xtab of:", v, "\n")
-  hbsc_cmp %>% 
-    tabyl(!!sym(v)) %>% 
-    adorn_pct_formatting(digits = 0) %>% 
-    print()
-  
-  # --- Step 2: Cross-Tabulation with Target ---
-  cat("\nXtab of:", target_var, "x", v, "\n")
-  
-  xtab <- hbsc_cmp %>% 
-    tabyl(!!sym(v), !!sym(target_var)) %>% 
-    adorn_totals("col")
-  
-  if ("Yes" %in% names(xtab) && "Total" %in% names(xtab)) {
-    xtab <- xtab %>% 
-      mutate(Yes_pct = percent(Yes / Total, accuracy = 1))
-  }
-  print(xtab)
-  
-  # --- Step 3: Chi-Square Test & Components ---
-  cat("\nChi-Square Test:\n")
-  
-  tryCatch({
-    chisq <- chisq.test(hbsc_cmp[[v]], hbsc_cmp[[target_var]])
-    
-    print(chisq)
-    cat("\nStatistic (X-squared):", chisq$statistic, "\n")
-    cat("Formatted P-value:    ", format.pval(chisq$p.value, digits = 5), "\n")
-    
-    # NEW: Collect the row metrics into our tracking list
-    results_list[[v]] <- tibble(
-      variable     = v,
-      x_squared    = round(chisq$statistic, 3),
-      p_value_raw  = chisq$p.value,
-      p_value_fmt  = format.pval(chisq$p.value, digits = 5)
-    )
-    
-  }, error = function(e) {
-    cat("Could not run Chi-Square test for", v, ":", e$message, "\n")
-    
-    # Log the failure case so the row isn't missing entirely
-    results_list[[v]] <- tibble(
-      variable     = v,
-      x_squared    = NA_real_,
-      p_value_raw  = NA_real_,
-      p_value_fmt  = "Error/Failed"
-    )
-  })
-  
-  cat("\n")
-}
-
-# Combines all collected individual rows into a single table
-chisq_results_df <- bind_rows(results_list)
-print(chisq_results_df)
 
 
-# --------------------------------------------------------------
-# factors eda results to latex
-# --------------------------------------------------------------
 
-# above is good, but i need a simple table with same results from above
-# but for a latex table
-
-# generate table for R EDA results
-df <- hbsc_cmp %>%
-  select(mental_issue, all_of(factor_vars))
-
-df_long <- df %>%
-  pivot_longer(
-    cols = -mental_issue, # c(pmsu, age), 
-    names_to = "Predictor", 
-    values_to = "Value"
-  )
-
-df_counts <- df_long %>%
-  group_by(Predictor, Value) %>%
-  summarise(
-    TotalCount = n(),
-    YesCount = sum(mental_issue == "Yes"),
-    .groups = "drop_last"
-  )
-
-# 2. NEW STEP: Calculate Chi-Square values for each predictor
-chi_results <- tibble(Predictor = c(factor_vars)) %>% #c("pmsu", "age")) %>%
-  rowwise() %>%
-  mutate(
-    # Dynamically build a contingency table and run the chi-sq test
-    test = list(chisq.test(df[[Predictor]], df$mental_issue)),
-    # Extract the Chi-Square statistic and format the p-value
-    ChiSq = test$statistic,
-    PValue = test$p.value,
-    PValueFormatted = format.pval(PValue, eps = 0.00001, digits = 5)
-  ) %>%
-  select(Predictor, ChiSq, PValueFormatted) #, P_Value)
-#format.pval(p.value, eps = 0.00001, digits = 3))
-
-tbl_fact_eda_chi <- df_counts %>%
-  mutate(
-    CatPct = 100.0 * TotalCount / sum(TotalCount),
-    YesPct = 100.0 * YesCount / TotalCount
-  ) %>%
-  ungroup() %>%
-  left_join(chi_results, by = "Predictor") 
-
-print(tbl_fact_eda_chi) #for latex
-
-tt_tbl_fact_eda_chi <- tt(tbl_fact_eda_chi, output = "latex")
-
-tt_tbl_fact_eda_chi |> 
-  theme_latex(environment = "tabular") |> 
-  save_tt(output = "latex/tt_tbl_fact_eda_chi.tex", overwrite = TRUE)
-
-
-# --------------------------------------------------------------------------
-# check final features distributions and potential of NUMBER predictors
-# --------------------------------------------------------------------------
-
-# 1. Identify all numeric variables (excluding the target variable)
-numeric_vars <- hbsc_cmp %>% 
-  select(where(is.numeric)) %>% 
-  names() %>%
-  setdiff("seqno_int")
-numeric_vars
-
-# 3. Combined Loop
-ks_results_list <- list()
-for (var in numeric_vars) {
-  
-  #--- CONSOLE HEADERS & STATS ---
-  #cat("\n==================================================\n")
-  cat("\n\n\n #### PROCESSING VARIABLE:", var, "\n")
-  #cat("==================================================\n")
-  
-  cat("\n--- Summary Statistics by Group ---\n")
-  print(tapply(hbsc_cmp[[var]], hbsc_cmp[[target_var]], summary))
-  
-  #--- STATISTICAL TESTING ---
-  formula_form <- as.formula(paste(var, "~", target_var))
-  ks_out <- ks.test(formula_form, data = hbsc_cmp)
-  
-  # Calculate medians dynamically for the output table
-  medians <- hbsc_cmp %>%
-    group_by(.data[[target_var]]) %>%
-    summarize(med = median(.data[[var]], na.rm = TRUE), .groups = 'drop')
-  
-  median_no  <- medians %>% filter(.data[[target_var]] == "No")  %>% pull(med)
-  median_yes <- medians %>% filter(.data[[target_var]] == "Yes") %>% pull(med)
-  
-  # Save metrics to our tracking list
-  ks_results_list[[var]] <- data.frame(
-    Variable = var,
-    D_Statistic = round(ks_out$statistic, 5),
-    #P_Value = ks_out$p.value,
-    P_Value_Formatted = format.pval(ks_out$p.value, digits = 4),
-    Median_No = ifelse(length(median_no) > 0, median_no, NA),
-    Median_Yes = ifelse(length(median_yes) > 0, median_yes, NA),
-    stringsAsFactors = FALSE
-  )
-  
-  #--- PLOTTING ---
-  # Boxplot
-  p1 <- ggplot(hbsc_cmp, aes(x = .data[[target_var]], y = .data[[var]], fill = .data[[target_var]])) +
-    geom_boxplot(alpha = 0.7, width = 0.5) +
-    scale_fill_manual(values = c("No" = "#5DADE2", "Yes" = "#E74C3C")) +
-    labs(title = paste("Boxplot of", var, "by", target_var), y = var, x = target_var) +
-    coord_flip() +
-    theme_minimal() +
-    theme(legend.position = "none")
-  
-  print(p1)
-  
-  # Histogram
-  p2 <- ggplot(hbsc_cmp, aes(x = .data[[var]], fill = .data[[target_var]])) +
-    geom_histogram(alpha = 0.6, position = "identity", bins = 30) +
-    scale_fill_manual(values = c("No" = "#5DADE2", "Yes" = "#E74C3C")) +
-    labs(title = paste("Histogram of", var, "by", target_var), x = var) +
-    theme_minimal() +
-    theme(legend.position = "bottom")
-  
-  print(p2)
-}
-
-# 4. Bind the tracked rows into your final dataframe after the loop ends
-ks_summary_table <- bind_rows(ks_results_list)
-print(ks_summary_table)
 
 
 # --------------------------------------------------------------------------
