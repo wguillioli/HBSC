@@ -5,7 +5,7 @@
 # workspace stuff
 # ---------------------------------------------------
 
-img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20260923.RData")
+img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20260930.RData")
  
 # load(file = img_file)
 
@@ -836,7 +836,7 @@ hbsc_se_fct <- hbsc_se %>%
 
 # tabulate for each var, n and % and % mental issues
 tbl_fct <- 
-hbs_se_fct %>%
+hbsc_se_fct %>%
   pivot_longer(
     cols = -mentalissue, 
     names_to = "Predictor", 
@@ -1090,11 +1090,9 @@ all_perf_metrics <- lr_metrics %>%
 tt_all_perf_metrics <- tt(all_perf_metrics) 
 save_tt(tt_all_perf_metrics, output = "./outputsR/tinytables/tt_all_perf_metrics.tex", overwrite = TRUE)
 
-#voy
 
-
-# get for test set for each class (Y/N) get precision, recall, f1
-# it has to be done "manually 1x1
+# --------------------------------------
+# for test set, for each class (Y/N) get precision, recall, f1
 
 lr_test_predictions <- collect_predictions(final_lr_fit)
 
@@ -1106,7 +1104,7 @@ class_metrics <- metric_set(f_meas, precision, recall)
   estimate = .pred_class,
   event_level = "first"
 ) %>% 
-  mutate(class = "Level1_NO mental issues")
+    mutate(class = "Level1_NO mental issues")
 )
 
 (metrics_class2 <- class_metrics(
@@ -1118,39 +1116,37 @@ class_metrics <- metric_set(f_meas, precision, recall)
     mutate(class = "Level2_YES mental issues")
 )
 
-#output pues
+# latex output
+lr_test_metrics <- 
 bind_rows(metrics_class1, metrics_class2) %>%
   select(-.estimator) %>%
   pivot_wider(names_from = .metric,
               values_from = .estimate
-              )
+  )
+
+tt_lr_test_metrics <- tt(lr_test_metrics) 
+save_tt(tt_lr_test_metrics, 
+        output = "./outputsR/tinytables/tt_lr_test_metrics.tex", overwrite = TRUE)
 
 
-# get vars selected by lasso to fit a normal GLM
-# get coeffs, flag kept, get var name
-(lasso_coefs <- final_lr_fit |> 
-  extract_fit_parsnip() |> 
-  tidy())
+# ------------------------------
+# refit on normal scale using selected vars for coeff table
 
-(lasso_summary <- lasso_coefs |> 
-  filter(term != "(Intercept)") |> # Exclude the baseline intercept row
-  mutate(
-    lasso_status = if_else(estimate == 0, "Removed", "Kept")
-  ) |> 
-  select(term, estimate, lasso_status)
-)
-
-(lr_vars <- 
-lasso_summary %>%
-  mutate(feature = str_split_i(term, "_", 1)) %>%
-  distinct(feature)
-)
+# get vars selected by lasso to refit
+vars_from_glmnet <- 
+final_lr_fit |> 
+    extract_fit_parsnip() |> 
+    tidy() |>
+    filter(term != "(Intercept)") |> 
+    mutate(
+      lasso_status = if_else(estimate == 0, "Removed", "Kept")
+    ) |> 
+    select(term, estimate, lasso_status) |>
+    mutate(feature = str_split_i(term, "_", 1)) %>%
+    distinct(feature) |>
+    pull()
 
 # now, refit a normal GLM for my coeffs and OR
-
-#splits and cv reuse above
-
-# need a new recipe with right vars and without normalize
 lr_recipe2 <- 
   recipe(mentalissue ~ ., data = se_train) |> 
   step_rm(IOTF4,
@@ -1158,9 +1154,8 @@ lr_recipe2 <-
           IRFAS,
           lifesat,
           seqno_int
-  )
+  ) #maybe later 2check same as slected vars agove
 
-# Model specification using the "glm" engine (necessary for p-values)
 lr_spec <- logistic_reg() %>%
   set_engine("glm") %>%
   set_mode("classification")
@@ -1174,7 +1169,6 @@ final_fit <- last_fit(
   split = se_split
 )
 
-# Extract engine, fetch log-odds, and calculate odds ratios simultaneously
 model_inference <- final_fit %>% 
   extract_fit_engine() %>% 
   tidy(exponentiate = FALSE, conf.int = TRUE) %>% 
@@ -1184,487 +1178,79 @@ model_inference <- final_fit %>%
     or_conf_high = exp(conf.high)
   )
 
-(lr_coeffs <- 
-model_inference %>%
-  select(term,
-         coefficient = estimate,
-         odds_ratio, #or_conf_low, or_conf_high,
-         p.value
-         )
-)  
+lr_coeffs <- 
+    model_inference %>%
+    transmute(term,
+              coefficient = round(estimate, 3),
+              OR = round(odds_ratio,3),
+              p.value = round(p.value,10),
+              ORlow = round(or_conf_low,3),
+              ORhigh = round(or_conf_high,3)
+    )
 
+lr_coeffs
 
-    
-kable(lr_coeffs, format = "markdown") 
+# for latex
+tt_lr_coeffs <- tt(lr_coeffs) 
+save_tt(tt_lr_coeffs, 
+        output = "./outputsR/tinytables/tt_lr_coeffs.tex", overwrite = TRUE)
+
 
 # ------------------------------------------------------------
-# compute SHAP for LR
+# THE classification tree
 # ------------------------------------------------------------
 
-# extract fitted wf for shap
-fit_wf <- extract_workflow(final_fit)
-fit_wf
-
-x_vars <- c("age", "pmsu")
-
-x_vars <- names(se_train)
-x_vars <- x_vars[-10]
-
-# step_rm(IOTF4,
-#         IRRELFAS,
-#         IRFAS,
-#         lifesat,
-#         seqno_int
-# )
-
-bg_data <- se_train[1:100, x_vars]
-to_explain <- se_test[1:100, x_vars]
-
-# calculate shap values
-(start <- Sys.time())
-ls_ks <- kernelshap(
-  fit_wf, 
-  X = to_explain, #se_test[, x_vars], 
-  bg_X = bg_data, # se_train[, x_vars], 
-  type = "prob"
-)
-(Sys.time() - start)
-
-ls_ks
-
-sv_multi <- shapviz(ls_ks)
-
-sv_event <- sv_multi$.pred_Yes
-
-sv_importance(sv_event) + theme_minimal() 
-
-sv_importance(sv_event, 
-              kind = "bee", 
-              alpha = 0.6, 
-              #color_bar_2 = c("#3182bd", "#e34a33"),
-              size = 1) +
-  theme_minimal() +
-  # Use standard ggplot2 layers to control the low/high color gradient
-  scale_colour_gradient(
-    low = "#3182bd", 
-    high = "#e34a33", 
-    name = "Feature value",  # Sets the legend title
-    breaks = c(0, 1),        # Maps to the min and max values
-    labels = c("Low", "High")
-  )
-
-#library(shapviz)
-# Generate a dependence plot for the single feature 'pmsu'
-
-print(sv_dependence(sv_event, v = "country", color_var = NULL) + theme_minimal()) + coord_flip()
-print(sv_dependence(sv_event, v = "country") + theme_minimal()) + coord_flip()
-
-#print(sv_dependence(tree_sv$.pred_Yes, v = pred) + theme_minimal())
-
-
-# FIN FOR NOW
-
-
-
-
-
-
-
-
-
-# --------------------------------------------------------------------------
-# fit a good tuned tree and see in SHAP
-# --------------------------------------------------------------------------
-
-# https://parsnip.tidymodels.org/reference/decision_tree.html
-
-#baseline is
-table(hbsc_cmp$mental_issue)/nrow(hbsc_cmp) #34/66
-
-# WARNING - pick one of this:
-#d1 <- d1 %>% filter(country_ == "Turkey") %>% select(-country_)
-#d1 <- d1 %>% select(-country_)
-
-# split data
-set.seed(67)
-hbsc_split <- initial_split(hbsc_cmp,#, |> select(-seqno_int), 
-                            strata = mental_issue)
-hbsc_train <- training(hbsc_split)
-hbsc_test  <- testing(hbsc_split)
-
-# create a model specification that identifies which hyperparameters we plan to tune
-# tune is a placeholder that will get values
 tree_tune_spec <- 
   decision_tree(
     cost_complexity = tune(),
-    tree_depth = tune(), #max depth of tree
-    min_n = tune() #min # of observations in node
+    tree_depth = tune(), 
+    min_n = tune() 
   ) |> 
   set_engine("rpart") |> 
   set_mode("classification")
 
-tree_tune_spec
-
-# create grid of values to try - 25 candiates
 tree_grid <- grid_regular(cost_complexity(),
                           tree_depth(),
                           min_n(),
                           levels = 5
-                          ) #5^3 models
+) #5^3=125 models
 
-tree_grid
-
-# create folds for cv from train dat
 set.seed(67)
-tree_folds <- vfold_cv(hbsc_train, 
-                       v = 10, 
-                       repeats = 3, 
-                       strata = mental_issue)
+folds_10cv_3x <- vfold_cv(se_train, 
+                          v= 10,
+#                          repeats = 3,
+                          strata = mentalissue)
 
-tree_recipe <- recipe(mental_issue ~ ., 
-                      data = hbsc_train) %>%
-  #step_mutate(talkp = as.integer(talkf | talkm)) %>%
-  step_rm(country, country, IOTF4_r, lifesat_low, IRFAS, lifesat,
-          seqno_int, continent, country1, sub_region) #should probably just do before
+tree_recipe <- 
+  recipe(mentalissue ~ ., data = se_train) |> 
+  step_rm(IOTF4,
+          IRRELFAS,
+          lifesat,
+          seqno_int
+  ) #|>
+  #step_dummy(all_nominal_predictors()) |> 
+  #step_normalize(all_predictors())
 
-#Tune a workflow() that bundles together a model specification and a recipe or model preprocessor.
+#Tune a workflow() that bundles together a model specification 
+# and a recipe or model preprocessor.
 set.seed(67)
 tree_wf <- workflow() |>
   add_model(tree_tune_spec) |>
   add_recipe(tree_recipe)
-  #add_formula(mental_issue ~ .)
 
-tree_wf
-
-#tune_grid() to fit models at all the different values we chose for each tuned hyperparameter
+#tune_grid() to fit models at all the different values 
+# we chose for each tuned hyperparameter
 (Start <- Sys.time())
 tree_res <- 
   tree_wf |> 
   tune_grid(
-    resamples = tree_folds,
+    resamples = folds_10cv_3x,
     grid = tree_grid
   )
-(Sys.time() - Start) #17 mins 
+(Sys.time() - Start) #20 mins
 
-tree_res
 
-# see performance metrics of fitted trees
-tree_res |> collect_metrics()
 
-tree_res |> collect_metrics() |>
-  filter(.metric == "roc_auc") %>%
-  select(mean) %>%
-  summary()
 
-# get top 5 models based on a metric
-tree_res |> show_best(metric = "accuracy")
-tree_res |> show_best(metric = "roc_auc")
 
-# just get one
-best_tree <- tree_res |> select_best(metric = "roc_auc")
-best_tree
 
-# finalize wf with best values (tuning is done)
-final_wf <- tree_wf |> finalize_workflow(best_tree)
-final_wf
-
-# The last fit
-# Finally, let’s fit final model to the training data and use our test data to 
-# estimate the model performance we expect to see with new data. so metrics here are on test.
-# The final_fit object contains a finalized, fitted workflow that you can use for 
-# predicting on new data or further understanding the results. 
-final_fit <- final_wf |> last_fit(hbsc_split) 
-final_fit
-
-final_fit |> collect_metrics()
-
-# see roc
-final_fit |>
-  collect_predictions() |>
-  roc_curve(mental_issue, .pred_Yes) |>
-  autoplot() +
-  theme_minimal()
-
-# get the final tree
-final_tree <- extract_workflow(final_fit)
-final_tree
-
-# 1. Define a helper function to calculate metrics for a specific dataset split
-get_split_metrics <- list(
-  train = hbsc_train,
-  test  = hbsc_test # Make sure this matches your test set variable name
-) %>% 
-  purrr::map_df(function(df) {
-    # Generate class and probability predictions
-    predict(final_tree, new_data = df, type = "class") %>% 
-      bind_cols(predict(final_tree, new_data = df, type = "prob")) %>% 
-      bind_cols(df) %>% 
-      # Calculate the metric set
-      metric_set(bal_accuracy, accuracy, roc_auc, sens, spec)(
-        truth       = mental_issue, 
-        estimate    = .pred_class, 
-        .pred_Yes, 
-        event_level = "first" # Adjust to "second" if "Yes" is your 2nd factor level
-      )
-  }, .id = "dataset") # Stitches them together and tracks which is train vs test
-
-# 2. Pivot the data into a clean, side-by-side print table
-comparison_table <- get_split_metrics %>%
-  select(dataset, .metric, .estimate) %>%
-  tidyr::pivot_wider(names_from = dataset, values_from = .estimate) %>%
-  rename(Metric = .metric, `Train Set` = train, `Test Set` = test) %>%
-  mutate(Metric = toupper(Metric)) # Cleans up metric names for printing
-
-print(comparison_table)
-
-# shap for tree
-# sample set of from test to explain, no Y
-set.seed(67)
-X_explain <- hbsc_test %>% 
-  slice_sample(n = 5000) %>% #increase? 100-500?
-  select(-mental_issue)
-
-# Sample background rows (typically 100-200 rows from your training set is plenty)
-bg_X <- hbsc_train %>% 
-  dplyr::select(-mental_issue) %>% 
-  slice_sample(n = 250) #100-500 sweetspot?
-
-# Calculate SHAP values for all classes automatically
-(start <- Sys.time())
-shap_output <- kernelshap(
-  final_tree, 
-  X = X_explain, 
-  bg_X = bg_X, 
-  type = "prob"
-)
-Sys.time() - start #3.7 hrs
-
-# Convert to a shapviz object and plot
-tree_sv <- shapviz(shap_output)
-names(tree_sv)
-
-sv_importance(tree_sv$.pred_Yes, kind = "bar") + theme_minimal() #var imp plot
-sv_importance(tree_sv$.pred_Yes, kind = "beeswarm") + theme_minimal() #bee
-
-# pred Y and N examples
-sv_waterfall(tree_sv$.pred_Yes, row_id = 2) + theme_minimal()
-sv_waterfall(tree_sv$.pred_Yes, row_id = 5) + theme_minimal()
-
-#sv_force(sv$.pred_Yes, row_id = 7) #Yes, individual
-#sv_force(sv$.pred_Yes, row_id = 9) #No, individual
-
-# dependence plots for top 10 predictors
-# single-var first and then with top interaction
-top_predictors <- final_tree |> 
-  extract_fit_parsnip() |> 
-  vi() %>%
-  tibble()
-
-top_predictors_ <- 
-top_predictors %>%
-  arrange(Importance) %>% #sort like this so last predictor is top predictor
-  select(Variable) %>%
-  unlist(use.names = FALSE)
-
-# dependence plots
-for (pred in top_predictors_){
-  #print(pred)
-  print(sv_dependence(tree_sv$.pred_Yes, v = pred, color_var = NULL) + theme_minimal())
-  print(sv_dependence(tree_sv$.pred_Yes, v = pred) + theme_minimal())
-}
-
-# plot the tree 
-raw_final_tree <- extract_fit_engine(final_tree)
-
-rpart.plot(
-  raw_final_tree,
-  roundint = FALSE,
-  #  font = 4,
-  tweak = 1.5,  
-  type = 5,                    # Clear split labels directly on lines
-  extra = 100,
-  box.palette = list("#c0392b", "#2980b9") 
-)
-
-# can't read so maybe in pdf
-# 1. Open a massive canvas layout (dimensions are in inches)
-pdf(
-  file = "plots/giant_zoomable_tree.pdf", 
-  width = 24,            # Massive 2-foot wide canvas
-  height = 18,           # 1.5-foot tall canvas
-  useDingbats = FALSE    # Ensures text renders perfectly across PDF readers
-)
-
-par(mar = c(0.5, 0.5, 0.5, 0.5)) 
-rpart.plot(
-  raw_final_tree,
-  roundint = FALSE,
-  tweak = 0.9,           # Dropped significantly so text scales with the 24" canvas
-  type = 5,                    
-  extra = 100,
-  box.palette = list("#c0392b", "#2980b9") 
-)
-dev.off()
-
-# prunning to plot
-pruned_tree <- prune(raw_final_tree, cp = 0.003)
-
-png(
-  filename = "plots/pruned_tree.png", 
-  width = 2400,          # 7.0 inches * 300 DPI
-  height = 1800,         # 5.25 inches * 300 DPI (4:3 Aspect Ratio)
-  res = 300              # Standard journal publication DPI
-)
-
-rpart.plot(
-  pruned_tree,
-  roundint = FALSE,
-#  font = 4,
-  #tweak = 1.5,  
-  type = 5,                    # Clear split labels directly on lines
-  extra = 100,
-  box.palette = list("#c0392b", "#2980b9") 
-)
-
-dev.off()
-
-
-
-# -------------------------------------------------------------------------
-# fit a tuned xgboost
-# -------------------------------------------------------------------------
-
-# https://juliasilge.com/blog/xgboost-tune-volleyball/
-
-# optimizar todo este relajo y meter el pos wuey
-
-xgb_spec <- boost_tree(
-  trees = 1000,
-  tree_depth = tune(), 
-  min_n = tune(),
-  loss_reduction = tune(),                     
-  sample_size = tune(), 
-  mtry = tune(),         
-  learn_rate = tune()                          
-) %>%
-  #set_engine("xgboost", scale_pos_weight = 1.94) %>%
-  set_engine("xgboost") %>%
-  set_mode("classification")
-
-# pasar el sacle_pos asi segun ggl...
-# library(tidymodels)
-# xgboost_spec <- boost_tree(
-#   trees = 100,
-#   tree_depth = 6
-# ) %>%
-#   set_engine("xgboost", scale_pos_weight = 9) %>% # Pass ratio directly here
-#   set_mode("classification")
-
-xgb_spec
-
-xgb_grid <- grid_latin_hypercube(
-  tree_depth(),
-  min_n(),
-  loss_reduction(),
-  sample_size = sample_prop(),
-  finalize(mtry(), hbsc_train),
-  learn_rate(),
-  size = 50
-)
-
-xgb_grid
-
-# xgboost needs numeric predictors — step_dummy() one-hot-encodes any factors
-xgb_recipe <- #recipe(mental_issue ~ ., data = hbsc_train) |>
-  tree_recipe %>%
-  step_dummy(all_nominal_predictors())
-
-xgb_wf <- workflow() %>%
-  add_recipe(xgb_recipe) %>%
-  #add_formula(mental_issue ~ .) %>%
-  add_model(xgb_spec)
-
-xgb_wf
-
-set.seed(67)
-xgb_folds <- vfold_cv(hbsc_train, 
-                      v = 10, #change later to 10
-                      repeats = 3,
-                      strata = mental_issue
-                      )
-xgb_folds
-
-doParallel::registerDoParallel()
-(start <- Sys.time())
-set.seed(67)
-xgb_res <- tune_grid(
-  xgb_wf,
-  resamples = xgb_folds,
-  grid = xgb_grid,
-  control = control_grid(save_pred = TRUE)
-)
-Sys.time() - start #1.5 hrs
-
-xgb_res
-
-collect_metrics(xgb_res)
-
-show_best(xgb_res, metric = "accuracy")
-show_best(xgb_res, metric = "roc_auc")
-
-best_auc <- select_best(xgb_res, metric = "roc_auc")
-best_auc
-
-final_xgb <- finalize_workflow(
-  xgb_wf,
-  best_auc
-)
-
-final_xgb
-
-library(vip)
-
-final_xgb %>%
-  fit(data = hbsc_train) %>%
-  pull_workflow_fit() %>%
-  vip(geom = "point")
-
-final_fit_xgb <- last_fit(final_xgb, hbsc_split)
-final_fit_xgb
-
-
-# (This gives you the actual trained model needed for SHAP!)
-fitted_xgb_workflow <- fit(final_xgb, data = hbsc_train)
-
-# 4. Get Training Accuracy
-augment(fitted_xgb_workflow, new_data = hbsc_train) %>% 
-  accuracy(truth = mental_issue, estimate = .pred_class)
-
-augment(fitted_xgb_workflow, new_data = hbsc_test) %>% 
-  accuracy(truth = mental_issue, estimate = .pred_class)
-
-# shap
-# 1. Extract the underlying fitted xgboost engine model
-fitted_xgb <- extract_fit_engine(fitted_xgb_workflow)
-fitted_xgb
-class(fitted_xgb)
-
-# 2. Extract the data processed by your recipe (bypassing the outcome variable)
-# Make sure to pass your evaluation/test data or your training data here
-processed_data <- extract_recipe(fitted_xgb_workflow) %>% 
-  bake(new_data = hbsc_test) %>% 
-  select(-mental_issue) %>% 
-  as.matrix()
-class(processed_data)
-processed_data
-
-# Calculate SHAP values
-xgb_sv <- shapviz(fitted_xgb, X_pred = processed_data)
-
-sv_importance(xgb_sv, kind = "bar")
-sv_importance(xgb_sv, kind = "beeswarm")
-
-sv_dependence(xgb_sv, v = "pmsu_High") #sin gracia
-
-# 4. SHAP Waterfall Plot for an individual prediction (e.g., the 1st observation)
-sv_waterfall(xgb_sv, row_id = 1)
