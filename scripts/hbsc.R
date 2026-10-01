@@ -1,16 +1,6 @@
 # HBSC 
 # Updated: 2026-09-27
 
-# ---------------------------------------------------
-# workspace stuff
-# ---------------------------------------------------
-
-img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20260930.RData")
- 
-# load(file = img_file)
-
-save.image(file = img_file)
-
 
 # ---------------------------------------------------
 # project setup
@@ -40,6 +30,15 @@ prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
 setwd(prj_fldr)
 
 options(scipen = 999)
+
+
+# ---------------------------------------------------
+# workspace stuff
+# ---------------------------------------------------
+
+img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261001.RData")
+#load(file = img_file)
+save.image(file = img_file)
 
 
 # ---------------------------------------------------
@@ -1049,10 +1048,9 @@ final_lr_fit <- final_lr_workflow |>
 
 final_lr_fit
 
-# get test metrics
+# get test and train metrics
 (test_metrics <- final_lr_fit |> collect_metrics())
 
-# get train metrics
 trained_model <- final_lr_workflow |> 
   fit(data = training(se_split))
 
@@ -1200,6 +1198,9 @@ save_tt(tt_lr_coeffs,
 # THE classification tree
 # ------------------------------------------------------------
 
+# is LR the issue?
+hbsc_se$mentalissue <- relevel(hbsc_se$mentalissue, ref = "Yes")
+
 tree_tune_spec <- 
   decision_tree(
     cost_complexity = tune(),
@@ -1227,9 +1228,7 @@ tree_recipe <-
           IRRELFAS,
           lifesat,
           seqno_int
-  ) #|>
-  #step_dummy(all_nominal_predictors()) |> 
-  #step_normalize(all_predictors())
+  ) 
 
 #Tune a workflow() that bundles together a model specification 
 # and a recipe or model preprocessor.
@@ -1249,8 +1248,104 @@ tree_res <-
   )
 (Sys.time() - Start) #20 mins
 
+#tree_res |> collect_metrics()
 
+# get the winner tree, finalize wf and get last fit and last tree
+#tree_res |> show_best(metric = "roc_auc")
+best_tree <- tree_res |> select_best(metric = "roc_auc")
+best_tree
 
+final_tree_wf <- tree_wf |> finalize_workflow(best_tree)
+
+final_tree_fit <- final_tree_wf |> last_fit(se_split) 
+
+final_tree <- extract_workflow(final_tree_fit)
+final_tree
+
+# see roc
+final_tree_fit |>
+  collect_predictions() |>
+  roc_curve(mentalissue, .pred_No) |>
+  autoplot() +
+  theme_minimal()
+
+# Calculate metrics with helper function for train/test
+get_split_metrics <- list(
+  train = se_train,
+  test  = se_test 
+) %>% 
+  purrr::map_df(function(df) {
+    # Generate class and probability predictions
+    predict(final_tree, new_data = df, type = "class") %>% 
+      bind_cols(predict(final_tree, new_data = df, type = "prob")) %>% 
+      bind_cols(df) %>% 
+      # Calculate the metric set
+      metric_set(bal_accuracy, accuracy, j_index, roc_auc, brier_class)(
+        truth       = mentalissue, 
+        estimate    = .pred_class, 
+        .pred_Yes, 
+        event_level = "second" # Adjust to "second" if "Yes" is your 2nd factor level
+      )
+  }, .id = "dataset"
+  )
+
+tree_metrics <- 
+get_split_metrics |>
+  select(dataset, .metric, .estimate) |>
+  pivot_wider(names_from = dataset,
+              values_from = .estimate) %>%
+  mutate(Model = "Classification Tree") %>%
+  transmute(Model, 
+            Metric = .metric,
+            train,
+            test
+            )
+  
+# for latex
+tt_tree_metrics <- tt(tree_metrics) 
+save_tt(tt_tree_metrics, 
+        output = "./outputsR/tinytables/tt_tree_metrics.tex", overwrite = TRUE)
+
+#voy
+#combinar per matrix lr y tree y dejarme de pajas
+
+ 
+# # --------------------------------------
+# # for test set, for each class (Y/N) get precision, recall, f1
+# 
+# lr_test_predictions <- collect_predictions(final_lr_fit)
+# 
+# class_metrics <- metric_set(f_meas, precision, recall)
+# 
+# (metrics_class1 <- class_metrics(
+#   lr_test_predictions, 
+#   truth = mentalissue, 
+#   estimate = .pred_class,
+#   event_level = "first"
+# ) %>% 
+#     mutate(class = "Level1_NO mental issues")
+# )
+# 
+# (metrics_class2 <- class_metrics(
+#   lr_test_predictions, 
+#   truth = mentalissue, 
+#   estimate = .pred_class,
+#   event_level = "second"
+# ) %>% 
+#     mutate(class = "Level2_YES mental issues")
+# )
+# 
+# # latex output
+# lr_test_metrics <- 
+#   bind_rows(metrics_class1, metrics_class2) %>%
+#   select(-.estimator) %>%
+#   pivot_wider(names_from = .metric,
+#               values_from = .estimate
+#   )
+# 
+# tt_lr_test_metrics <- tt(lr_test_metrics) 
+# save_tt(tt_lr_test_metrics, 
+#         output = "./outputsR/tinytables/tt_lr_test_metrics.tex", overwrite = TRUE)
 
 
 
