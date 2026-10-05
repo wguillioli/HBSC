@@ -1,6 +1,5 @@
 # HBSC 
-# Updated: 2026-09-27
-
+# Updated: 2026-10-02
 
 # ---------------------------------------------------
 # project setup
@@ -37,8 +36,8 @@ options(scipen = 999)
 # ---------------------------------------------------
 
 img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261001.RData")
-#load(file = img_file)
-save.image(file = img_file)
+load(file = img_file)
+#save.image(file = img_file)
 
 
 # ---------------------------------------------------
@@ -1102,7 +1101,7 @@ class_metrics <- metric_set(f_meas, precision, recall)
   estimate = .pred_class,
   event_level = "first"
 ) %>% 
-    mutate(class = "Level1_NO mental issues")
+    mutate(class = "NO issues")
 )
 
 (metrics_class2 <- class_metrics(
@@ -1111,7 +1110,7 @@ class_metrics <- metric_set(f_meas, precision, recall)
   estimate = .pred_class,
   event_level = "second"
 ) %>% 
-    mutate(class = "Level2_YES mental issues")
+    mutate(class = "YES issues")
 )
 
 # latex output
@@ -1122,9 +1121,9 @@ bind_rows(metrics_class1, metrics_class2) %>%
               values_from = .estimate
   )
 
-tt_lr_test_metrics <- tt(lr_test_metrics) 
-save_tt(tt_lr_test_metrics, 
-        output = "./outputsR/tinytables/tt_lr_test_metrics.tex", overwrite = TRUE)
+#tt_lr_test_metrics <- tt(lr_test_metrics) 
+#save_tt(tt_lr_test_metrics, 
+#        output = "./outputsR/tinytables/tt_lr_test_metrics.tex", overwrite = TRUE)
 
 
 # ------------------------------
@@ -1293,59 +1292,532 @@ tree_metrics <-
 get_split_metrics |>
   select(dataset, .metric, .estimate) |>
   pivot_wider(names_from = dataset,
-              values_from = .estimate) %>%
-  mutate(Model = "Classification Tree") %>%
-  transmute(Model, 
-            Metric = .metric,
-            train,
-            test
-            )
-  
+              values_from = .estimate)# %>%
+
 # for latex
-tt_tree_metrics <- tt(tree_metrics) 
-save_tt(tt_tree_metrics, 
-        output = "./outputsR/tinytables/tt_tree_metrics.tex", overwrite = TRUE)
+#tt_tree_metrics <- tt(tree_metrics) 
+#save_tt(tt_tree_metrics, 
+#        output = "./outputsR/tinytables/tt_tree_metrics.tex", overwrite = TRUE)
 
-#voy
-#combinar per matrix lr y tree y dejarme de pajas
+#dejarme de pajaz
+#models_performance combined table for latex
+models_metrics <- bind_rows(
+  tree_metrics %>% mutate(model = "classif tree"),
+  lr_metrics %>% mutate(model = "log reg")
+) %>%
+  arrange(.metric)
 
- 
+# for latex
+tt_models_metrics <- tt(models_metrics) 
+save_tt(tt_models_metrics, 
+        output = "./outputsR/tinytables/tt_models_metrics.tex", 
+        overwrite = TRUE)
+
 # # --------------------------------------
 # # for test set, for each class (Y/N) get precision, recall, f1
+ 
+tree_test_preds <- collect_predictions(final_tree_fit)
+class_metrics <- metric_set(f_meas, precision, recall)
+
+(metrics_class1 <- class_metrics(
+  tree_test_preds,
+  truth = mentalissue,
+  estimate = .pred_class,
+  event_level = "first"
+) %>%
+    mutate(class = "NO issues")
+)
+
+(metrics_class2 <- class_metrics(
+  tree_test_preds,
+  truth = mentalissue,
+  estimate = .pred_class,
+  event_level = "second"
+) %>%
+    mutate(class = "YES issues")
+)
+
+tree_test_metrics <-
+  bind_rows(metrics_class1, metrics_class2) %>%
+  select(-.estimator) %>%
+  pivot_wider(names_from = .metric,
+              values_from = .estimate
+  )
+
+# combine test metrics in one
+test_metrics <- bind_rows(
+  tree_test_metrics %>% mutate(model = "classifTree"),
+  lr_test_metrics %>% mutate(model = "logreg")
+) %>%
+  arrange(class)
+
+test_metrics
+
+tt_test_metrics <- tt(test_metrics)
+save_tt(tt_test_metrics,
+        output = "./outputsR/tinytables/tt_test_metrics.tex", 
+        overwrite = TRUE)
+
+# ------------------------------------------------------
+# plot the tree 
+raw_final_tree <- extract_fit_engine(final_tree)
+raw_final_tree
+
+rpart.plot(
+  raw_final_tree,
+  roundint = FALSE,
+  #  font = 4,
+  tweak = 1.5,  
+  type = 5,                    # Clear split labels directly on lines
+  extra = 100,
+  box.palette = list("#c0392b", "#2980b9") 
+)
+
+# can't read so create a massive pdf for zooming
+pdf(
+  file = "outputsR/giant_zoomable_tree.pdf", 
+  width = 24,            # Massive 2-foot wide canvas
+  height = 18,           # 1.5-foot tall canvas
+  useDingbats = FALSE    # Ensures text renders perfectly across PDF readers
+)
+
+par(mar = c(0.5, 0.5, 0.5, 0.5)) 
+rpart.plot(
+  raw_final_tree,
+  roundint = FALSE,
+  tweak = 0.9,           # Dropped significantly so text scales with the 24" canvas
+  type = 5,                    
+  extra = 100,
+  box.palette = list("#c0392b", "#2980b9") 
+)
+dev.off()
+
+# after trial and error prune this so it plots and shows
+pruned_tree <- prune(raw_final_tree, cp = 0.003)
+
+png(
+  filename = "outputsR/pruned_tree.png", 
+  width = 2400,          # 7.0 inches * 300 DPI
+  height = 1800,         # 5.25 inches * 300 DPI (4:3 Aspect Ratio)
+  res = 300              # Standard journal publication DPI
+)
+
+rpart.plot(
+  pruned_tree,
+  roundint = FALSE,
+  #  font = 4,
+  tweak = 1.5,  
+  type = 5,                    # Clear split labels directly on lines
+  extra = 100,
+  box.palette = list("#2980b9", "#c0392b") 
+)
+dev.off()
+
+# tree metrics
+max(rpart:::tree.depth(as.numeric(rownames(raw_final_tree$frame)))) #depth
+sum(raw_final_tree$frame$var == "<leaf>") #leaves
+nrow(raw_final_tree$frame) #nodes
+
+
+# -------------------------------------------------------------------------
+# La foresta XBG 
+# -------------------------------------------------------------------------
+
+# https://juliasilge.com/blog/xgboost-tune-volleyball/
+
+#sanity checks
+#2check level is right so its same as tree
+table(se_train$mentalissue)/nrow(se_train)
+
+xgb_spec <- boost_tree(
+  trees = 1000, 
+  tree_depth = tune(), 
+  min_n = tune(),
+  loss_reduction = tune(),                     
+  sample_size = tune(), 
+  mtry = tune(),         
+  learn_rate = tune()                          
+) %>%
+  set_engine("xgboost", scale_pos_weight = 2.7) %>% #73/27
+#  set_engine("xgboost") %>%
+  set_mode("classification")
+
+xgb_grid <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), se_train),
+  learn_rate(),
+  size = 25 # from 50, 5
+)
+
+# xgboost needs numeric predictors 
+# step_dummy() one-hot-encodes any factors
+xgb_recipe <- tree_recipe %>%
+  step_dummy(all_nominal_predictors())
+
+xgb_wf <- workflow() %>%
+  add_recipe(xgb_recipe) %>%
+  add_model(xgb_spec)
+
+set.seed(67)
+xgb_folds <- vfold_cv(se_train, 
+                      v = 10, #from 10 10, #change later to 10
+#                      repeats = 3,
+                      strata = mentalissue
+)
+
+doParallel::registerDoParallel()
+(start <- Sys.time())
+set.seed(67)
+xgb_res <- tune_grid(
+  xgb_wf,
+  resamples = xgb_folds,
+  grid = xgb_grid,
+  control = control_grid(save_pred = TRUE)
+)
+Sys.time() - start #18 mins
+
+xgb_res
+
+collect_metrics(xgb_res)
+
+show_best(xgb_res, metric = "accuracy")
+show_best(xgb_res, metric = "roc_auc")
+
+best_auc <- select_best(xgb_res, metric = "roc_auc")
+best_auc
+
+final_xgb <- finalize_workflow(
+  xgb_wf,
+  best_auc
+)
+
+final_xgb
+
+final_fit_xgb <- last_fit(final_xgb, se_split)
+final_fit_xgb
+
+# (This gives you the actual trained model needed for SHAP!)
+fitted_xgb_fit <- fit(final_xgb, data = se_train)
+fitted_xgb_fit
+
+# see roc
+final_fit_xgb |>
+  collect_predictions() |>
+  roc_curve(mentalissue, .pred_No) |>
+  autoplot() +
+  theme_minimal()
+
+# Calculate metrics with helper function for train/test
+get_split_metrics <- list(
+  train = se_train,
+  test  = se_test 
+) %>% 
+  purrr::map_df(function(df) {
+    # Generate class and probability predictions
+    predict(fitted_xgb_fit, new_data = df, type = "class") %>% 
+      bind_cols(predict(fitted_xgb_fit, new_data = df, type = "prob")) %>% 
+      bind_cols(df) %>% 
+      # Calculate the metric set
+      metric_set(bal_accuracy, accuracy, j_index, roc_auc, brier_class)(
+        truth       = mentalissue, 
+        estimate    = .pred_class, 
+        .pred_Yes, 
+        event_level = "second" # Adjust to "second" if "Yes" is your 2nd factor level
+      )
+  }, .id = "dataset"
+  )
+
+xgb_metrics <- 
+  get_split_metrics |>
+  select(dataset, .metric, .estimate) |>
+  pivot_wider(names_from = dataset,
+              values_from = .estimate)# %>%
+xgb_metrics
+
+
+# for latex
+#tt_tree_metrics <- tt(tree_metrics) 
+#save_tt(tt_tree_metrics, 
+#        output = "./outputsR/tinytables/tt_tree_metrics.tex", overwrite = TRUE)
+
+#dejarme de pajaz
+#models_performance combined table for latex
+models_metrics <- bind_rows(
+  tree_metrics %>% mutate(model = "Tree"),
+  lr_metrics %>% mutate(model = "LogReg"),
+  xgb_metrics %>% mutate(model = "XGB")
+) %>%
+  arrange(.metric) %>%
+  mutate(.metric = gsub("_", "", .metric ))
+
+models_metrics
+
+
+# for latex
+tt_models_metrics <- tt(models_metrics) 
+save_tt(tt_models_metrics, 
+        output = "./outputsR/tinytables/tt_models_metrics.tex", 
+        overwrite = TRUE)
+
+# # --------------------------------------
+# # for test set, for each class (Y/N) get precision, recall, f1
+
+xgb_test_preds <- collect_predictions(final_fit_xgb)
+class_metrics <- metric_set(f_meas, precision, recall)
+
+(metrics_class1 <- class_metrics(
+  xgb_test_preds,
+  truth = mentalissue,
+  estimate = .pred_class,
+  event_level = "first"
+) %>%
+    mutate(class = "NO issues")
+)
+
+(metrics_class2 <- class_metrics(
+  xgb_test_preds,
+  truth = mentalissue,
+  estimate = .pred_class,
+  event_level = "second"
+) %>%
+    mutate(class = "YES issues")
+)
+
+xgb_test_metrics <-
+  bind_rows(metrics_class1, metrics_class2) %>%
+  select(-.estimator) %>%
+  pivot_wider(names_from = .metric,
+              values_from = .estimate
+  )
+
+# combine test metrics in one
+test_metrics <- bind_rows(
+  tree_test_metrics %>% mutate(model = "Tree"),
+  lr_test_metrics %>% mutate(model = "LogReg"),
+  xgb_test_metrics %>% mutate(model = "XGB")
+  ) %>%
+  arrange(class)
+
+test_metrics
+
+tt_test_metrics <- tt(test_metrics)
+save_tt(tt_test_metrics,
+        output = "./outputsR/tinytables/tt_test_metrics.tex", 
+        overwrite = TRUE)
+
+
+# ---------------------------------------------------------------------
+# let's shap for all
+# ---------------------------------------------------------------------
+
+# random explain and background datasets
+set.seed(67)
+X_explain <- se_test %>% 
+  slice_sample(n = 100) %>% #increase? 100-500?
+  select(-mentalissue)
+
+set.seed(67)
+bg_X <- se_train %>% 
+  select(-mentalissue) %>% 
+  slice_sample(n = 50) #100-500 sweetspot?
+
+# log reg sv
+lr_ext <- extract_workflow(final_lr_fit)
+
+(start <- Sys.time())
+shap_output <- kernelshap(
+  lr_ext,
+  #final_tree, 
+  X = X_explain, 
+  bg_X = bg_X, 
+  type = "prob"
+)
+Sys.time() - start #30 seg
+
+lr_sv <- shapviz(shap_output)
+
+# tree sv
+#lr_ext <- extract_workflow(final_lr_fit)
+(start <- Sys.time())
+shap_output <- kernelshap(
+  final_tree, 
+  X = X_explain, 
+  bg_X = bg_X, 
+  type = "prob"
+)
+Sys.time() - start #
+
+tree_sv <- shapviz(shap_output)
+
+# xgb sv
+# keep for now but doesn't really work for imp cause separates factor
+xgb_fitted <- extract_fit_engine(fitted_xgb_workflow)
+
+xgb_baked_data <- extract_recipe(fitted_xgb_workflow) %>% 
+  bake(new_data = se_test) %>% 
+  select(-mentalissue) %>% 
+  as.matrix()
+
+xgb_sv <- shapviz(xgb_fitted, X_pred = xgb_baked_data)
+
+sv_importance(xgb_sv, kind = "bar") + theme_minimal()
+#sv_importance(xgb_sv, kind = "beeswarm") + theme_minimal()
+
+# sv for xgb collapsed
+# 1. Your existing matrix extraction code
+#xgb_fitted <- extract_fit_engine(fitted_xgb_workflow)
+
+# xgb_baked_data <- extract_recipe(fitted_xgb_workflow) %>% 
+#   bake(new_data = se_test) %>% 
+#   select(-mentalissue) %>% 
+#   as.matrix()
+
+# 2. DYNAMICALLY CREATE THE COLLAPSE LIST
+# Find columns that were dummy encoded (containing an underscore like 'age_' or 'country_')
+cols <- colnames(xgb_baked_data)
+dummy_prefixes <- unique(sub("_.*", "", cols[grep("_", cols)]))
+
+# Generate the named list grouping the dummy fields by their base factor name
+collapse_list <- lapply(dummy_prefixes, function(p) cols[startsWith(cols, paste0(p, "_"))])
+names(collapse_list) <- dummy_prefixes
+
+# 3. FIXED SHAPVIZ CALL: Pass the collapse list here
+xgb_sv_collapsed <- shapviz(
+  xgb_fitted, 
+  X_pred = xgb_baked_data, 
+  X = se_test %>% select(-mentalissue),
+  collapse = collapse_list
+)
+
+# var imp plots
+sv_importance(tree_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("ClassTree")
+sv_importance(lr_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("LogReg")
+sv_importance(xgb_sv_collapsed, kind = "bar") + theme_minimal() + ggtitle("XGB Collapsed")
+sv_importance(xgb_sv, kind = "bar") + theme_minimal() + ggtitle("XGB NOT Collap")
+
+
+# # same plots but as files for latext
+# # Define common dimensions for your LaTeX layout (in inches)
+# plot_width <- 6
+# plot_height <- 4
 # 
-# lr_test_predictions <- collect_predictions(final_lr_fit)
+# pdf("outputsR/sv_imp_classtree.pdf", width = plot_width, height = plot_height)
+# sv_importance(tree_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("ClassTree")
+# dev.off()
 # 
-# class_metrics <- metric_set(f_meas, precision, recall)
+# pdf("outputsR/sv_imp_logreg.pdf", width = plot_width, height = plot_height)
+# sv_importance(lr_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("LogReg")
+# dev.off()
 # 
-# (metrics_class1 <- class_metrics(
-#   lr_test_predictions, 
-#   truth = mentalissue, 
-#   estimate = .pred_class,
-#   event_level = "first"
-# ) %>% 
-#     mutate(class = "Level1_NO mental issues")
-# )
-# 
-# (metrics_class2 <- class_metrics(
-#   lr_test_predictions, 
-#   truth = mentalissue, 
-#   estimate = .pred_class,
-#   event_level = "second"
-# ) %>% 
-#     mutate(class = "Level2_YES mental issues")
-# )
-# 
-# # latex output
-# lr_test_metrics <- 
-#   bind_rows(metrics_class1, metrics_class2) %>%
-#   select(-.estimator) %>%
-#   pivot_wider(names_from = .metric,
-#               values_from = .estimate
-#   )
-# 
-# tt_lr_test_metrics <- tt(lr_test_metrics) 
-# save_tt(tt_lr_test_metrics, 
-#         output = "./outputsR/tinytables/tt_lr_test_metrics.tex", overwrite = TRUE)
+# pdf("outputsR/sv_imp_xgb_collapsed.pdf", width = plot_width, height = plot_height)
+# sv_importance(xgb_sv_collapsed, kind = "bar") + theme_minimal() + ggtitle("XGB Collapsed")
+# dev.off()
+
+# patched pues
+library(patchwork) # Handles side-by-side layout seamlessly
+
+p1 <- sv_importance(tree_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("ClassTree")
+p2 <- sv_importance(lr_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("LogReg")
+p3 <- sv_importance(xgb_sv_collapsed, kind = "bar") + theme_minimal() + ggtitle("XGB Collapsed")
+
+combined_width  <- 10 
+combined_height <- 10
+
+# 3. Save as a single combined PDF file
+pdf("outputsR/sv_imp_combined.pdf", width = combined_width, height = combined_height)
+# The '+' operator from patchwork places them side-by-side automatically
+# 'plot_layout(nrow = 1)' forces them into a single row
+combined_plot <- p1 + p2 + p3 + plot_layout(nrow = 2)
+print(combined_plot)
+dev.off()
+
+
+# bee plots
+# sv_importance(tree_sv$.pred_Yes, kind = "beeswarm") + theme_minimal() + ggtitle("ClassTree")
+# sv_importance(lr_sv$.pred_Yes, kind = "beeswarm") + theme_minimal() + ggtitle("LogReg")
+# sv_importance(xgb_sv_collapsed, kind = "beeswarm") + theme_minimal() + ggtitle("XGB Collapsed")
+# sv_importance(xgb_sv, kind = "beeswarm") + theme_minimal() + ggtitle("XGB NOT Collap")
+
+# waterfall plot examples to see someone with diff mental pred
+
+(wat1 <- sv_waterfall(tree_sv$.pred_Yes, 
+             max_display = 12,
+             row_id = 2) + 
+  theme_minimal() + ggtitle("NO Mental issue"))
+
+(wat2 <- sv_waterfall(tree_sv$.pred_Yes, 
+             max_display = 12,
+             row_id = 8) + 
+  theme_minimal() + ggtitle("YES Mental issue"))
+
+combined_width  <- 10 
+combined_height <- 10
+
+# 3. Save as a single combined PDF file
+pdf("outputsR/sv_waterfall_combined.pdf", width = combined_width, height = combined_height)
+# The '+' operator from patchwork places them side-by-side automatically
+# 'plot_layout(nrow = 1)' forces them into a single row
+combined_plot <- wat1 + wat2 + plot_layout(nrow = 1)
+print(combined_plot)
+dev.off()
+
+
+
+
+
+# ------------------------------------------------------------------------
+# corels
+# ------------------------------------------------------------------------
+
+#install.packages("corels")
+#install.packages("tidycorels")
+require(corels)
+#require(tidycorels)
+
+
+
+https://search.r-project.org/CRAN/refmans/corels/html/corels.html
+library(recipes)
+
+# 1. Define the recipe (convert all nominal/categorical variables)
+recipe_spec <- recipe(~ age + pmsu, data = se_train) %>%
+  #step_rm(seqno_int, country) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE)
+
+# 2. Prep and bake (apply) the recipe to get the 0/1 dataframe
+se_train_dummies <- prep(recipe_spec) %>% bake(new_data = NULL)
+
+se_train_label <- se_train$mentalissue
+
+library(corels)
+
+logdir <- tempdir()
+logdir <- "C:/temp"
+rules_file <- system.file("sample_data", "compas_train.out", package="corels")
+labels_file <- system.file("sample_data", "compas_train.label", package="corels")
+meta_file <- system.file("sample_data", "compas_train.minor", package="corels")
+
+stopifnot(file.exists(rules_file),
+          file.exists(labels_file),
+          file.exists(meta_file),
+          dir.exists(logdir))
+
+corels(rules_file, labels_file, logdir, meta_file,
+       verbosity_policy = "loud",
+       regularization = 0.015,
+       curiosity_policy = 2,   # by lower bound
+       map_type = 1) 	   # permutation map
+
+cat("See ", logdir, " for result file.")
+
+
+
+
+
+
 
 
 

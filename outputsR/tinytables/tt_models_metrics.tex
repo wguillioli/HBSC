@@ -1,0 +1,28 @@
+\begin{table}
+\centering
+\begin{tblr}[         %% tabularray outer open
+]                     %% tabularray outer close
+{                     %% tabularray inner open
+colspec={Q[]Q[]Q[]Q[]},
+hline{2}={1-4}{solid, black, 0.05em},
+hline{1}={1-4}{solid, black, 0.08em},
+hline{17}={1-4}{solid, black, 0.08em},
+}                     %% tabularray inner close
+.metric & train & test & model \\
+accuracy & 0.7763681 & 0.7476693 & Tree \\
+accuracy & 0.7683175 & 0.7631056 & LogReg \\
+accuracy & 0.8132579 & 0.7598961 & XGB \\
+balaccuracy & 0.6447780 & 0.6089646 & Tree \\
+balaccuracy & 0.6295956 & 0.6236347 & LogReg \\
+balaccuracy & 0.6882632 & 0.6134293 & XGB \\
+brierclass & 0.1597012 & 0.1737853 & Tree \\
+brierclass & 0.1605034 & 0.1631864 & LogReg \\
+brierclass & 0.1320245 & 0.1650541 & XGB \\
+jindex & 0.2895561 & 0.2179292 & Tree \\
+jindex & 0.2591911 & 0.2472694 & LogReg \\
+jindex & 0.3765264 & 0.2268585 & XGB \\
+rocauc & 0.7564035 & 0.7222498 & Tree \\
+rocauc & 0.7632843 & 0.7562608 & LogReg \\
+rocauc & 0.8613374 & 0.7486141 & XGB \\
+\end{tblr}
+\end{table}

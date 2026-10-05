@@ -1,0 +1,19 @@
+\begin{table}
+\centering
+\begin{tblr}[         %% tabularray outer open
+]                     %% tabularray outer close
+{                     %% tabularray inner open
+colspec={Q[]Q[]Q[]Q[]Q[]},
+hline{2}={1-5}{solid, black, 0.05em},
+hline{1}={1-5}{solid, black, 0.08em},
+hline{8}={1-5}{solid, black, 0.08em},
+}                     %% tabularray inner close
+class & f_meas & precision & recall & model \\
+NO issues & 0.8404677 & 0.7800897 & 0.9109761 & Tree \\
+NO issues & 0.8510188 & 0.7863233 & 0.9273146 & LogReg \\
+NO issues & 0.8494562 & 0.7799580 & 0.9325513 & XGB \\
+YES issues & 0.3967848 & 0.5609504 & 0.3069531 & Tree \\
+YES issues & 0.4220731 & 0.6199343 & 0.3199548 & LogReg \\
+YES issues & 0.3940092 & 0.6143713 & 0.2899943 & XGB \\
+\end{tblr}
+\end{table}
