@@ -1,5 +1,5 @@
 # HBSC 
-# Updated: 2026-10-02
+# Updated: 2026-10-09
 
 # ---------------------------------------------------
 # project setup
@@ -24,6 +24,7 @@ library(shapviz)
 library(vip) #needeD?
 library(ggridges)
 library(tinytable)
+library(coefplot)
 
 prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
 setwd(prj_fldr)
@@ -952,26 +953,102 @@ save_tt(tt_tbl_num, output = "./outputsR/tinytables/tt_tbl_num.tex", overwrite =
 
 
 # ------------------------------------------------------------
-# THE logistic regression
+# the modeling dataset for LR
 # ------------------------------------------------------------
 
-#relevel arg
+# relevel for lr
 hbsc_se$mentalissue <- relevel(hbsc_se$mentalissue, ref = "No")
+levels(hbsc_se$mentalissue)
 
 #split the data
 set.seed(67)
-se_split  <- initial_split(hbsc_se, 
-                            strata = mentalissue,
-                            )
+hbsc_se_split  <- initial_split(hbsc_se, 
+                           strata = mentalissue,
+)
 
-se_train <- training(se_split)
-se_test <- testing(se_split)
+hbsc_se_train <- training(hbsc_se_split)
+hbsc_se_test <- testing(hbsc_se_split)
 
-nrow(se_train) + nrow(se_test) == nrow(hbsc_se) #must be TRUE
+# just checking
+nrow(hbsc_se_train) + nrow(hbsc_se_test) == nrow(hbsc_se) #must be TRUE
+round(table(hbsc_se_train$mentalissue) / nrow(hbsc_se_train),5)
+round(table(hbsc_se_test$mentalissue) / nrow(hbsc_se_test), 5) #must be same
 
-round(table(se_train$mentalissue) / nrow(se_train),3)
-round(table(se_test$mentalissue) / nrow(se_test), 3) #must be same
 
+# ------------------------------------------------------------
+# THE logistic regression
+# ------------------------------------------------------------
+
+#relevel, why only in lr?
+#hbsc_se_train$mentalissue <- relevel(hbsc_se_train$mentalissue, ref = "No")
+#hbsc_se_test$mentalissue <- relevel(hbsc_se_test$mentalissue, ref = "No")
+
+#redoing the good old way to confirm what glmnet tidymodels did
+lr1 <- glm(mentalissue ~ . 
+           -IOTF4
+           -IRRELFAS
+           -lifesat
+           -seqno_int
+           -IRFAS, #not sign
+           data = hbsc_se_train,
+           family = binomial)
+
+summary(lr1)
+
+coef(lr1)
+exp(coef(lr1))
+
+cbind(
+  round(coef(lr1),3),
+  round(exp(coef(lr1)),3)
+)
+
+coefplot(lr1)
+coefplot(lr1, trans = exp)
+
+library(GGally)
+#ggcoef_model(lr1)
+png(
+  filename = "outputsR/lr_coefplot.png", 
+  width = 2400,          # 7.0 inches * 300 DPI
+  height = 1800,         # 5.25 inches * 300 DPI (4:3 Aspect Ratio)
+  res = 300              # Standard journal publication DPI
+)
+
+ggcoef_model(lr1, 
+             exponentiate = TRUE,
+             variable_labels = c(
+               cyberbullied = "bully") #needs more work for all other long var names
+             ) +
+  theme_minimal()
+
+dev.off()
+
+
+# that's cool and all but seems country just confuses
+lr2 <- glm(mentalissue ~ . 
+           -IOTF4
+           -IRRELFAS
+           -lifesat
+           -seqno_int
+           -IRFAS #not signif
+           -country,
+           data = hbsc_se_train,
+           family = binomial)
+
+summary(lr2)
+
+cbind(
+  round(coef(lr2),3),
+  round(exp(coef(lr2)),3)
+)
+
+#library(GGally)
+ggcoef_model(lr2, exponentiate = TRUE) +
+  theme_minimal() 
+
+
+# lasso it
 # specify model for glmnet with var sec
 lr_lasso_mod <- 
   logistic_reg(penalty = tune(), 
@@ -980,7 +1057,7 @@ lr_lasso_mod <-
 
 # recipe of pre proc steps
 lr_recipe <- 
-  recipe(mentalissue ~ ., data = se_train) |> 
+  recipe(mentalissue ~ ., data = hbsc_se_train) |> 
   step_rm(IOTF4,
           IRRELFAS,
           lifesat,
@@ -996,10 +1073,19 @@ lr_workflow <-
   add_recipe(lr_recipe)
 
 # make grid for tunning
-lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
+# i had this not sure where from
+#lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
+#summary(lr_reg_grid)
+
+penalty_grid <- grid_regular(penalty(), levels = 100)
+summary(penalty_grid)
+
+#from islr won't work
+#grid <- 10^seq(10,-2, length = 100)
+#summary(grid)
 
 # create folds for tunning
-folds_10cv <- vfold_cv(se_train, v= 10)
+folds_10cv <- vfold_cv(hbsc_se_train, v= 10)
 
 my_metrics <- metric_set(bal_accuracy, 
                          accuracy,
@@ -1008,12 +1094,13 @@ my_metrics <- metric_set(bal_accuracy,
                          j_index
 )
 
-# train and tune
+# train and tune, <1min
 lr_res <- 
   lr_workflow |> 
   tune_grid(
     resamples = folds_10cv, 
-    grid = lr_reg_grid,
+    grid = penalty_grid,
+    #grid = lr_reg_grid,
     control = control_grid(save_pred = TRUE),
     metrics = my_metrics
   )
@@ -1023,13 +1110,13 @@ lr_res_metrics <-
 lr_res |> 
   collect_metrics()
 
-#AUC by penalty
+# plot AUC values by penalty
 lr_res_metrics |>
   filter(.metric == "roc_auc") |> 
   ggplot(aes(x = penalty, y = mean)) + 
   geom_point() + 
   geom_line() + 
-  ylab("Area under the ROC Curve") +
+  ylab("AUC ROC") +
   scale_x_log10(labels = scales::label_number()) +
   theme_minimal()
 
@@ -1043,7 +1130,7 @@ final_lr_workflow <- lr_workflow |>
 
 # get the last fit
 final_lr_fit <- final_lr_workflow |> 
-  last_fit(split = se_split, metrics = my_metrics)
+  last_fit(split = hbsc_se_split, metrics = my_metrics)
 
 final_lr_fit
 
@@ -1051,10 +1138,10 @@ final_lr_fit
 (test_metrics <- final_lr_fit |> collect_metrics())
 
 trained_model <- final_lr_workflow |> 
-  fit(data = training(se_split))
+  fit(data = training(hbsc_se_split))
 
 (train_metrics <- trained_model |> 
-    augment(new_data = training(se_split)) |> 
+    augment(new_data = training(hbsc_se_split)) |> 
     my_metrics(truth = mentalissue, 
                estimate = .pred_class,
                .pred_No)  
@@ -1075,20 +1162,21 @@ lr_metrics <-
 lr_metrics %>% pivot_wider(names_from = set,
                            values_from = .estimate)
 
-all_perf_metrics <- lr_metrics %>%
-  rename (Metric = .metric) %>%
-  mutate(Model = "Logistic Regression",
-         train = round(train,3),
-         test = round(test, 3)
-         ) %>%
-  select(Model, Metric, train, test) 
+lr_metrics
 
-# for latex
-tt_all_perf_metrics <- tt(all_perf_metrics) 
-save_tt(tt_all_perf_metrics, output = "./outputsR/tinytables/tt_all_perf_metrics.tex", overwrite = TRUE)
+# all_perf_metrics <- lr_metrics %>%
+#   rename (Metric = .metric) %>%
+#   mutate(Model = "Logistic Regression",
+#          train = round(train,3),
+#          test = round(test, 3)
+#          ) %>%
+#   select(Model, Metric, train, test) 
+# 
+# # for latex
+# tt_all_perf_metrics <- tt(all_perf_metrics) 
+# save_tt(tt_all_perf_metrics, output = "./outputsR/tinytables/tt_all_perf_metrics.tex", overwrite = TRUE)
 
 
-# --------------------------------------
 # for test set, for each class (Y/N) get precision, recall, f1
 
 lr_test_predictions <- collect_predictions(final_lr_fit)
@@ -1101,7 +1189,7 @@ class_metrics <- metric_set(f_meas, precision, recall)
   estimate = .pred_class,
   event_level = "first"
 ) %>% 
-    mutate(class = "NO issues")
+    mutate(class = "NO")
 )
 
 (metrics_class2 <- class_metrics(
@@ -1110,7 +1198,7 @@ class_metrics <- metric_set(f_meas, precision, recall)
   estimate = .pred_class,
   event_level = "second"
 ) %>% 
-    mutate(class = "YES issues")
+    mutate(class = "YES")
 )
 
 # latex output
@@ -1121,76 +1209,81 @@ bind_rows(metrics_class1, metrics_class2) %>%
               values_from = .estimate
   )
 
-#tt_lr_test_metrics <- tt(lr_test_metrics) 
-#save_tt(tt_lr_test_metrics, 
-#        output = "./outputsR/tinytables/tt_lr_test_metrics.tex", overwrite = TRUE)
+lr_test_metrics %>%
+  pivot_wider(names_from = class,
+              values_from = c(f_meas, precision, recall)) %>%
+  select(ends_with("YES"), ends_with("NO"))
+
 
 
 # ------------------------------
 # refit on normal scale using selected vars for coeff table
 
-# get vars selected by lasso to refit
-vars_from_glmnet <- 
-final_lr_fit |> 
-    extract_fit_parsnip() |> 
-    tidy() |>
-    filter(term != "(Intercept)") |> 
-    mutate(
-      lasso_status = if_else(estimate == 0, "Removed", "Kept")
-    ) |> 
-    select(term, estimate, lasso_status) |>
-    mutate(feature = str_split_i(term, "_", 1)) %>%
-    distinct(feature) |>
-    pull()
+# # get vars selected by lasso to refit
+# vars_from_glmnet <- 
+# final_lr_fit |> 
+#     extract_fit_parsnip() |> 
+#     tidy() |>
+#     filter(term != "(Intercept)") |> 
+#     mutate(
+#       lasso_status = if_else(estimate == 0, "Removed", "Kept")
+#     ) |> 
+#     select(term, estimate, lasso_status) |>
+#     mutate(feature = str_split_i(term, "_", 1)) %>%
+#     distinct(feature) |>
+#     pull()
+# 
+# # now, refit a normal GLM for my coeffs and OR
+# lr_recipe2 <- 
+#   recipe(mentalissue ~ ., data = se_train) |> 
+#   step_rm(IOTF4,
+#           IRRELFAS,
+#           IRFAS,
+#           lifesat,
+#           seqno_int
+#   ) #maybe later 2check same as slected vars agove
+# 
+# lr_spec <- logistic_reg() %>%
+#   set_engine("glm") %>%
+#   set_mode("classification")
+# 
+# lr_workflow <- workflow() %>%
+#   add_recipe(lr_recipe2) %>%
+#   add_model(lr_spec)
+# 
+# final_fit <- last_fit(
+#   lr_workflow,
+#   split = se_split
+# )
+# 
+# model_inference <- final_fit %>% 
+#   extract_fit_engine() %>% 
+#   tidy(exponentiate = FALSE, conf.int = TRUE) %>% 
+#   mutate(
+#     odds_ratio   = exp(estimate),
+#     or_conf_low  = exp(conf.low),
+#     or_conf_high = exp(conf.high)
+#   )
+# 
+# lr_coeffs <- 
+#     model_inference %>%
+#     transmute(term,
+#               coefficient = round(estimate, 3),
+#               OR = round(odds_ratio,3),
+#               p.value = round(p.value,10),
+#               ORlow = round(or_conf_low,3),
+#               ORhigh = round(or_conf_high,3)
+#     )
+# 
+# lr_coeffs
+# 
+# # for latex
+# tt_lr_coeffs <- tt(lr_coeffs) 
+# save_tt(tt_lr_coeffs, 
+#         output = "./outputsR/tinytables/tt_lr_coeffs.tex", overwrite = TRUE)
+# 
 
-# now, refit a normal GLM for my coeffs and OR
-lr_recipe2 <- 
-  recipe(mentalissue ~ ., data = se_train) |> 
-  step_rm(IOTF4,
-          IRRELFAS,
-          IRFAS,
-          lifesat,
-          seqno_int
-  ) #maybe later 2check same as slected vars agove
-
-lr_spec <- logistic_reg() %>%
-  set_engine("glm") %>%
-  set_mode("classification")
-
-lr_workflow <- workflow() %>%
-  add_recipe(lr_recipe2) %>%
-  add_model(lr_spec)
-
-final_fit <- last_fit(
-  lr_workflow,
-  split = se_split
-)
-
-model_inference <- final_fit %>% 
-  extract_fit_engine() %>% 
-  tidy(exponentiate = FALSE, conf.int = TRUE) %>% 
-  mutate(
-    odds_ratio   = exp(estimate),
-    or_conf_low  = exp(conf.low),
-    or_conf_high = exp(conf.high)
-  )
-
-lr_coeffs <- 
-    model_inference %>%
-    transmute(term,
-              coefficient = round(estimate, 3),
-              OR = round(odds_ratio,3),
-              p.value = round(p.value,10),
-              ORlow = round(or_conf_low,3),
-              ORhigh = round(or_conf_high,3)
-    )
-
-lr_coeffs
-
-# for latex
-tt_lr_coeffs <- tt(lr_coeffs) 
-save_tt(tt_lr_coeffs, 
-        output = "./outputsR/tinytables/tt_lr_coeffs.tex", overwrite = TRUE)
+# get LR shap
 
 
 # ------------------------------------------------------------
@@ -1776,6 +1869,14 @@ dev.off()
 #install.packages("tidycorels")
 require(corels)
 #require(tidycorels)
+
+https://systopia.cs.ubc.ca/rule_lists
+
+https://users.cs.duke.edu/~cynthia/code.html
+
+https://corels.cs.ubc.ca/corels/run.html
+
+https://www.google.com/search?q=corels+in+r+for+classification+tutorial&sca_esv=fa8fc3aacbaacd94&biw=1021&bih=527&sxsrf=APpeQntTHPozQxIORdtgxHiJEJtLIumCbw%3A1791137645049&ei=YJfCaoiGOPjBkPIPg_DbQQ&uact=5&sclient=gws-wiz-serp&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8cxpBkeIeqYwoCbfNVc4vKEyijPgk5kCEDN_PT5No9YDQ8aujKqBsqXMyy1vj2IXgmPtfV_6GrZLubApcjNsjgAG-T3pFVvhwufR6jNURhS0HPFyagDKRz8DBgNZ68OFTlp8bI3rofKcMJ4fjZZagvjCabW4z0YG6WgElKZ-ZLAn77xJB2_z0gznx7Lh2jCdSsLQFWzw&aep=10&ntc=1&mstk=AUtExfDLjJfB3KdjobHerAFo9yx5B9LXoOjrOPH3Eqg0DHMXBGyFgjfi-7sq8NN6FljS411eMRgsWbQH9cX0V0eQR3tYUcl-wND8ktrkFNl-vIQWVRO7ezaai8np0XnVgaHUOHmTvjuBxklhPztzii24J3nRXFULRFmpK92WKCmf1qL4DFC9SAAbfiBr-Dboh1XJvZm-0A82aTZ3veJ2dJpIjHSh-SenEd5Oj9PMrhzZUozdw1zWtRU3j31HG7ffL7voM_u9HBdm7-rzuKKZNxzBwFNSoBuhPFZGPC3Ds707iabDLHsPdrD6bzmbhmIq5eMzE8w4K4bttk_1XQ&aioh=3&csuir=1&cs=0&mtid=75nCavKAMqiDgLQP2e6fuAM&udm=50
 
 
 
