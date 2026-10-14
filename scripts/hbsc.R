@@ -1,14 +1,5 @@
 # HBSC 
-# Updated: 2026-10-12
-
-
-# ---------------------------------------------------
-# workspace stuff
-# ---------------------------------------------------
-
-img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261012.RData")
-#load(file = img_file)
-save.image(file = img_file)
+# Updated: 2026-10-13
 
 
 # ---------------------------------------------------
@@ -16,6 +7,25 @@ save.image(file = img_file)
 # ---------------------------------------------------
 
 rm(list = ls())
+
+prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
+setwd(prj_fldr)
+
+options(scipen = 999)
+
+
+# ---------------------------------------------------
+# workspace stuff
+# ---------------------------------------------------
+
+#img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261014.RData")
+#load(file = img_file)
+#save.image(file = img_file)
+
+
+# ---------------------------------------------------
+# pckages
+# ---------------------------------------------------
 
 require(tidyverse)
 require(tidymodels)
@@ -35,12 +45,6 @@ library(vip) #needeD?
 library(ggridges)
 library(tinytable)
 library(coefplot)
-
-prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
-setwd(prj_fldr)
-
-options(scipen = 999)
-
 
 
 
@@ -1356,15 +1360,15 @@ combined_waterfalls +
 
 
 
-
-
-
-
 # -------------------------------------------------------------------------
-# el Random Forest
+# EL Random Forest, hoy si
 # -------------------------------------------------------------------------
 
-# relevel for RF
+# fit baseline with defaults and get all metrics
+# compare with metrics of tuned
+# ver julia vid
+# address class imb
+
 hbsc_se$mentalissue <- relevel(hbsc_se$mentalissue, ref = "No")
 levels(hbsc_se$mentalissue)
 
@@ -1375,29 +1379,79 @@ hbsc_se_split  <- initial_split(hbsc_se,
 hbsc_se_train <- training(hbsc_se_split)
 hbsc_se_test <- testing(hbsc_se_split)
 
-#xvars <- c("age", "bmi", "smoking_history", "heart_disease", "hypertension", "female")
-xvars <- hbsc_se_train |> select(-mentalissue) |> names()
-
-# FIT a lo BRUTO
+# fit a baseline RF with defaults
 rf_spec <- rand_forest(trees = 500) |> 
   set_mode("classification") |> 
   set_engine("ranger", num.threads = NULL, seed = 67)
+
+# since it's heavy overfit, fit a constrained model that google reco
+rf_spec <- rand_forest(
+  mtry = 3,           # Look at only 3 features at a time (de-correlates trees)
+  trees = 300,        # Stable ensemble size
+  min_n = 50          # Stop splitting if a node has <= 50 rows (prevents overfitting)
+) %>% 
+  set_engine("ranger") %>% 
+  set_mode("classification")
+
+# try to address class imabalance using Method 2: Internal Class Weights (Engine-Level)
+# Calculate inverse class weights based on your training data
+# This gives the rare class a higher mathematical "importance" flag
+class_counts <- table(hbsc_se_train$mentalissue)
+weights <- sum(class_counts) / (2 * class_counts)
+weights
+
+rf_spec <- rand_forest(
+  mtry = 3,
+  trees = 300,
+  min_n = 50
+) %>% 
+  set_engine("ranger", class.weights = weights) %>% # Pass weights to ranger
+  set_mode("classification")
+
+xvars <- hbsc_se_train |> select(-mentalissue) |> names()
+xvars
 
 rf_wf <- workflow() |> 
   add_model(rf_spec) |>
   add_formula(reformulate(xvars, "mentalissue"))
 
-rf_mdl <- rf_wf |> 
-  fit(hbsc_se_train)
+rf_fit1 <- rf_wf |> fit(hbsc_se_train)
 
-# predict() gives No/Yes columns so make pf to only get pred_Yes
-predict(rf_mdl, head(hbsc_se_test), type = "prob")
+train_results <- hbsc_se_train %>%
+  select(mentalissue) %>% 
+  bind_cols(
+    predict(rf_fit1, new_data = hbsc_se_train, type = "class"),
+    predict(rf_fit1, new_data = hbsc_se_train, type = "prob")
+  )
+head(train_results)
 
-pf <- function(m, X) {
-  predict(m, X, type = "prob")$.pred_Yes
-}
+test_results <- hbsc_se_test %>%
+  select(mentalissue) %>% 
+  bind_cols(
+    predict(rf_fit1, new_data = hbsc_se_test, type = "class"),
+    predict(rf_fit1, new_data = hbsc_se_test, type = "prob")
+  )
+head(test_results)
 
-pf(rf_mdl, head(hbsc_se_test)) 
+# compute eval metrics for train/test
+evaluation_metrics <- metric_set(accuracy, bal_accuracy, roc_auc, j_index, brier_class)
+
+train_metrics <- train_results %>% 
+  evaluation_metrics(truth = mentalissue, estimate = .pred_class, .pred_Yes, event_level = "second") %>%
+  select(.metric, train_estimate = .estimate)
+
+test_metrics <- test_results %>% 
+  evaluation_metrics(truth = mentalissue, estimate = .pred_class, .pred_Yes, event_level = "second") %>%
+  select(.metric, test_estimate = .estimate)
+
+performance_comparison <- left_join(train_metrics, test_metrics, by = ".metric")
+performance_comparison
+
+
+
+
+
+
 
 # # FIT TUNED 
 # #library(tidymodels)
@@ -1494,7 +1548,6 @@ pf(rf_mdl, head(hbsc_se_test))
 # la rf foresta well done
 # ------------------------------------------------------------------------
 
-
 library(tidymodels)
 library(ranger)
 #library(themis)     # <--- Required for step_downsample()
@@ -1503,20 +1556,22 @@ library(doParallel)
 # ------------------------------------------------------------------------
 # 1. SETUP & DATA SPLIT
 # ------------------------------------------------------------------------
+
+hbsc_se$mentalissue <- relevel(hbsc_se$mentalissue, "Yes", "No")
+levels(hbsc_se$mentalissue) #Yes, No - huh?
+
 set.seed(123)
-
-levels(hbsc_se$mentalissue) #N then Y ok?
-
 data_split <- initial_split(hbsc_se, prop = 0.8, strata = mentalissue)
 train_data <- training(data_split)
 test_data  <- testing(data_split)
 
 # Folds must be stratified to preserve minority classes in each slice
-folds <- vfold_cv(train_data, v = 10, strata = mentalissue)
+rf_folds <- vfold_cv(train_data, v = 10, strata = mentalissue)
 
 # ------------------------------------------------------------------------
 # 2. MODEL SPECIFICATION
 # ------------------------------------------------------------------------
+
 rf_spec <- rand_forest(
   mtry  = tune(),
   trees = tune(),  
@@ -1539,29 +1594,39 @@ rf_workflow <- workflow() %>%
 # ------------------------------------------------------------------------
 # 3. DEFINE CUSTOM PARAMETER RANGES & GRID
 # ------------------------------------------------------------------------
-classification_metrics <- metric_set(accuracy, roc_auc, bal_accuracy)
+#classification_metrics <- metric_set(accuracy, roc_auc, bal_accuracy)
 
 rf_params <- extract_parameter_set_dials(rf_spec) %>% 
   finalize(train_data) %>% 
   update(trees = trees(range = c(100, 1000)))
+# fix to limit predictors to 15 it seems
 
-rf_grid <- grid_latin_hypercube(rf_params, size = 5)
+rf_grid <- grid_latin_hypercube(rf_params, size = 30)
 rf_grid
 
 # ------------------------------------------------------------------------
 # 4. EXECUTE PARALLEL TUNING
 # ------------------------------------------------------------------------
+
+my_metrics <- metric_set(bal_accuracy, 
+                         accuracy,
+                         roc_auc,
+                         brier_class,
+                         j_index
+)
+
 cl <- makePSOCKcluster(parallel::detectCores() - 1)
 registerDoParallel(cl)
 
 system.time(
 tuning_results <- tune_grid(
   rf_workflow,
-  resamples = folds,
+  resamples = rf_folds,
   grid = rf_grid,
-  metrics = classification_metrics
+  metrics = my_metrics,
+  control = control_grid(verbose = TRUE) #works?
 )
-) #16 mins para grid de 5
+) #16 mins para grid de 5; 65 mins(30 obs grid)
 
 stopCluster(cl)
 registerDoSEQ()
@@ -1581,13 +1646,51 @@ final_model_fit <- fit(final_workflow, data = train_data)
 # 6. EVALUATE TRAIN VS TEST SETS
 # ------------------------------------------------------------------------
 train_predictions <- augment(final_model_fit, new_data = train_data)
+head(train_predictions)
 test_predictions  <- augment(final_model_fit, new_data = test_data)
+head(test_predictions)
 
+cbind(
 train_predictions %>% 
-  classification_metrics(truth = mentalissue, estimate = .pred_class, ".pred_No")
-
+  classification_metrics(truth = mentalissue, estimate = .pred_class, ".pred_Yes", 
+                         event_level = "first") %>%
+  transmute(.metric, train = round(.estimate,3))
+,
 test_predictions %>% 
-  classification_metrics(truth = mentalissue, estimate = .pred_class, contains(".pred_No"))
+  classification_metrics(truth = mentalissue, estimate = .pred_class, ".pred_Yes",
+                         event_level = "first") %>%
+  transmute(test = round(.estimate,3))
+)
+
+
+# just trying to get a better RF from from selected RF
+rf_spec2 <- rand_forest(mtry = 2, trees = 830, min_n = 32) %>% 
+  set_mode("classification") %>% 
+  # Try ExtraTrees split rule to reduce variance further
+  set_engine("ranger", splitrule = "extratrees") 
+
+rf_workflow2 <- workflow() %>% 
+  add_recipe(rf_recipe) %>% 
+  add_model(rf_spec2)
+
+rf_fit2 <- rf_workflow2 %>% 
+  fit(data = train_data) # Replace train_data with your actual training dataset name
+
+train_predictions2 <- augment(rf_fit2, new_data = train_data)
+head(train_predictions2)
+test_predictions2  <- augment(rf_fit2, new_data = test_data)
+
+cbind(
+  train_predictions2 %>% 
+    classification_metrics(truth = mentalissue, estimate = .pred_class, ".pred_Yes", 
+                           event_level = "first") %>%
+    transmute(.metric, train = round(.estimate,3))
+  ,
+  test_predictions2 %>% 
+    classification_metrics(truth = mentalissue, estimate = .pred_class, ".pred_Yes",
+                           event_level = "first") %>%
+    transmute(test = round(.estimate,3))
+)
 
 
 
@@ -1595,34 +1698,71 @@ test_predictions %>%
 # shap the foresta baby
 # ----------------------------------------------------
 
+# functions to get prob of yes and log-odds of yes from yes
+pf <- function(m, X) {
+  predict(m, X, type = "prob")$.pred_Yes
+}
+
+pf_log_odds <- function(m, X) {
+  prob <- predict(m, X, type = "prob")$.pred_Yes
+  
+  prob <- pmax(pmin(prob, 1 - 1e-15), 1e-15) 
+  log_odds <- log(prob / (1 - prob))
+  
+  return(log_odds)
+}
+
+xvars <- train_data |> select(-mentalissue) |> names()
+xvars
+
 set.seed(67)
-X_explain <- hbsc_se_test[sample(1:nrow(hbsc_se_test), 100), xvars]
-X_background <- hbsc_se_train[sample(1:nrow(hbsc_se_train), 50), ]
+X_explain <- test_data[sample(1:nrow(test_data), 200), xvars] #30 to 1k (really impacts time)
+X_background <- train_data[sample(1:nrow(train_data), 200), ] #50 to 200 is sweet spot (don't go over 500)
 
 system.time(
   shap_values_rf <- kernelshap(
-    rf_mdl,
+    rf_fit2,
     X = X_explain, 
     bg_X = X_background, 
-    pred_fun = pf
+    #pred_fun = pf,
+    pred_fun = pf_log_odds
     #type = "prob" #link scale so shap values add up to log-odds
-  )) # 40 mins
+  )) #30/200 756; 50/200 1200; 100/200 2300; 200/200 4470
 
 sv_rf <- shapviz(shap_values_rf)
-sv_rf  # 'shapviz' object representing 1000 x 6 SHAP matrix
-#saveRDS(shap_values, file = "shap_values.rds")
+sv_rf 
+dim(sv_rf$S)
+head(sv_rf$S)
+
+# saveRDS(shap_values, file = "shap_values.rds")
 # shap_values <- readRDS("shap_values.rds")
 
 sv_importance(sv_rf, show_numbers = TRUE)
 
 sv_importance(sv_rf, kind = "bee", alpha = 0.4) + theme_minimal()
 
-sv_dependence(sv_rf, v = xvars[1:4])
+# depence plots s2s
 
-sv_dependence(sv_rf, v = xvars) &
-  ylim(-0.14, 0.24) &
-  ylab("Probability")
+library(patchwork)
 
+# p1 <- sv_dependence(sv_rf, v = xvars[1], color_var = NULL) + theme_minimal() #no interaction color
+# p2 <- sv_dependence(sv_rf, v = xvars[1], alpha = 0.5) + theme_minimal() #color by interaction
+# combined_dependence_plots <- p1 + p2
+# 
+# print(combined_dependence_plots)
+
+xvars
+for (i in 1:length(xvars)){
+  
+  print(i)
+  
+  p1 <- sv_dependence(sv_rf, v = xvars[i], color_var = NULL) + theme_minimal() #no interaction color
+  p2 <- sv_dependence(sv_rf, v = xvars[i], alpha = 0.5) + theme_minimal() #color by interaction
+  combined_dependence_plots <- p1 + p2
+  
+  print(combined_dependence_plots)
+  
+}
 
 
 
