@@ -1,6 +1,5 @@
 # HBSC 
-# Updated: 2026-10-13
-
+# Updated: 2026-10-14
 
 # ---------------------------------------------------
 # project setup
@@ -24,7 +23,7 @@ options(scipen = 999)
 
 
 # ---------------------------------------------------
-# pckages
+# packages
 # ---------------------------------------------------
 
 require(tidyverse)
@@ -45,7 +44,6 @@ library(vip) #needeD?
 library(ggridges)
 library(tinytable)
 library(coefplot)
-
 
 
 # ---------------------------------------------------
@@ -1359,6 +1357,229 @@ combined_waterfalls +
   )
 
 
+# ----------------------------------------------------------
+#   EL ARBOL 10/14
+# ------------------------------------------------------------
+
+# Put No as base, since I want to pred Yes
+hbsc_se$mentalissue <- relevel(hbsc_se$mentalissue, ref = "No")
+levels(hbsc_se$mentalissue) #No first
+
+# set and validate train/test sets
+set.seed(67)
+hbsc_se_split <- initial_split(hbsc_se, strata = mentalissue)
+hbsc_se_train <- training(hbsc_se_split)
+hbsc_se_test <- testing(hbsc_se_split)
+
+nrow(hbsc_se_train) + nrow(hbsc_se_test) == nrow(hbsc_se) #has to be true
+table(hbsc_se$mentalissue)/nrow(hbsc_se) #.73 vs .27
+table(hbsc_se_train$mentalissue)/nrow(hbsc_se_train)
+table(hbsc_se_test$mentalissue)/nrow(hbsc_se_test) 
+
+set.seed(67)
+hbsc_folds <- vfold_cv(hbsc_se_train, v= 10, strata = mentalissue)
+
+#basic baseline tree
+tree_spec <- decision_tree() |> 
+  set_engine("rpart") |> 
+  set_mode("classification")
+
+final_fit <- tree_spec |> 
+  fit(mentalissue ~ ., data = hbsc_se_train)
+
+# fit a good tuned tree
+# ?decision_tree confirms 3 parameters to tune
+tree_spec <- 
+   decision_tree(
+     cost_complexity = tune(), #cp (positive number)
+     tree_depth = tune(), #max depth of tree
+     min_n = tune() #min # of data points in a node
+   ) |> 
+   set_engine("rpart") |> 
+   set_mode("classification")
+ 
+# grid_regular for even space
+tree_grid <- grid_regular(cost_complexity(),
+                           tree_depth(),
+                           min_n(),
+                           levels = 5 #5^3=125 models
+) 
+dim(tree_grid)
+summary(tree_grid)
+tree_grid
+
+my_metrics <- metric_set(bal_accuracy, accuracy, roc_auc, brier_class, j_index)
+
+# fit el arbol pues papa
+doParallel::registerDoParallel()
+
+set.seed(67)
+system.time(
+tree_rs <- tune_grid(
+  tree_spec,
+  mentalissue ~ .,
+  resamples = hbsc_folds,
+  grid = tree_grid,
+  metrics = my_metrics
+  )
+)
+#366
+
+tree_rs
+tree_rs |> collect_metrics()
+autoplot(tree_rs)
+
+# get the winner tree and last tree
+tree_rs |> show_best(metric = "roc_auc")
+best_tree <- tree_rs |> select_best(metric = "roc_auc")
+best_tree
+
+final_tree_spec <- tree_spec |> 
+  finalize_model(best_tree)
+final_tree_spec
+
+final_fit <- final_tree_spec |> 
+  fit(formula = mentalissue ~ ., data = hbsc_se_train)
+final_fit
+
+# get eval metrics on test and set
+#voy con baseline metrics
+# https://juliasilge.com/blog/wind-turbine/
+train_results <- hbsc_se_train %>%
+  select(mentalissue) %>% 
+  bind_cols(
+    predict(final_fit, new_data = hbsc_se_train, type = "class"),
+    predict(final_fit, new_data = hbsc_se_train, type = "prob")
+  )
+head(train_results)
+
+test_results <- hbsc_se_test %>%
+  select(mentalissue) %>% 
+  bind_cols(
+    predict(final_fit, new_data = hbsc_se_test, type = "class"),
+    predict(final_fit, new_data = hbsc_se_test, type = "prob")
+  )
+head(test_results)
+
+# compute eval metrics for train/test
+evaluation_metrics <- metric_set(accuracy, bal_accuracy, roc_auc, j_index, brier_class)
+
+train_metrics <- train_results %>% 
+  evaluation_metrics(truth = mentalissue, estimate = .pred_class, .pred_Yes, event_level = "second") %>%
+  select(.metric, train_estimate = .estimate)
+
+test_metrics <- test_results %>% 
+  evaluation_metrics(truth = mentalissue, estimate = .pred_class, .pred_Yes, event_level = "second") %>%
+  select(.metric, test_estimate = .estimate)
+
+left_join(train_metrics, test_metrics, by = ".metric")
+
+
+# # # --------------------------------------
+# # # for test set, for each class (Y/N) get precision, recall, f1
+# 
+# tree_test_preds <- collect_predictions(final_tree_fit)
+# class_metrics <- metric_set(f_meas, precision, recall)
+# 
+# (metrics_class1 <- class_metrics(
+#   tree_test_preds,
+#   truth = mentalissue,
+#   estimate = .pred_class,
+#   event_level = "first"
+# ) %>%
+#     mutate(class = "NO issues")
+# )
+# 
+# (metrics_class2 <- class_metrics(
+#   tree_test_preds,
+#   truth = mentalissue,
+#   estimate = .pred_class,
+#   event_level = "second"
+# ) %>%
+#     mutate(class = "YES issues")
+# )
+# 
+# tree_test_metrics <-
+#   bind_rows(metrics_class1, metrics_class2) %>%
+#   select(-.estimator) %>%
+#   pivot_wider(names_from = .metric,
+#               values_from = .estimate
+#   )
+# 
+# # combine test metrics in one
+# test_metrics <- bind_rows(
+#   tree_test_metrics %>% mutate(model = "classifTree"),
+#   lr_test_metrics %>% mutate(model = "logreg")
+# ) %>%
+#   arrange(class)
+# 
+# test_metrics
+ 
+# # ------------------------------------------------------
+# # plot the tree 
+# raw_final_tree <- extract_fit_engine(final_tree)
+# raw_final_tree
+# 
+# rpart.plot(
+#   raw_final_tree,
+#   roundint = FALSE,
+#   #  font = 4,
+#   tweak = 1.5,  
+#   type = 5,                    # Clear split labels directly on lines
+#   extra = 100,
+#   box.palette = list("#c0392b", "#2980b9") 
+# )
+# 
+# # can't read so create a massive pdf for zooming
+# pdf(
+#   file = "outputsR/giant_zoomable_tree.pdf", 
+#   width = 24,            # Massive 2-foot wide canvas
+#   height = 18,           # 1.5-foot tall canvas
+#   useDingbats = FALSE    # Ensures text renders perfectly across PDF readers
+# )
+# 
+# par(mar = c(0.5, 0.5, 0.5, 0.5)) 
+# rpart.plot(
+#   raw_final_tree,
+#   roundint = FALSE,
+#   tweak = 0.9,           # Dropped significantly so text scales with the 24" canvas
+#   type = 5,                    
+#   extra = 100,
+#   box.palette = list("#c0392b", "#2980b9") 
+# )
+# dev.off()
+# 
+# # after trial and error prune this so it plots and shows
+# pruned_tree <- prune(raw_final_tree, cp = 0.003)
+# 
+# png(
+#   filename = "outputsR/pruned_tree.png", 
+#   width = 2400,          # 7.0 inches * 300 DPI
+#   height = 1800,         # 5.25 inches * 300 DPI (4:3 Aspect Ratio)
+#   res = 300              # Standard journal publication DPI
+# )
+# 
+# rpart.plot(
+#   pruned_tree,
+#   roundint = FALSE,
+#   #  font = 4,
+#   tweak = 1.5,  
+#   type = 5,                    # Clear split labels directly on lines
+#   extra = 100,
+#   box.palette = list("#2980b9", "#c0392b") 
+# )
+# dev.off()
+# 
+# # tree metrics
+# max(rpart:::tree.depth(as.numeric(rownames(raw_final_tree$frame)))) #depth
+# sum(raw_final_tree$frame$var == "<leaf>") #leaves
+# nrow(raw_final_tree$frame) #nodes
+# 
+
+
+
+
+
 
 # -------------------------------------------------------------------------
 # EL Random Forest, hoy si
@@ -2196,232 +2417,6 @@ for (i in 1:length(xvars)){
 
 
 
-# 
-# ----------------------------------------------------------
-#   # THE classification tree
-#   # ------------------------------------------------------------
-# 
-# # is LR the issue?
-# hbsc_se$mentalissue <- relevel(hbsc_se$mentalissue, ref = "Yes")
-# 
-# tree_tune_spec <- 
-#   decision_tree(
-#     cost_complexity = tune(),
-#     tree_depth = tune(), 
-#     min_n = tune() 
-#   ) |> 
-#   set_engine("rpart") |> 
-#   set_mode("classification")
-# 
-# tree_grid <- grid_regular(cost_complexity(),
-#                           tree_depth(),
-#                           min_n(),
-#                           levels = 5
-# ) #5^3=125 models
-# 
-# set.seed(67)
-# folds_10cv_3x <- vfold_cv(se_train, 
-#                           v= 10,
-#                           #                          repeats = 3,
-#                           strata = mentalissue)
-# 
-# tree_recipe <- 
-#   recipe(mentalissue ~ ., data = se_train) |> 
-#   step_rm(IOTF4,
-#           IRRELFAS,
-#           lifesat,
-#           seqno_int
-#   ) 
-# 
-# #Tune a workflow() that bundles together a model specification 
-# # and a recipe or model preprocessor.
-# set.seed(67)
-# tree_wf <- workflow() |>
-#   add_model(tree_tune_spec) |>
-#   add_recipe(tree_recipe)
-# 
-# #tune_grid() to fit models at all the different values 
-# # we chose for each tuned hyperparameter
-# (Start <- Sys.time())
-# tree_res <- 
-#   tree_wf |> 
-#   tune_grid(
-#     resamples = folds_10cv_3x,
-#     grid = tree_grid
-#   )
-# (Sys.time() - Start) #20 mins
-# 
-# #tree_res |> collect_metrics()
-# 
-# # get the winner tree, finalize wf and get last fit and last tree
-# #tree_res |> show_best(metric = "roc_auc")
-# best_tree <- tree_res |> select_best(metric = "roc_auc")
-# best_tree
-# 
-# final_tree_wf <- tree_wf |> finalize_workflow(best_tree)
-# 
-# final_tree_fit <- final_tree_wf |> last_fit(se_split) 
-# 
-# final_tree <- extract_workflow(final_tree_fit)
-# final_tree
-# 
-# # see roc
-# final_tree_fit |>
-#   collect_predictions() |>
-#   roc_curve(mentalissue, .pred_No) |>
-#   autoplot() +
-#   theme_minimal()
-# 
-# # Calculate metrics with helper function for train/test
-# get_split_metrics <- list(
-#   train = se_train,
-#   test  = se_test 
-# ) %>% 
-#   purrr::map_df(function(df) {
-#     # Generate class and probability predictions
-#     predict(final_tree, new_data = df, type = "class") %>% 
-#       bind_cols(predict(final_tree, new_data = df, type = "prob")) %>% 
-#       bind_cols(df) %>% 
-#       # Calculate the metric set
-#       metric_set(bal_accuracy, accuracy, j_index, roc_auc, brier_class)(
-#         truth       = mentalissue, 
-#         estimate    = .pred_class, 
-#         .pred_Yes, 
-#         event_level = "second" # Adjust to "second" if "Yes" is your 2nd factor level
-#       )
-#   }, .id = "dataset"
-#   )
-# 
-# tree_metrics <- 
-#   get_split_metrics |>
-#   select(dataset, .metric, .estimate) |>
-#   pivot_wider(names_from = dataset,
-#               values_from = .estimate)# %>%
-# 
-# # for latex
-# #tt_tree_metrics <- tt(tree_metrics) 
-# #save_tt(tt_tree_metrics, 
-# #        output = "./outputsR/tinytables/tt_tree_metrics.tex", overwrite = TRUE)
-# 
-# #dejarme de pajaz
-# #models_performance combined table for latex
-# models_metrics <- bind_rows(
-#   tree_metrics %>% mutate(model = "classif tree"),
-#   lr_metrics %>% mutate(model = "log reg")
-# ) %>%
-#   arrange(.metric)
-# 
-# # for latex
-# tt_models_metrics <- tt(models_metrics) 
-# save_tt(tt_models_metrics, 
-#         output = "./outputsR/tinytables/tt_models_metrics.tex", 
-#         overwrite = TRUE)
-# 
-# # # --------------------------------------
-# # # for test set, for each class (Y/N) get precision, recall, f1
-# 
-# tree_test_preds <- collect_predictions(final_tree_fit)
-# class_metrics <- metric_set(f_meas, precision, recall)
-# 
-# (metrics_class1 <- class_metrics(
-#   tree_test_preds,
-#   truth = mentalissue,
-#   estimate = .pred_class,
-#   event_level = "first"
-# ) %>%
-#     mutate(class = "NO issues")
-# )
-# 
-# (metrics_class2 <- class_metrics(
-#   tree_test_preds,
-#   truth = mentalissue,
-#   estimate = .pred_class,
-#   event_level = "second"
-# ) %>%
-#     mutate(class = "YES issues")
-# )
-# 
-# tree_test_metrics <-
-#   bind_rows(metrics_class1, metrics_class2) %>%
-#   select(-.estimator) %>%
-#   pivot_wider(names_from = .metric,
-#               values_from = .estimate
-#   )
-# 
-# # combine test metrics in one
-# test_metrics <- bind_rows(
-#   tree_test_metrics %>% mutate(model = "classifTree"),
-#   lr_test_metrics %>% mutate(model = "logreg")
-# ) %>%
-#   arrange(class)
-# 
-# test_metrics
-# 
-# tt_test_metrics <- tt(test_metrics)
-# save_tt(tt_test_metrics,
-#         output = "./outputsR/tinytables/tt_test_metrics.tex", 
-#         overwrite = TRUE)
-# 
-# # ------------------------------------------------------
-# # plot the tree 
-# raw_final_tree <- extract_fit_engine(final_tree)
-# raw_final_tree
-# 
-# rpart.plot(
-#   raw_final_tree,
-#   roundint = FALSE,
-#   #  font = 4,
-#   tweak = 1.5,  
-#   type = 5,                    # Clear split labels directly on lines
-#   extra = 100,
-#   box.palette = list("#c0392b", "#2980b9") 
-# )
-# 
-# # can't read so create a massive pdf for zooming
-# pdf(
-#   file = "outputsR/giant_zoomable_tree.pdf", 
-#   width = 24,            # Massive 2-foot wide canvas
-#   height = 18,           # 1.5-foot tall canvas
-#   useDingbats = FALSE    # Ensures text renders perfectly across PDF readers
-# )
-# 
-# par(mar = c(0.5, 0.5, 0.5, 0.5)) 
-# rpart.plot(
-#   raw_final_tree,
-#   roundint = FALSE,
-#   tweak = 0.9,           # Dropped significantly so text scales with the 24" canvas
-#   type = 5,                    
-#   extra = 100,
-#   box.palette = list("#c0392b", "#2980b9") 
-# )
-# dev.off()
-# 
-# # after trial and error prune this so it plots and shows
-# pruned_tree <- prune(raw_final_tree, cp = 0.003)
-# 
-# png(
-#   filename = "outputsR/pruned_tree.png", 
-#   width = 2400,          # 7.0 inches * 300 DPI
-#   height = 1800,         # 5.25 inches * 300 DPI (4:3 Aspect Ratio)
-#   res = 300              # Standard journal publication DPI
-# )
-# 
-# rpart.plot(
-#   pruned_tree,
-#   roundint = FALSE,
-#   #  font = 4,
-#   tweak = 1.5,  
-#   type = 5,                    # Clear split labels directly on lines
-#   extra = 100,
-#   box.palette = list("#2980b9", "#c0392b") 
-# )
-# dev.off()
-# 
-# # tree metrics
-# max(rpart:::tree.depth(as.numeric(rownames(raw_final_tree$frame)))) #depth
-# sum(raw_final_tree$frame$var == "<leaf>") #leaves
-# nrow(raw_final_tree$frame) #nodes
-# 
 # 
 # 
 # 
