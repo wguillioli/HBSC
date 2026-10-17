@@ -1,5 +1,7 @@
 # HBSC 
-# Updated: 2026-10-14
+# Updated: 2026-10-16
+
+# toca x
 
 # ---------------------------------------------------
 # project setup
@@ -11,20 +13,6 @@ prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
 setwd(prj_fldr)
 
 options(scipen = 999)
-
-
-# ---------------------------------------------------
-# workspace stuff
-# ---------------------------------------------------
-
-#img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261014.RData")
-#load(file = img_file)
-#save.image(file = img_file)
-
-
-# ---------------------------------------------------
-# packages
-# ---------------------------------------------------
 
 require(tidyverse)
 require(tidymodels)
@@ -44,6 +32,15 @@ library(vip) #needeD?
 library(ggridges)
 library(tinytable)
 library(coefplot)
+
+
+# ---------------------------------------------------
+# workspace stuff
+# ---------------------------------------------------
+
+#img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261016.RData")
+#load(file = img_file)
+#save.image(file = img_file)
 
 
 # ---------------------------------------------------
@@ -1387,6 +1384,7 @@ tree_spec <- decision_tree() |>
 final_fit <- tree_spec |> 
   fit(mentalissue ~ ., data = hbsc_se_train)
 
+
 # fit a good tuned tree
 # ?decision_tree confirms 3 parameters to tune
 tree_spec <- 
@@ -1424,6 +1422,9 @@ tree_rs <- tune_grid(
   )
 )
 #366
+# save the fitted tree
+# saveRDS(tree_rs, file = "tree_rs.rds")
+# tree_rs <- readRDS("tree_rs.rds")
 
 tree_rs
 tree_rs |> collect_metrics()
@@ -1443,8 +1444,6 @@ final_fit <- final_tree_spec |>
 final_fit
 
 # get eval metrics on test and set
-#voy con baseline metrics
-# https://juliasilge.com/blog/wind-turbine/
 train_results <- hbsc_se_train %>%
   select(mentalissue) %>% 
   bind_cols(
@@ -1474,107 +1473,66 @@ test_metrics <- test_results %>%
 
 left_join(train_metrics, test_metrics, by = ".metric")
 
+# for test set, for each class (Y/N) get precision, recall, f1
+test_preds <- augment(final_fit, new_data = hbsc_se_test)
+test_preds
 
-# # # --------------------------------------
-# # # for test set, for each class (Y/N) get precision, recall, f1
-# 
-# tree_test_preds <- collect_predictions(final_tree_fit)
-# class_metrics <- metric_set(f_meas, precision, recall)
-# 
-# (metrics_class1 <- class_metrics(
-#   tree_test_preds,
-#   truth = mentalissue,
-#   estimate = .pred_class,
-#   event_level = "first"
-# ) %>%
-#     mutate(class = "NO issues")
-# )
-# 
-# (metrics_class2 <- class_metrics(
-#   tree_test_preds,
-#   truth = mentalissue,
-#   estimate = .pred_class,
-#   event_level = "second"
-# ) %>%
-#     mutate(class = "YES issues")
-# )
-# 
-# tree_test_metrics <-
-#   bind_rows(metrics_class1, metrics_class2) %>%
-#   select(-.estimator) %>%
-#   pivot_wider(names_from = .metric,
-#               values_from = .estimate
-#   )
-# 
-# # combine test metrics in one
-# test_metrics <- bind_rows(
-#   tree_test_metrics %>% mutate(model = "classifTree"),
-#   lr_test_metrics %>% mutate(model = "logreg")
-# ) %>%
-#   arrange(class)
-# 
-# test_metrics
+tree_metrics <- metric_set(f_meas, precision, recall)
+tree_metrics
+
+bind_rows(
+test_preds %>% 
+  tree_metrics(truth = mentalissue, estimate = .pred_class, event_level = "second") %>%
+  mutate(class = "YES issues")
+,
+test_preds %>% 
+  tree_metrics(truth = mentalissue, estimate = .pred_class, event_level = "first") %>%
+  mutate(class = "NO issues")
+) %>%
+select(-.estimator) %>%
+   pivot_wider(names_from = .metric,
+               values_from = .estimate
+)
+
+# save full tree to pdf for reference
+final_tree_engine <- extract_fit_engine(final_fit)
+
+pdf("final_decision_tree.pdf", width = 10, height = 8)
+rpart.plot(
+  final_tree_engine, 
+  type = 2,           # Split labels under the nodes
+  extra = 101,        # Displays number of observations and percentages
+  under = TRUE,       # Places numbers under the nodes
+  fallen.leaves = TRUE, # Align leaf nodes at the bottom
+  main = "Final Decision Tree Model"
+)
+dev.off()
  
-# # ------------------------------------------------------
-# # plot the tree 
-# raw_final_tree <- extract_fit_engine(final_tree)
-# raw_final_tree
-# 
-# rpart.plot(
-#   raw_final_tree,
-#   roundint = FALSE,
-#   #  font = 4,
-#   tweak = 1.5,  
-#   type = 5,                    # Clear split labels directly on lines
-#   extra = 100,
-#   box.palette = list("#c0392b", "#2980b9") 
-# )
-# 
-# # can't read so create a massive pdf for zooming
-# pdf(
-#   file = "outputsR/giant_zoomable_tree.pdf", 
-#   width = 24,            # Massive 2-foot wide canvas
-#   height = 18,           # 1.5-foot tall canvas
-#   useDingbats = FALSE    # Ensures text renders perfectly across PDF readers
-# )
-# 
-# par(mar = c(0.5, 0.5, 0.5, 0.5)) 
-# rpart.plot(
-#   raw_final_tree,
-#   roundint = FALSE,
-#   tweak = 0.9,           # Dropped significantly so text scales with the 24" canvas
-#   type = 5,                    
-#   extra = 100,
-#   box.palette = list("#c0392b", "#2980b9") 
-# )
-# dev.off()
-# 
-# # after trial and error prune this so it plots and shows
-# pruned_tree <- prune(raw_final_tree, cp = 0.003)
-# 
-# png(
-#   filename = "outputsR/pruned_tree.png", 
-#   width = 2400,          # 7.0 inches * 300 DPI
-#   height = 1800,         # 5.25 inches * 300 DPI (4:3 Aspect Ratio)
-#   res = 300              # Standard journal publication DPI
-# )
-# 
-# rpart.plot(
-#   pruned_tree,
-#   roundint = FALSE,
-#   #  font = 4,
-#   tweak = 1.5,  
-#   type = 5,                    # Clear split labels directly on lines
-#   extra = 100,
-#   box.palette = list("#2980b9", "#c0392b") 
-# )
-# dev.off()
-# 
-# # tree metrics
-# max(rpart:::tree.depth(as.numeric(rownames(raw_final_tree$frame)))) #depth
-# sum(raw_final_tree$frame$var == "<leaf>") #leaves
-# nrow(raw_final_tree$frame) #nodes
-# 
+# plot the tree (without country)
+tree_no_country <- rpart(
+  formula = mentalissue ~ . -country, 
+  data = hbsc_se_train,
+  method = "class",                             # Ensures a classification tree
+  control = rpart.control(
+    cp = 0.0000000001, #was 0.0000000001
+    maxdepth = 8, 
+    minsplit = 40)
+)
+
+printcp(tree_no_country)
+pruned_tree_no_country <- prune(tree_no_country, cp = 0.0026380252)
+
+rpart.plot(
+  pruned_tree_no_country,
+   roundint = FALSE,
+   #  font = 4,
+   tweak = 1.2,  
+   type = 5,                    # Clear split labels directly on lines
+   extra = 100,
+   box.palette = list("#2980b9", "#c0392b"),
+  under = TRUE#,
+  #fallen.leaves = TRUE
+ )
 
 
 
