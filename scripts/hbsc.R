@@ -1,9 +1,7 @@
 # HBSC 
 # Updated: 2026-10-20
 
-# ---------------------------------------------------
-# project setup
-# ---------------------------------------------------
+# setup ----------------------------------------------
 
 rm(list = ls())
 
@@ -32,29 +30,24 @@ library(tinytable)
 library(coefplot)
 
 
-# ---------------------------------------------------
-# workspace stuff
-# ---------------------------------------------------
+# workspace -------------------------------------
 
 #toca 1099 ish
-#img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261021.RData")
+img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261022.RData")
 #load(file = img_file)
-#save.image(file = img_file)
+save.image(file = img_file)
 
 
-# ---------------------------------------------------
-# load data, basic eda
-# ---------------------------------------------------
+# data -------------------------------------------
+
+## data load -------------------------------------
 
 # the european way with ; and ,
 hbsc <- read_csv2(paste0(prj_fldr, "data/raw/HBSC2018OAed1.1.csv"))
 glimpse(hbsc)
 dim(hbsc)
 
-
-# ---------------------------------------------------
-# create working copy of df with vars of interest
-# ---------------------------------------------------
+## dat copy --------------------------------------
 
 # list of variables to keep by "theme"
 vars_groups <- list(
@@ -117,9 +110,7 @@ dat_nas <- data.frame(
 dat_nas
 
 
-# ---------------------------------------------------
-# univariate EDA and feature eng 
-# ---------------------------------------------------
+# univariate EDA -------------
 
 glimpse(dat)
 
@@ -712,10 +703,8 @@ dat %>%
   print(n = Inf)
 
 
-# ---------------------------------------------------------
 # get rids of NAs and keep countries of interest based on Y
 # and final touches before mdl
-# ---------------------------------------------------------
 
 colSums(is.na(dat)) 
 
@@ -783,9 +772,7 @@ save_tt(tt_tbl_hbsc_se, output = "./outputsR/tinytables/tt_tbl_hbsc_se.tex", ove
 hbsc_se |> relocate(sort(names(hbsc_se))) |> glimpse()
 
 
-# ----------------------------------------------------------------------
 # one more thing on bmi and fas
-# ----------------------------------------------------------------------
 
 # since these 2 are same info I will prio MBMI but leave for now
 ggplot(hbsc_se, aes(x = IOTF4, y = MBMI, fill = IOTF4)) +
@@ -817,11 +804,10 @@ hbsc_se <- hbsc_se %>%
 glimpse(hbsc_se)
 
 
-# ------------------------------------------------------------
+# factors ----------------- 
 # factor vars - eda and potential of pred
 # for each fact predictor get a summary table with 
 # var name, n, % and % of mental issue and chi
-# ------------------------------------------------------------
 
 # get name of all factor vars (including mentalissue)
 # and define a df with only those vars
@@ -888,11 +874,9 @@ tt_tbl_fct <- tt(tt_tbl_fct)
 save_tt(tt_tbl_fct, output = "./outputsR/tinytables/tt_tbl_fct.tex", overwrite = TRUE)
 
 
-# ------------------------------------------------------------
-# number vars - eda and potential of pred
+# number vars -------------------------------------------
 # for each fact predictor get a summary table with 
 # var name, n, % and % of mental issue and chi
-# ------------------------------------------------------------
 
 library(purrr)
 
@@ -953,9 +937,7 @@ tt_tbl_num <- tt(tt_tbl_num)
 save_tt(tt_tbl_num, output = "./outputsR/tinytables/tt_tbl_num.tex", overwrite = TRUE)
 
 
-# ------------------------------------------------------------
-# Prep dataset for modeling
-# ------------------------------------------------------------
+# modeling dataset --------------------------------------
 
 # a bit more cleaning to keep only y and predictors
 hbsc_se <- hbsc_se %>% 
@@ -976,6 +958,7 @@ set.seed(67)
 hbsc_se_split  <- initial_split(hbsc_se, prop = 8/10, strata = mentalissue)
 train <- training(hbsc_se_split)
 test <- testing(hbsc_se_split)
+
 folds <- vfold_cv(train, v = 5, strata = mentalissue)
 
 # just checking
@@ -984,7 +967,7 @@ table(train$mentalissue) / nrow(train)
 table(test$mentalissue) / nrow(test)
 
 
-
+# modeling fucntions -----------------------
 
 # function takes final fit and returns metrics table for train & test
 eval_mdl <- function(the_fit){
@@ -1033,12 +1016,9 @@ eval_test <- function(the_fit){
 }
 
 
+# TREES ----------------------
 
-# ----------------------------------------------------------------------
-# TREES
-# ----------------------------------------------------------------------
-
-# fit a quick vanilla tree
+## vanilla --------------------
 tree_spec <- decision_tree() |> 
   set_engine("rpart") |> 
   set_mode("classification")
@@ -1050,9 +1030,7 @@ eval_mdl(tree_fit1_vanilla)
 eval_test(tree_fit1_vanilla)
 
 
-
-
-# fit a tuned tree
+## tuned ------------------------------------------------
 tree_spec <- 
   decision_tree(
     cost_complexity = tune(),
@@ -1065,12 +1043,15 @@ tree_spec <-
 tree_grid <- grid_regular(cost_complexity(),
                           tree_depth(),
                           min_n(),
-                          levels = 2) 
-tree_grid
+                          levels = 10) 
+dim(tree_grid)
 
 #eval_metrics <-  #, brier_class, j_index)
 
-doParallel::registerDoParallel()
+library(doParallel)
+cl <- makePSOCKcluster(5) 
+registerDoParallel(cl)
+#doParallel::registerDoParallel() #old
 set.seed(67)
 system.time(
   tree_res <- tune_grid(
@@ -1080,30 +1061,76 @@ system.time(
     grid = tree_grid,
     metrics = metric_set(bal_accuracy, accuracy, roc_auc)
   )
-)
+) # 1k grid ()
+stopCluster(cl)
 
+# echarle ojito
 tree_metrics <- collect_metrics(tree_res)
 View(tree_metrics)
 
 autoplot(tree_res) + theme_light()
 show_best(tree_res, metric = "roc_auc")
-select_best(tree_res, metric = "roc_auc")
 
 final_tree <- finalize_model(tree_spec, select_best(tree_res, metric = "roc_auc")) #still not fitted
 
-final_tree_fit <- fit(final_tree, mentalissue ~ ., train) #final tree on whole train
+final_tree_fit <- fit(final_tree, mentalissue ~ ., train) 
 #final_rs <- last_fit(final_tree, mentalissue ~ ., hbsc_se_split) # fits to train/test
 
 eval_mdl(final_tree_fit)
 eval_test(final_tree_fit)
 
-#voy, toca hacer lo del peso aqui
-#https://www.google.com/search?q=how+to+fit+a+tuned+tree+in+tidymodels+with+wts&oq=how+to+fit+a+tuned+tree+in+tidymodels+with+wts&gs_lcrp=EgZjaHJvbWUyCQgAEEUYORigATIHCAEQIRigATIHCAIQIRigATIHCAMQIRigATIHCAQQIRigATIHCAUQIRiPAjIHCAYQIRiPAtIBCTExMTI2ajBqN6gCALACAA&sourceid=chrome&source=chrome.ob&ie=UTF-8&mstk=AUtExfA2skv3f3ykYYWAWeBkHDcOlmfu-QGB5J89NbyLVX9FPZoSapZB5xPuYwINcBur5XL2K3iOpYo4tvDUGz40JSvFrXkUFaYTwWWQtALteiWCN_-v9FtDUSj3lFPcjDA4vgnLuQvCdxz7Xcp2J3z5jo8bb8g9I63JaTFONC_q6kY_16TdmLfHAE-Q_HsyEA_Q8z0Q7KsrYoYtlqInDXh4yOzJ6udTUN7Cv9jKN5xqWsSH65tnyrx02OpvIVRAvtvp7hNWtvq2L5on4fQBZQlJ0TlZcVZXeb_v3TLLU4Zrco7l_dgCegZPkssJKRw2Kzd_aTZlwWZ3maY49A&csuir=1&udm=50&aioh=3#aof=1
-#https://d1ysz50cxb9zwl.cloudfront.net/dbq7t0PHAC9j7Z7OBJJt1ed5wNEKE_l5TOjwjQ4ppW0joJGcMKE8kpCKFJGzW369/by/18962823/as/file.html?Expires=1792540760&Signature=BzamnbBhrCsK~Q9dXyN8UZg7JrKDdJxs1rLD1NpMoIj7Mv6E6i1IpOitLUD-X~P7kz3wqK5zXy7WZlwmSiqgLvr3o5ZlpKGtiwtoW4LnVwn2ddv0NqbIyUALBcwAQj2gqRgoVHpF~vtn94JFwigBfSeh1xVk5~TUczIeldbdXhxXR7pOiOrRfXj7QXX5b93VquXzk6FvB3Krrw0Gw~fVeMs53H3DoqDVjIT5AKNMS~LU~D~fVAhvJrFmoTQOW5vBdsNkhOAg~p6ERiL8qa~3NP6iIZjTVIoMprHet-VzzUPz2wBZDbfH78Taoka3Wkl4SpNanAMYKLdge-8CrQ31fQ__&Key-Pair-Id=APKAJAERRT46LD6FN4NA
-train_con_peso <- train |>
-  mutate(wts = ifelse(mentalissue == "Yes", 3, 1),
-         wts = importance_weights(wts)
-         )
+
+## tuned weighted -----------------
+
+train_weighted <- train |>
+  mutate(wts = ifelse(mentalissue == "Yes", 2.70, 1.0), # is this right?
+                wts = importance_weights(wts))
+
+set.seed(67)
+folds_weighted <- vfold_cv(train_weighted, v = 5, strata = mentalissue)
+
+tree_recipe <- recipe(mentalissue ~ ., data = train_weighted) #includes wts
+
+tree_wflow <- workflow() |> 
+  add_recipe(tree_recipe) |> 
+  add_model(tree_spec) |> # reuse the above
+  add_case_weights(wts) # Crucial tracks weights across resamples
+
+#doParallel::registerDoParallel()
+cl <- makePSOCKcluster(5) 
+registerDoParallel(cl)
+set.seed(67)
+system.time(
+  tree_res2 <- tune_grid(
+    tree_wflow,
+    resamples = folds_weighted,
+    grid = tree_grid,
+    metrics = metric_set(bal_accuracy, accuracy, roc_auc)
+  )
+) #1k 30 mins
+
+# echarle un ojito
+tree_metrics <- collect_metrics(tree_res2)
+View(tree_metrics)
+
+autoplot(tree_res2) + theme_light()
+show_best(tree_res2, metric = "roc_auc")
+
+# finalize wkflow to get final fit
+final_tree_wflow <- finalize_workflow(tree_wflow, 
+                                      select_best(tree_res2, metric = "roc_auc"))
+
+final_tree_fit2 <- fit(final_tree_wflow, data = train_weighted)
+
+#final_tree2 <- finalize_model(tree_spec, select_best(tree_res2, metric = "roc_auc")) #still not fitted
+#final_tree_fit2 <- fit(final_tree2, mentalissue ~ ., train) 
+#final_rs <- last_fit(final_tree, mentalissue ~ ., hbsc_se_split) # fits to train/test
+
+eval_mdl(final_tree_fit2)
+eval_test(final_tree_fit2)
+
+
+
 
 
 
