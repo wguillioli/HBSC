@@ -1,5 +1,6 @@
 # HBSC 
-# Updated: 2026-10-23
+# Updated: 2026-10-30
+# argggg
 
 # setup ----------------------------------------------
 
@@ -24,7 +25,7 @@ library(janitor) #cool new plots
 require(rpart.plot)
 library(kernelshap)
 library(shapviz)
-library(vip) #needeD?
+#library(vip) #needeD?
 library(ggridges)
 library(tinytable)
 library(coefplot)
@@ -32,7 +33,7 @@ library(doParallel)
 
 # workspace -------------------------------------
 
-#img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261023.RData")
+#img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261030.RData")
 #load(file = img_file)
 #save.image(file = img_file)
 
@@ -1015,9 +1016,9 @@ eval_test <- function(the_fit){
 }
 
 
-# Trees ----------------------
+# CTrees ----------------------
 
-## vanilla --------------------
+## CT0 vanilla --------------------
 tree_spec <- decision_tree() |> 
   set_engine("rpart") |> 
   set_mode("classification")
@@ -1029,7 +1030,7 @@ eval_mdl(tree_fit1_vanilla)
 eval_test(tree_fit1_vanilla)
 
 
-## tuned ------------------------------------------------
+## CT1 tuned ------------------------------------------------
 
 tree_spec <- 
   decision_tree(
@@ -1081,7 +1082,7 @@ eval_mdl(tree_fit2_tuned)
 eval_test(tree_fit2_tuned)
 
 
-## tuned weighted -----------------
+## CT2 tuned weighted -----------------
 
 train_weighted <- train |>
   mutate(wts = ifelse(mentalissue == "Yes", 2.70, 1.0), # is this right?
@@ -1131,7 +1132,7 @@ eval_mdl(tree_fit3_tuned_weighted)
 eval_test(tree_fit3_tuned_weighted)
 
 
-## tree results -------------------------
+## CT results -------------------------
 
 bind_rows(
 eval_mdl(tree_fit1_vanilla) |> mutate(mdl = "1vanilla"),
@@ -1151,15 +1152,17 @@ bind_rows(
 
 # RF --------------------------------
 # fits:
-# 1) vanilla
-# 2) tuned with all 3 defaults
-# 3) like 2 con pesitos
-# 4) add el parametro que no muy
+# 0) vanilla
+# 1) tuned with all 3 defaults
+# 2) like 2 con pesitos
+# 3) add el parametro que no muy
 
-## RF vanilla --------------------
+## RF0 vanilla --------------------
 rf_spec <- rand_forest() |> 
   set_engine("ranger") |> 
   set_mode("classification")
+
+require(ranger)
 
 rf_fit1_vanilla <- rf_spec |> 
   fit(mentalissue ~ ., data = train)
@@ -1168,13 +1171,13 @@ eval_mdl(rf_fit1_vanilla)
 eval_test(rf_fit1_vanilla)
 
 
-## RF tuned -------------------
+## RF1 tuned -------------------
 rf_spec <- rand_forest(
   mtry = tune(),    
   min_n = tune(),   
   trees = tune() 
-) |> #set_engine("ranger") |> 
-  set_engine("ranger", max.depth = tune()) |> 
+) |> set_engine("ranger") |> 
+  #set_engine("ranger", max.depth = tune()) |> 
   set_mode("classification") 
 
 rf_recipe <- recipe(mentalissue ~ ., data = train) 
@@ -1184,22 +1187,24 @@ rf_wflow <- workflow() |>
   add_model(rf_spec)
 
 rf_params <- extract_parameter_set_dials(rf_wflow) |> 
-   update(
-     mtry = mtry(c(1, 15)), 
-     trees = trees(c(100, 1000)),
-     max.depth = tree_depth(c(2, 10)) #huh? 
-   ) |>
-   finalize(train) 
+  update(mtry = mtry(c(1, 15)), 
+          trees = trees(c(100, 1000))) |>
+  finalize(train) 
 
-rf_grid <- grid_regular(rf_params, levels = 5)
-rf_grid
+rf_grid <- grid_regular(rf_params, levels = 10)
 dim(rf_grid)
+summary(rf_grid)
 
-cl <- makePSOCKcluster(5) 
-registerDoParallel(cl)
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
+#cl <- makePSOCKcluster(5) 
+#registerDoParallel(cl)
+
 set.seed(67)
 system.time(
-  rf1_res_v2 <- tune_grid(
+  rf_res1 <- tune_grid(
     rf_wflow,
     resamples = folds,
     grid = rf_grid,
@@ -1207,33 +1212,163 @@ system.time(
     control = control_grid(verbose = TRUE) # Shows progress bars in the console
   )
 )
-stopCluster(cl)
+
+stopCluster(my_cluster)
+#stopCluster(cl)
 registerDoSEQ()
 
-autoplot(rf1_res)
+autoplot(rf_res1)
 
-show_best(rf1_res, metric = "roc_auc")
+show_best(rf_res1, metric = "roc_auc")
 
 # finalize wkflow to get final fit
 final_rf_wflow <- finalize_workflow(
                         rf_wflow, 
-                        select_best(rf1_res, metric = "roc_auc"))
+                        select_best(rf_res1, metric = "roc_auc"))
 
 rf_fit1_tuned <- fit(final_rf_wflow, data = train)
 
 eval_mdl(rf_fit1_tuned)
 eval_test(rf_fit1_tuned)
 
+
+## RF2 tuned weighted -------------------
+
+rf_recipe_weighted <- recipe(mentalissue ~ ., data = train_weighted) 
+
+rf_wflow <- workflow() |> 
+  add_recipe(rf_recipe_weighted) |> 
+  add_model(rf_spec) # reuse rf_spec from above
+
+rf_params <- extract_parameter_set_dials(rf_wflow) |> 
+  update(mtry = mtry(c(1, 15)), 
+         trees = trees(c(100, 1000))) |>
+  finalize(train_weighted) 
+
+rf_grid <- grid_regular(rf_params, levels = 8) #from 10
+dim(rf_grid)
+#summary(rf_grid)
+
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
+
+set.seed(67)
+system.time(
+  rf_res2 <- tune_grid(
+    rf_wflow,
+    resamples = folds_weighted,
+    grid = rf_grid,
+    metrics = metric_set(bal_accuracy, accuracy, roc_auc),
+    control = control_grid(verbose = TRUE) # Shows progress bars in the console
+  )
+) #13hrs
+
+stopCluster(my_cluster)
+registerDoSEQ()
+
+autoplot(rf_res2)
+
+show_best(rf_res2, metric = "roc_auc")
+
+# finalize wkflow to get final fit
+final_rf_wflow <- finalize_workflow(
+  rf_wflow, 
+  select_best(rf_res2, metric = "roc_auc"))
+
+rf_fit2_tuned <- fit(final_rf_wflow, data = train_weighted)
+
+eval_mdl(rf_fit2_tuned)
+eval_test(rf_fit2_tuned)
+
+
+## RF3 tuned+1 weighted -------------------------
+rf_spec <- rand_forest(
+  mtry = tune(),    
+  min_n = tune(),   
+  trees = tune() 
+) |>
+  #|> set_engine("ranger")# |> 
+  set_engine("ranger", 
+             max.depth = tune() #todo por el?
+             ) |> 
+  set_mode("classification") 
+
+#rf_recipe_weighted <- recipe(mentalissue ~ ., data = train_weighted) 
+# reuse recipe from r2
+
+rf_wflow <- workflow() |> 
+  add_recipe(rf_recipe_weighted) |> 
+  add_model(rf_spec) 
+
+rf_params <- extract_parameter_set_dials(rf_wflow) |> 
+  update(mtry = mtry(c(1, 15)), 
+         trees = trees(c(100, 1000)),
+         max.depth = tree_depth(c(3, 15)) #was (3,8)
+         ) |>
+  finalize(train_weighted) 
+
+rf_grid <- grid_regular(rf_params, levels = 5) #5 is 625
+dim(rf_grid)
+#summary(rf_grid)
+
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
+
+set.seed(67)
+system.time(
+  rf_res3 <- tune_grid(
+    rf_wflow,
+    resamples = folds_weighted,
+    grid = rf_grid,
+    metrics = metric_set(bal_accuracy, accuracy, roc_auc),
+    control = control_grid(verbose = TRUE) # Shows progress bars in the console
+  )
+) #4 hrs
+
+stopCluster(my_cluster)
+registerDoSEQ()
+
+#autoplot(rf_res3, rf_params) #wont work
+
+tune_metrics <- collect_metrics(rf_res3)
+View(tune_metrics)
+# can use ggplot to plot but won't
+
+show_best(rf_res3, metric = "roc_auc")
+
+# finalize wkflow to get final fit
+final_rf_wflow <- finalize_workflow(
+  rf_wflow, 
+  select_best(rf_res3, metric = "roc_auc"))
+
+rf_fit3_tuned <- fit(final_rf_wflow, data = train_weighted)
+
+eval_mdl(rf_fit3_tuned)
+eval_test(rf_fit3_tuned)
+
 ## RF results -------------
 
-cbind(
-eval_mdl(rf_fit1_vanilla) |> mutate(mdl = "1vanilla")
-)
+# train vs test
+rbind(
+eval_mdl(rf_fit1_vanilla) |> mutate(mdl = "0vanilla"),
+eval_mdl(rf_fit1_tuned) |> mutate(mdl = "1tuned"),
+eval_mdl(rf_fit2_tuned) |> mutate(mdl = "2tuned_weighted"),
+eval_mdl(rf_fit3_tuned) |> mutate(mdl = "3tuned_weighted+1")
+) |>
+  arrange(desc(.metric))
 
-cbind(
-eval_test(rf_fit1_vanilla) |> mutate(mdl = "1vanilla")
-)
-
+# f1, prec, recall on test
+rbind(
+eval_test(rf_fit1_vanilla) |> mutate(mdl = "0vanilla"),
+eval_test(rf_fit1_tuned) |> mutate(mdl = "1tuned"),
+eval_test(rf_fit2_tuned) |> mutate(mdl = "2tuned_weighted"),
+eval_test(rf_fit3_tuned) |> mutate(mdl = "3tuned_weighted")
+) |>
+  arrange(desc(class))
 
 
 
@@ -1669,121 +1804,6 @@ rpart.plot(pruned_tree_no_country,
 
 
 
-## RF2 --------------------------------------
-
-# EL Random Forest tuned, 10/17 HOY SI
-# inspiration   
-
-rf_recipe <- recipe(mentalissue ~ ., data = hbsc_se_train)  #   step_downsample(Species, under_ratio = 1.0) # 1.0 means perfectly 50/50 balance (ver julia)
-
-rf_workflow <- workflow() |>
-  add_recipe(rf_recipe) |> 
-  add_model(rf_spec)
-
-set.seed(67)
-rf_folds <- vfold_cv(hbsc_se_train, v = 10, strata = mentalissue)
-
-rf_params <- extract_parameter_set_dials(rf_spec) %>% 
-  finalize(hbsc_se_train) %>% #ensures mtry fits the dataset dimension DOESNT SEEM TO WORK
-  update(trees = trees(range = c(100, 1000))) #explicit limit
-
-rf_grid <- grid_latin_hypercube(rf_params, size = 20) #was 20
-summary(rf_grid)
-
-# fit with paralel processing
-my_metrics <- metric_set(bal_accuracy, roc_auc, brier_class, j_index, accuracy)
-cl <- makePSOCKcluster(parallel::detectCores() - 1)
-registerDoParallel(cl)
-system.time(
-  rf_tune_res <- tune_grid(
-    rf_workflow,
-    resamples = rf_folds,
-    grid = rf_grid,
-    metrics = my_metrics
-  )
-) #2460
-stopCluster(cl)
-registerDoSEQ()
-
-autoplot(rf_tune_res)
-
-# 2 winners are very different so pick 1
-# auc wins since mtry is lower and trees higher
-rf_best_params <- select_best(rf_tune_res, metric = "roc_auc")
-#rf_best_params <- select_best(tuning_results, metric = "bal_accuracy")
-rf_best_params
-
-final_workflow <- finalize_workflow(rf_workflow, rf_best_params)
-final_model_fit <- fit(final_workflow, data = hbsc_se_train)
-
-# train/test metrics
-##### voy, fix code so it gets all 5 metrics from tbl
-
-train_predictions <- augment(final_model_fit, new_data = hbsc_se_train)
-test_predictions  <- augment(final_model_fit, new_data = hbsc_se_test)
-
-cbind(
-  train_predictions %>% 
-    classification_metrics(truth = mentalissue, estimate = .pred_class, ".pred_Yes", 
-                           event_level = "second") %>%
-    transmute(.metric, train = round(.estimate,3))
-  ,
-  test_predictions %>% 
-    classification_metrics(truth = mentalissue, estimate = .pred_class, ".pred_Yes",
-                           event_level = "second") %>%
-    transmute(test = round(.estimate,3))
-)
-
-
-
-## RF dumb ----------
-
-# # 1. Create the preprocessing recipe layout
-# dummy_recipe <- recipe(mentalissue ~ ., data = hbsc_se_train) %>% 
-#   # Explicitly convert all categorical factor columns into binary dummy columns
-#   step_dummy(all_nominal_predictors(), one_hot = TRUE)
-# 
-# # 2. Train the recipe on your data and extract the final numeric training set
-# prepped_recipe <- prep(dummy_recipe, training = hbsc_se_train)
-# train_processed <- bake(prepped_recipe, new_data = NULL)
-# print(colnames(train_processed)) #mentalissue is still there without dummy
-# 
-# # 3. Specify your Random Forest structural boundaries
-# rf_spec <- rand_forest(
-#   trees = 500,
-#   min_n = 50          # Regulate node size to control overfitting
-# ) %>% 
-#   set_engine("ranger", importance = "impurity") %>% 
-#   set_mode("classification")
-# 
-# # 4. Bind the processed data and specifications into a final workflow layout
-# rf_workflow <- workflow() %>% 
-#   add_recipe(dummy_recipe) %>%  # Bundles the explicit dummy conversion step
-#   add_model(rf_spec)
-# 
-# # 5. Train the final model
-# final_rf_fit <- fit(rf_workflow, data = hbsc_se_train)
-# 
-# # 1. Strip out the target column to create a clean, numeric predictor matrix
-# X_processed <- train_processed %>% 
-#   select(-mentalissue)
-# names(X_processed)
-# 
-# set.seed(67)
-# X_explain <- X_processed[sample(1:nrow(X_processed), 20), ] #30 to 1k (really impacts time)
-# X_background <- X_processed[sample(1:nrow(X_processed), 20), ] #50 to 200 is sweet spot (don't go over 500)
-# 
-# system.time(
-#   shap_values_rf_tonto <- kernelshap(
-#     final_rf_fit,
-#     X = X_explain, 
-#     bg_X = X_background, 
-#     #pred_fun = pf,
-#     pred_fun = pf_log_odds
-#     #type = "prob" #link scale so shap values add up to log-odds
-#   )
-# )
-
 ## rf shap -------------
 # shap the foresta baby
 
@@ -2159,82 +2179,7 @@ for (i in 1:length(xvars)){
 # 
 # sv_importance(xgb_sv, kind = "bar") + theme_minimal() + ggtitle("XGB NOT Collap")
 # 
-# 
-# 
 
-
-
-# 
-# # parallel proc
-# cores <- parallel::detectCores()
-# cores
-# 
-# rf_mod <- 
-#   rand_forest(mtry = tune(), 
-#               min_n = tune(), 
-#               trees = 1000) |> 
-#   set_engine("ranger", num.threads = cores) |> 
-#   set_mode("classification")
-# 
-# rf_recipe <- 
-#   recipe(mentalissue ~ ., data = hbsc_se_train)
-#   #step_dummy(all_nominal_predictors()) |> 
-#   
-# rf_workflow <- 
-#   workflow() |> 
-#   add_model(rf_mod) |> 
-#   add_recipe(rf_recipe)
-# 
-# # show what will be tuned
-# extract_parameter_set_dials(rf_mod)
-# 
-# # We will use a space-filling design to tune, with 25 candidate models:
-# splits      <- initial_validation_split(hotels, strata = children,
-#                                         prop = c(0.60, 0.15))
-# 
-# val_set <- validation_set(splits)
-# 
-# set.seed(345)
-# rf_res <- 
-#   rf_workflow |> 
-#   tune_grid(val_set,
-#             grid = 25,
-#             control = control_grid(save_pred = TRUE),
-#             metrics = metric_set(roc_auc))
-# 
-# rf_res |> 
-#   show_best(metric = "roc_auc")
-# 
-# autoplot(rf_res)
-# 
-# # get the last fit
-# # the last model
-# last_rf_mod <- 
-#   rand_forest(mtry = 8, min_n = 7, trees = 1000) |> 
-#   set_engine("ranger", num.threads = cores, importance = "impurity") |> 
-#   set_mode("classification")
-# 
-# # the last workflow
-# last_rf_workflow <- 
-#   rf_workflow |> 
-#   update_model(last_rf_mod)
-# 
-# # the last fit
-# set.seed(345)
-# last_rf_fit <- 
-#   last_rf_workflow |> 
-#   last_fit(splits)
-# 
-# last_rf_fit
-# #> # Resampling results
-# #> # Manual resampling 
-# #> # A tibble: 1 × 6
-# #>   splits                id             .metrics .notes   .predictions .workflow 
-# #>   <list>                <chr>          <list>   <list>   <list>       <list>    
-# #> 1 <split [30000/12501]> train/test sp… <tibble> <tibble> <tibble>     <workflow>
-# #> 
-# last_rf_fit |> 
-#   collect_metrics()
 
 
 ## shap mas -------------------
