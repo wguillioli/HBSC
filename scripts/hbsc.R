@@ -1,12 +1,11 @@
 # HBSC 
 # Updated: 2026-10-30
-# argggg
 
 # setup ----------------------------------------------
 
 rm(list = ls())
 
-prj_fldr <- "C:/MisLocalFiles/Github/HBSC/"
+prj_fldr <- "C:/GitHub/HBSC2/"
 setwd(prj_fldr)
 
 options(scipen = 999)
@@ -25,7 +24,6 @@ library(janitor) #cool new plots
 require(rpart.plot)
 library(kernelshap)
 library(shapviz)
-#library(vip) #needeD?
 library(ggridges)
 library(tinytable)
 library(coefplot)
@@ -33,7 +31,7 @@ library(doParallel)
 
 # workspace -------------------------------------
 
-#img_file <- paste0(prj_fldr, "/Rimages/hbsc_wkspace_20261030.RData")
+img_file <- paste0(prj_fldr, "Rimages/hbsc.RData")
 #load(file = img_file)
 #save.image(file = img_file)
 
@@ -937,7 +935,7 @@ tt_tbl_num <- tt(tt_tbl_num)
 save_tt(tt_tbl_num, output = "./outputsR/tinytables/tt_tbl_num.tex", overwrite = TRUE)
 
 
-# modeling dataset --------------------------------------
+# mdl data --------------------------------------
 
 # a bit more cleaning to keep only y and predictors
 hbsc_se <- hbsc_se %>% 
@@ -967,7 +965,7 @@ table(train$mentalissue) / nrow(train)
 table(test$mentalissue) / nrow(test)
 
 
-# modeling fucntions -----------------------
+# mdl functions -----------------------
 
 # function takes final fit and returns metrics table for train & test
 eval_mdl <- function(the_fit){
@@ -1016,23 +1014,128 @@ eval_test <- function(the_fit){
 }
 
 
-# CTrees ----------------------
+# Log Reg --------------------------------------------------
 
-## CT0 vanilla --------------------
-tree_spec <- decision_tree() |> 
+## LR1 ------------
+# dataset as is
+
+lr_recipe <- recipe(mentalissue ~ ., data = train)
+
+lr_spec <- logistic_reg() |>
+  set_engine("glm") %>%
+  set_mode("classification")
+
+lr_workflow <- workflow() |>
+  add_recipe(lr_recipe) %>%
+  add_model(lr_spec)
+
+lr_cv_results <- fit_resamples(
+  lr_workflow,
+  resamples = folds,
+  metrics = metric_set(bal_accuracy, roc_auc),
+  control = control_resamples(save_pred = TRUE)
+)
+
+lr_cv_results |> collect_metrics()
+lr_cv_results |> collect_metrics(summarize = FALSE) |> arrange(.metric)
+
+lr_final_fit1 <- last_fit(lr_workflow, hbsc_se_split)
+
+lr_final_mdl1 <- extract_workflow(lr_final_fit1)
+
+#lr_fit1 <- lr_spec |> 
+#  fit(mentalissue ~ ., data = train)
+
+eval_mdl(lr_final_mdl1)
+eval_test(lr_final_mdl1)
+
+
+
+## LR2 ------------
+# dataset weighted
+
+# lr_recipe <- recipe(mentalissue ~ ., data = train_weighted) #includes wts
+# 
+# lr_spec <- logistic_reg() |>
+#   set_engine("glm") %>%
+#   set_mode("classification")
+# 
+# lr_workflow <- workflow() |>
+#   add_recipe(lr_recipe) %>%
+#   add_model(lr_spec) |>
+#   add_case_weights(wts) # Crucial tracks weights across resamples
+# 
+# lr2_cv_results <- fit_resamples(
+#   lr_workflow,
+#   resamples = folds_weighted,
+#   metrics = metric_set(bal_accuracy, roc_auc),
+#   control = control_resamples(save_pred = TRUE)
+# )
+# 
+# lr2_cv_results |> collect_metrics()
+# lr2_cv_results |> collect_metrics(summarize = FALSE) |> arrange(.metric)
+# 
+# lr_final_fit2 <- last_fit(lr_workflow, train_weighted)
+# 
+# # finalize wkflow to get final fit
+# final_tree_wflow <- finalize_workflow(tree_wflow, 
+#                                       select_best(tree_res2, metric = "roc_auc"))
+# 
+# tree_fit3_tuned_weighted <- fit(final_tree_wflow, data = train_weighted)
+# 
+# lr_final_mdl1 <- extract_workflow(lr_final_fit1)
+# 
+# eval_mdl(lr_final_mdl1)
+# eval_test(lr_final_mdl1)
+# 
+# tree_wflow <- workflow() |> 
+#   add_recipe(tree_recipe) |> 
+#   add_model(tree_spec) |> # reuse the above
+#   add_case_weights(wts) # Crucial tracks weights across resamples
+# 
+# #doParallel::registerDoParallel()
+# cl <- makePSOCKcluster(5) 
+# registerDoParallel(cl)
+# set.seed(67)
+# system.time(
+#   tree_res2 <- tune_grid(
+#     tree_wflow,
+#     resamples = folds_weighted,
+#     grid = tree_grid,
+#     metrics = metric_set(bal_accuracy, accuracy, roc_auc)
+#   )
+# ) #1k 30 mins
+
+
+
+
+# Trees ----------------------
+
+## Tree0 --------------------
+# Vanilla Tree with defaults and not even on folds
+
+tree0_spec <- decision_tree() |> 
   set_engine("rpart") |> 
   set_mode("classification")
 
-tree_fit1_vanilla <- tree_spec |> 
+tree0 <- tree0_spec |> 
   fit(mentalissue ~ ., data = train)
 
-eval_mdl(tree_fit1_vanilla)
-eval_test(tree_fit1_vanilla)
+eval_mdl(tree0)
+eval_test(tree0)
+
+# get the params
+tree0_eng <- tree0 |> extract_fit_engine()
+tree0_eng$control$cp #cost_complexity
+tree0_eng$control$maxdepth #tree_depth
+tree0_eng$control$minsplit #min_n
 
 
-## CT1 tuned ------------------------------------------------
 
-tree_spec <- 
+## Tree1 ------------------------------------------------
+# Tuned with grid
+
+tree1_spec <- 
   decision_tree(
     cost_complexity = tune(),
     tree_depth = tune(), 
@@ -1041,48 +1144,56 @@ tree_spec <-
   set_engine("rpart") |> 
   set_mode("classification")
 
-tree_grid <- grid_regular(cost_complexity(),
-                          tree_depth(),
-                          min_n(),
-                          levels = 10) 
-dim(tree_grid)
-View(tree_grid)
+tree1_grid <- grid_regular(cost_complexity(),
+                           tree_depth(),
+                           min_n(range = c(2,15)), #15 predictors on train
+                           levels = 10) 
+dim(tree1_grid) #1000x3
+View(tree1_grid)
 
-#eval_metrics <-  #, brier_class, j_index)
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
 
-library(doParallel)
-cl <- makePSOCKcluster(5) 
-registerDoParallel(cl)
-#doParallel::registerDoParallel() #old
 set.seed(67)
-system.time(
-  tree_res <- tune_grid(
-    tree_spec,
+(start <- Sys.time())
+tree1_res <- tune_grid(
+    tree1_spec,
     mentalissue ~ .,
     resamples = folds,
-    grid = tree_grid,
-    metrics = metric_set(bal_accuracy, accuracy, roc_auc)
-  )
-) # 1k grid ()
-stopCluster(cl)
+    grid = tree1_grid,
+    metrics = metric_set(bal_accuracy, roc_auc),
+    control = control_grid(verbose = TRUE) # Shows progress bars in the console
+)
 
-# echarle ojito
-tree_metrics <- collect_metrics(tree_res)
-View(tree_metrics)
+stopCluster(my_cluster)
+registerDoSEQ()
+print(Sys.time() - start) #40 mins
 
-autoplot(tree_res) + theme_light()
-show_best(tree_res, metric = "roc_auc")
+tree1_metrics <- collect_metrics(tree1_res)
+View(tree1_metrics)
 
-final_tree <- finalize_model(tree_spec, select_best(tree_res, metric = "roc_auc")) #still not fitted
+#autoplot(tree1_res) + theme_light()
+show_best(tree1_res, metric = "roc_auc", n = 10) 
+my_chosen_params <- tibble(
+  cost_complexity = 0.00001,
+  tree_depth = 7,
+  min_n = 15
+)
 
-tree_fit2_tuned <- fit(final_tree, mentalissue ~ ., train) 
-#final_rs <- last_fit(final_tree, mentalissue ~ ., hbsc_se_split) # fits to train/test
+tree1_final_spec <- tree1_spec |>
+  finalize_model(my_chosen_params)
 
-eval_mdl(tree_fit2_tuned)
-eval_test(tree_fit2_tuned)
+tree1 <- tree1_final_spec |>
+  fit(mentalissue ~ ., data = train) 
+
+eval_mdl(tree1)
+eval_test(tree1)
 
 
-## CT2 tuned weighted -----------------
+## Tree2  -----------------
+# Tuned on weighted data
 
 train_weighted <- train |>
   mutate(wts = ifelse(mentalissue == "Yes", 2.70, 1.0), # is this right?
@@ -1091,63 +1202,124 @@ train_weighted <- train |>
 set.seed(67)
 folds_weighted <- vfold_cv(train_weighted, v = 5, strata = mentalissue)
 
-tree_recipe <- recipe(mentalissue ~ ., data = train_weighted) #includes wts
+tree2_recipe <- recipe(mentalissue ~ ., data = train_weighted) #includes wts
 
-tree_wflow <- workflow() |> 
-  add_recipe(tree_recipe) |> 
-  add_model(tree_spec) |> # reuse the above
+tree2_wflow <- workflow() |> 
+  add_recipe(tree2_recipe) |> 
+  add_model(tree1_spec) |> # reuse the above
   add_case_weights(wts) # Crucial tracks weights across resamples
 
-#doParallel::registerDoParallel()
-cl <- makePSOCKcluster(5) 
-registerDoParallel(cl)
-set.seed(67)
-system.time(
-  tree_res2 <- tune_grid(
-    tree_wflow,
-    resamples = folds_weighted,
-    grid = tree_grid,
-    metrics = metric_set(bal_accuracy, accuracy, roc_auc)
-  )
-) #1k 30 mins
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
 
-# echarle un ojito
-tree_metrics <- collect_metrics(tree_res2)
+(start <- Sys.time())
+set.seed(67)
+tree2_res <- tune_grid(
+  tree2_wflow,
+  resamples = folds_weighted,
+  grid = tree1_grid,
+  metrics = metric_set(bal_accuracy, roc_auc),
+  control = control_grid(verbose = TRUE) # Shows progress bars in the console
+)
+
+stopCluster(my_cluster)
+registerDoSEQ()
+print(Sys.time() - start) #40 mins
+
+tree_metrics <- collect_metrics(tree2_res)
 View(tree_metrics)
 
-autoplot(tree_res2) + theme_light()
-show_best(tree_res2, metric = "roc_auc")
+autoplot(tree2_res) + theme_light()
+show_best(tree2_res, metric = "roc_auc", n=10)
+my_chosen_params <- tibble(
+  cost_complexity = 0.001,
+  tree_depth = 7,
+  min_n = 10
+)
 
-# finalize wkflow to get final fit
-final_tree_wflow <- finalize_workflow(tree_wflow, 
-                                      select_best(tree_res2, metric = "roc_auc"))
+tree2_final_wflow <- finalize_workflow(tree2_wflow, 
+                                       select_best(tree2_res, metric = "roc_auc")
+                                       #my_chosen_params
+                                      )
 
-tree_fit3_tuned_weighted <- fit(final_tree_wflow, data = train_weighted)
-
-#final_tree2 <- finalize_model(tree_spec, select_best(tree_res2, metric = "roc_auc")) #still not fitted
-#final_tree_fit2 <- fit(final_tree2, mentalissue ~ ., train) 
-#final_rs <- last_fit(final_tree, mentalissue ~ ., hbsc_se_split) # fits to train/test
-
-eval_mdl(tree_fit3_tuned_weighted)
-eval_test(tree_fit3_tuned_weighted)
-
-
-## CT results -------------------------
-
-bind_rows(
-eval_mdl(tree_fit1_vanilla) |> mutate(mdl = "1vanilla"),
-eval_mdl(tree_fit2_tuned) |> mutate(mdl = "2tuned"),
-eval_mdl(tree_fit3_tuned_weighted) |> mutate(mdl = "3tuned weighted")
-) |>
-  arrange(.metric)
+tree2 <- fit(tree2_final_wflow, data = train_weighted)
+ 
+eval_mdl(tree2)
+eval_test(tree2)
 
 
-bind_rows(
-  eval_test(tree_fit1_vanilla) |> mutate(mdl = "1vanilla"),
-  eval_test(tree_fit2_tuned) |> mutate(mdl = "2tuned"),
-  eval_test(tree_fit3_tuned_weighted) |> mutate(mdl = "3tuned weighted")
-) |>
-  arrange(class)
+# SHAP ------------------------------------------
+
+# functions to get prob of yes and log-odds of yes from yes
+
+pf_log_odds <- function(m, X) {
+  prob <- predict(m, X, type = "prob")$.pred_Yes
+  
+  prob <- pmax(pmin(prob, 1 - 1e-15), 1e-15) 
+  log_odds <- log(prob / (1 - prob))
+  
+  return(log_odds)
+}
+
+# pf <- function(m, X) {
+#   predict(m, X, type = "prob")$.pred_Yes
+# }
+
+## SHAP datasets -----------------------
+# data to use in all SHAPs
+(xvars <- train |> select(-mentalissue) |> names())
+set.seed(67)
+X_explain <- test[sample(1:nrow(test), 500), xvars] 
+X_background <- train[sample(1:nrow(train), 200), xvars] 
+
+
+## SHAP for trees --------------------------
+
+# compute in paralel shap values for all 3 trees
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
+
+(start <- Sys.time())
+tree0_ks <- kernelshap(
+    tree0,
+    X = X_explain, 
+    bg_X = X_background, 
+    pred_fun = pf_log_odds
+  )
+tree0_sv <- shapviz(tree0_ks)
+
+tree1_ks <- kernelshap(
+  tree1,
+  X = X_explain, 
+  bg_X = X_background, 
+  pred_fun = pf_log_odds
+)
+tree1_sv <- shapviz(tree1_ks)
+
+tree2_ks <- kernelshap(
+  tree2,
+  X = X_explain, 
+  bg_X = X_background, 
+  pred_fun = pf_log_odds
+)
+tree2_sv <- shapviz(tree2_ks)
+
+print(Sys.time() - start) 
+
+stopCluster(my_cluster)
+registerDoSEQ()
+
+sv_importance(tree0_sv, show_numbers = TRUE) + theme_minimal() + ggtitle("tree0")
+sv_importance(tree1_sv, show_numbers = TRUE) + theme_minimal() + ggtitle("tree1")
+sv_importance(tree2_sv, show_numbers = TRUE) + theme_minimal() + ggtitle("tree2")
+
+dim(tree0_sv)
+head(tree0_sv)
+
 
 
 # RF --------------------------------
@@ -1291,7 +1463,9 @@ rf_spec <- rand_forest(
 ) |>
   #|> set_engine("ranger")# |> 
   set_engine("ranger", 
-             max.depth = tune() #todo por el?
+             max.depth = tune(),
+             replace = FALSE, # recommended when tuning sample fraction
+             sample.fraction = tune() 
              ) |> 
   set_mode("classification") 
 
@@ -1302,16 +1476,25 @@ rf_wflow <- workflow() |>
   add_recipe(rf_recipe_weighted) |> 
   add_model(rf_spec) 
 
+# Define a custom quantitative parameter for sample.fraction
+sample_fraction_param <- dials::new_quant_param(
+  type = "double",
+  range = c(0.2, 0.8),
+  inclusive = c(TRUE, TRUE),
+  label = c(sample.fraction = "sample.fraction")
+)
+
 rf_params <- extract_parameter_set_dials(rf_wflow) |> 
   update(mtry = mtry(c(1, 15)), 
          trees = trees(c(100, 1000)),
-         max.depth = tree_depth(c(3, 15)) #was (3,8)
-         ) |>
+         max.depth = tree_depth(c(3, 15)), #was (3,8)
+         sample.fraction = sample_fraction_param
+        ) |>
   finalize(train_weighted) 
 
-rf_grid <- grid_regular(rf_params, levels = 5) #5 is 625
+#rf_grid <- grid_regular(rf_params, levels = 2) 
+rf_grid <- grid_random(rf_params, size = 1000)
 dim(rf_grid)
-#summary(rf_grid)
 
 num_cores <- detectCores() - 1 
 my_cluster <- makeCluster(num_cores)
@@ -1327,8 +1510,8 @@ system.time(
     metrics = metric_set(bal_accuracy, accuracy, roc_auc),
     control = control_grid(verbose = TRUE) # Shows progress bars in the console
   )
-) #4 hrs
-
+) 
+ 
 stopCluster(my_cluster)
 registerDoSEQ()
 
@@ -1369,6 +1552,58 @@ eval_test(rf_fit2_tuned) |> mutate(mdl = "2tuned_weighted"),
 eval_test(rf_fit3_tuned) |> mutate(mdl = "3tuned_weighted")
 ) |>
   arrange(desc(class))
+
+
+## SHAP for RFs --------------------------
+
+# compute in paralel shap values for all 3 trees
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
+
+(start <- Sys.time())
+rf0_ks <- kernelshap(
+  rf_fit1_vanilla,
+  X = X_explain, 
+  bg_X = X_background, 
+  pred_fun = pf_log_odds
+)
+rf0_sv <- shapviz(rf0_ks)
+
+rf1_ks <- kernelshap(
+  rf_fit1_tuned,
+  X = X_explain, 
+  bg_X = X_background, 
+  pred_fun = pf_log_odds
+)
+rf1_sv <- shapviz(rf1_ks)
+
+rf2_ks <- kernelshap(
+  rf_fit2_tuned,
+  X = X_explain, 
+  bg_X = X_background, 
+  pred_fun = pf_log_odds
+)
+rf2_sv <- shapviz(rf2_ks)
+
+rf3_ks <- kernelshap(
+  rf_fit3_tuned,
+  X = X_explain, 
+  bg_X = X_background, 
+  pred_fun = pf_log_odds
+)
+rf3_sv <- shapviz(rf3_ks)
+
+print(Sys.time() - start) #12 hrs
+
+stopCluster(my_cluster)
+registerDoSEQ()
+
+sv_importance(rf0_sv, show_numbers = TRUE) + theme_minimal() + ggtitle("rf0")
+sv_importance(rf1_sv, show_numbers = TRUE) + theme_minimal() + ggtitle("rf1")
+sv_importance(rf2_sv, show_numbers = TRUE) + theme_minimal() + ggtitle("rf2")
+sv_importance(rf3_sv, show_numbers = TRUE) + theme_minimal() + ggtitle("rf3")
 
 
 
@@ -1751,15 +1986,6 @@ combined_waterfalls +
   )
 
 
-
-
-
-
-
-
-
-
-
 ## tree plot ----------------
 
 # save full tree to pdf for reference
@@ -1804,50 +2030,6 @@ rpart.plot(pruned_tree_no_country,
 
 
 
-## rf shap -------------
-# shap the foresta baby
-
-# functions to get prob of yes and log-odds of yes from yes
-pf <- function(m, X) {
-  predict(m, X, type = "prob")$.pred_Yes
-}
-
-pf_log_odds <- function(m, X) {
-  prob <- predict(m, X, type = "prob")$.pred_Yes
-  
-  prob <- pmax(pmin(prob, 1 - 1e-15), 1e-15) 
-  log_odds <- log(prob / (1 - prob))
-  
-  return(log_odds)
-}
-
-xvars <- hbsc_se_train |> select(-mentalissue) |> names()
-xvars
-
-set.seed(67)
-X_explain <- test_data[sample(1:nrow(test_data), 250), xvars] #30 to 1k (really impacts time)
-X_background <- train_data[sample(1:nrow(train_data), 150), ] #50 to 200 is sweet spot (don't go over 500)
-
-system.time(
-  shap_values_rf <- kernelshap(
-    final_model_fit,
-    X = X_explain, 
-    bg_X = X_background, 
-    #pred_fun = pf,
-    pred_fun = pf_log_odds
-    #type = "prob" #link scale so shap values add up to log-odds
-  )
-) #30/200 756; 50/200 1200; 100/200 2300; 200/200 4470; 250/150 5600
-
-sv_rf <- shapviz(shap_values_rf)
-sv_rf 
-dim(sv_rf$S)
-head(sv_rf$S)
-
-# saveRDS(shap_values, file = "shap_values.rds")
-# shap_values <- readRDS("shap_values.rds")
-
-sv_importance(sv_rf, show_numbers = TRUE)
 
 sv_importance(sv_rf, kind = "bee", alpha = 0.4) + theme_minimal()
 
@@ -1864,412 +2046,11 @@ for (i in 1:length(xvars)){
 }
 
 
-
-## XGB --------------
-
-# # La foresta XBG 
-# 
-# #sanity checks
-# hbsc_se$mentalissue <- relevel(hbsc_se$mentalissue, ref = "Yes")
-# #3hbsc_se_train$mentalissue <- relevel(hbsc_se_train$mentalissue, ref = "Yes")
-# #bsc_se_test$mentalissue <- relevel(hbsc_se_test$mentalissue, ref = "Yes")
-# 
-# #split the data
-# set.seed(67)
-# hbsc_se_split  <- initial_split(hbsc_se, 
-#                                 strata = mentalissue,
-# )
-# 
-# hbsc_se_train <- training(hbsc_se_split)
-# hbsc_se_test <- testing(hbsc_se_split)
-# 
-# levels(hbsc_se$mentalissue)
-# levels(hbsc_se_train$mentalissue)
-# levels(hbsc_se_test$mentalissue)
-# 
-# 
-# # xgb_spec <- boost_tree(
-# #   #trees = 1000, 
-# #   tree_depth = tune(), 
-# #   min_n = tune(),
-# #   loss_reduction = tune(),                     
-# #   sample_size = tune(), 
-# #   mtry = tune(),         
-# #   learn_rate = tune()                          
-# # ) %>%
-# #   set_engine("xgboost", scale_pos_weight = 2.7) %>% #73/27
-# #   #  set_engine("xgboost") %>%
-# #   set_mode("classification")
-# 
-# # xgb_grid <- grid_latin_hypercube(
-# #   trees(),
-# #   tree_depth(),
-# #   min_n(),
-# #   loss_reduction(),
-# #   sample_size = sample_prop(),
-# #   finalize(mtry(), se_train),
-# #   learn_rate(),
-# #   size = 25 # from 50, 5
-# # )
-# 
-# 
-# #library(tidymodels)
-# #library(xgboost)
-# #library(dials)
-# 
-# # 1. Define the XGBoost Model Specification with Tunable Placeholders
-# xgb_spec <- boost_tree(
-#   trees = 1000,                       # we tune learn_rate/early stopping
-#   tree_depth = tune(),                # Controls model complexity/interactions
-#   min_n = tune(),                     # Prevents overfitting on noise
-#   loss_reduction = tune(),            # "Gamma" - minimum loss reduction to split a node
-#   sample_size = tune(),               # "Subsample" - row sampling percentage per tree
-#   mtry = tune(),                      # "Colsample_bytree" - column sampling percentage
-#   learn_rate = tune(),                # "Eta" - learning rate velocity
-#   stop_iter = tune()                  # Early stopping rounds to prevent overfitting
-# ) %>% 
-#   set_engine("xgboost") %>% 
-#   #set_engine("xgboost", scale_pos_weight = 2.7) %>%
-#   set_mode("classification")
-# 
-# # 2. Extract and Customize the Parameter Object
-# # We pass an approximation of the predictor dataset size to finalize mtry()
-# xgb_params <- extract_parameter_set_dials(xgb_spec) %>% 
-#   # Set an upper boundary for mtry based on your survey features (e.g., max 15 features)
-#   finalize(x = matrix(NA, nrow = 100, ncol = 15)) %>% 
-#   # Refine specific parameter ranges for optimal classification stability
-#   update(
-#     tree_depth = tree_depth(range = c(3L, 8L)),       # Survey data rarely needs >8 deep
-#     learn_rate = learn_rate(range = c(-3, -1)),       # Explores eta values between 0.001 and 0.1
-#     stop_iter  = stop_iter(range = c(10L, 30L))       # Early stopping check intervals
-#   )
-# 
-# # 3. Generate the Comprehensive Space-Filling Grid
-# xgb_grid <- grid_space_filling(
-#   xgb_params,
-#   size = 30,                       # 30 highly distinct profiles across 7 dimensions
-#   type = "latin_hypercube"         # Ensures uniform distribution across dimensions
-# )
-# 
-# # View the generated parameter grid
-# dim(xgb_grid)
-# head(xgb_grid)
-# 
-# # xgboost needs numeric predictors 
-# # step_dummy() one-hot-encodes any factors
-# xgb_recipe <- #tree_recipe %>%
-#   recipe(mentalissue ~ ., data = hbsc_se_train) |> 
-#   step_dummy(all_nominal_predictors())
-# 
-# # desesperado tratare de hack la receta para ver mejores shap plots
-# xgb_recipe2 <- 
-#   recipe(mentalissue ~ IRFAS + MBMI + age,
-#          data = hbsc_se_train) %>%
-#   step_integer(age)
-# 
-# xgb_wf <- workflow() %>%
-#   add_recipe(xgb_recipe) %>%
-#   add_model(xgb_spec)
-# 
-# set.seed(67)
-# xgb_folds <- vfold_cv(hbsc_se_train, 
-#                       v = 10, #from 10 10, #change later to 10
-#                       #                      repeats = 3,
-#                       strata = mentalissue
-# )
-# 
-# doParallel::registerDoParallel()
-# (start <- Sys.time())
-# set.seed(67)
-# xgb_res <- tune_grid(
-#   xgb_wf,
-#   resamples = xgb_folds,
-#   grid = xgb_grid,
-#   control = control_grid(save_pred = TRUE)
-# )
-# Sys.time() - start #24 mins
-# 
-# xgb_res
-# 
-# collect_metrics(xgb_res)
-# 
-# show_best(xgb_res, metric = "accuracy")
-# show_best(xgb_res, metric = "roc_auc")
-# 
-# #best <- show_best(xgb_res, metric = "roc_auc")
-# #best
-# 
-# best_auc <- select_best(xgb_res, metric = "roc_auc")
-# best_auc
-# 
-# final_xgb <- finalize_workflow(
-#   xgb_wf,
-#   best_auc
-# )
-# 
-# final_xgb
-# 
-# final_fit_xgb <- last_fit(final_xgb, hbsc_se_split)
-# final_fit_xgb
-# 
-# # (This gives you the actual trained model needed for SHAP!)
-# fitted_xgb_fit <- fit(final_xgb, data = hbsc_se_train)
-# fitted_xgb_fit
-# 
-# # see roc
-# final_fit_xgb |>
-#   collect_predictions() |>
-#   roc_curve(mentalissue, .pred_Yes) |>
-#   autoplot() +
-#   theme_minimal()
-# 
-# # Calculate metrics with helper function for train/test
-# get_split_metrics <- list(
-#   train = hbsc_se_train,
-#   test  = hbsc_se_test 
-# ) %>% 
-#   purrr::map_df(function(df) {
-#     # Generate class and probability predictions
-#     predict(fitted_xgb_fit, new_data = df, type = "class") %>% 
-#       bind_cols(predict(fitted_xgb_fit, new_data = df, type = "prob")) %>% 
-#       bind_cols(df) %>% 
-#       # Calculate the metric set
-#       metric_set(bal_accuracy, accuracy, j_index, roc_auc, brier_class)(
-#         truth       = mentalissue, 
-#         estimate    = .pred_class, 
-#         .pred_Yes, 
-#         event_level = "first" # Adjust to "second" if "Yes" is your 2nd factor level
-#       )
-#   }, .id = "dataset"
-#   )
-# 
-# get_split_metrics |>
-#   select(dataset, .metric, .estimate) |>
-#   pivot_wider(names_from = dataset,
-#               values_from = .estimate)# %>%
-# 
-# # #dejarme de pajaz
-# # #models_performance combined table for latex
-# # models_metrics <- bind_rows(
-# #   tree_metrics %>% mutate(model = "Tree"),
-# #   lr_metrics %>% mutate(model = "LogReg"),
-# #   xgb_metrics %>% mutate(model = "XGB")
-# # ) %>%
-# #   arrange(.metric) %>%
-# #   mutate(.metric = gsub("_", "", .metric ))
-# # 
-# # models_metrics
-# 
-# 
-# # # for latex
-# # tt_models_metrics <- tt(models_metrics) 
-# # save_tt(tt_models_metrics, 
-# #         output = "./outputsR/tinytables/tt_models_metrics.tex", 
-# #         overwrite = TRUE)
-# 
-# # # for test set, for each class (Y/N) get precision, recall, f1
-# xgb_test_preds <- collect_predictions(final_fit_xgb)
-# class_metrics <- metric_set(f_meas, precision, recall)
-# 
-# (metrics_class1 <- class_metrics(
-#   xgb_test_preds,
-#   truth = mentalissue,
-#   estimate = .pred_class,
-#   event_level = "second"
-# ) %>%
-#     mutate(class = "NO issues")
-# )
-# 
-# (metrics_class2 <- class_metrics(
-#   xgb_test_preds,
-#   truth = mentalissue,
-#   estimate = .pred_class,
-#   event_level = "first"
-# ) %>%
-#     mutate(class = "YES issues")
-# )
-# 
-# xgb_test_metrics <-
-#   bind_rows(metrics_class1, metrics_class2) %>%
-#   select(-.estimator) %>%
-#   pivot_wider(names_from = .metric,
-#               values_from = .estimate
-#   )
-# xgb_test_metrics
-# 
-# # # combine test metrics in one
-# # test_metrics <- bind_rows(
-# #   tree_test_metrics %>% mutate(model = "Tree"),
-# #   lr_test_metrics %>% mutate(model = "LogReg"),
-# #   xgb_test_metrics %>% mutate(model = "XGB")
-# # ) %>%
-# #   arrange(class)
-# # 
-# # test_metrics
-# # 
-# # tt_test_metrics <- tt(test_metrics)
-# # save_tt(tt_test_metrics,
-# #         output = "./outputsR/tinytables/tt_test_metrics.tex", 
-# #         overwrite = TRUE)
-# 
-# # shap it
-# xgb_fitted <- extract_fit_engine(fitted_xgb_fit)
-# 
-# xgb_baked_data <- extract_recipe(fitted_xgb_fit) %>% 
-#   bake(new_data = hbsc_se_test) %>% 
-#   select(-mentalissue) %>% 
-#   as.matrix()
-# 
-# 
-# # * trying with shapforxgboost
-# shap_values <- shap.values(xgb_model = xgb_fitted, 
-#                            X_train = xgb_baked_data)
-# 
-# shap_long <- shap.prep(xgb_model = xgb_fitted, 
-#                        X_train = xgb_baked_data)
-# 
-# shap.plot.summary(shap_long)
-# 
-# for (v in shap.importance(shap_long, names_only = TRUE)) {
-#   p <- shap.plot.dependence(shap_long, v, color_feature = "auto", 
-#                             alpha = 0.5, jitter_width = 0.1) +
-#     ggtitle(v)
-#   print(p)
-# }
-# 
-# 
-# xgb_sv <- shapviz(xgb_fitted, X_pred = xgb_baked_data)
-# 
-# sv_importance(xgb_sv, kind = "bar") + theme_minimal()
-# sv_importance(xgb_sv, 
-#               kind = "beeswarm", 
-#               max_display = 20L,
-#               sort_features = FALSE,
-#               alpha = 0.1) + 
-#   theme_minimal()
-# 
-# # sv for xgb collapsed
-# # 1. Your existing matrix extraction code
-# #xgb_fitted <- extract_fit_engine(fitted_xgb_workflow)
-# 
-# # xgb_baked_data <- extract_recipe(fitted_xgb_workflow) %>% 
-# #   bake(new_data = se_test) %>% 
-# #   select(-mentalissue) %>% 
-# #   as.matrix()
-# 
-# # 2. DYNAMICALLY CREATE THE COLLAPSE LIST
-# # Find columns that were dummy encoded (containing an underscore like 'age_' or 'country_')
-# cols <- colnames(xgb_baked_data)
-# dummy_prefixes <- unique(sub("_.*", "", cols[grep("_", cols)]))
-# 
-# # Generate the named list grouping the dummy fields by their base factor name
-# collapse_list <- lapply(dummy_prefixes, function(p) cols[startsWith(cols, paste0(p, "_"))])
-# names(collapse_list) <- dummy_prefixes
-# 
-# # 3. FIXED SHAPVIZ CALL: Pass the collapse list here
-# xgb_sv_collapsed <- shapviz(
-#   xgb_fitted, 
-#   X_pred = xgb_baked_data, 
-#   X = hbsc_se_test %>% select(-mentalissue),
-#   collapse = collapse_list
-# )
-# 
-# sv_importance(xgb_sv_collapsed, kind = "bar") + theme_minimal() + ggtitle("XGB Collapsed")
-# sv_importance(xgb_sv_collapsed, kind = "beeswarm") + theme_minimal() + ggtitle("XGB Collapsed")
-# 
-# sv_importance(xgb_sv, kind = "bar") + theme_minimal() + ggtitle("XGB NOT Collap")
-# 
-
-
-
-## shap mas -------------------
-
-# # let's shap for all
-# 
-# 
-# 
-# # tree sv
-# #lr_ext <- extract_workflow(final_lr_fit)
-# (start <- Sys.time())
-# shap_output <- kernelshap(
-#   final_tree, 
-#   X = X_explain, 
-#   bg_X = bg_X, 
-#   type = "prob"
-# )
-# Sys.time() - start #
-# 
-# tree_sv <- shapviz(shap_output)
-# 
-# 
-# # var imp plots
-# sv_importance(tree_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("ClassTree")
-# 
-# 
-# # # same plots but as files for latext
-# # # Define common dimensions for your LaTeX layout (in inches)
-# # plot_width <- 6
-# # plot_height <- 4
-# # 
-# # pdf("outputsR/sv_imp_classtree.pdf", width = plot_width, height = plot_height)
-# # sv_importance(tree_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("ClassTree")
-# # dev.off()
-# # 
-# # pdf("outputsR/sv_imp_logreg.pdf", width = plot_width, height = plot_height)
-# # sv_importance(lr_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("LogReg")
-# # dev.off()
-# # 
-# # pdf("outputsR/sv_imp_xgb_collapsed.pdf", width = plot_width, height = plot_height)
-# # sv_importance(xgb_sv_collapsed, kind = "bar") + theme_minimal() + ggtitle("XGB Collapsed")
-# # dev.off()
-# 
-# # patched pues
-# library(patchwork) # Handles side-by-side layout seamlessly
-# 
-# p1 <- sv_importance(tree_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("ClassTree")
-# p2 <- sv_importance(lr_sv$.pred_Yes, kind = "bar") + theme_minimal() + ggtitle("LogReg")
-# p3 <- sv_importance(xgb_sv_collapsed, kind = "bar") + theme_minimal() + ggtitle("XGB Collapsed")
-# 
-# combined_width  <- 10 
-# combined_height <- 10
-# 
-# # 3. Save as a single combined PDF file
-# pdf("outputsR/sv_imp_combined.pdf", width = combined_width, height = combined_height)
-# # The '+' operator from patchwork places them side-by-side automatically
-# # 'plot_layout(nrow = 1)' forces them into a single row
-# combined_plot <- p1 + p2 + p3 + plot_layout(nrow = 2)
-# print(combined_plot)
-# dev.off()
-# 
-# 
-# # bee plots
-# # sv_importance(tree_sv$.pred_Yes, kind = "beeswarm") + theme_minimal() + ggtitle("ClassTree")
-# # sv_importance(xgb_sv_collapsed, kind = "beeswarm") + theme_minimal() + ggtitle("XGB Collapsed")
-# # sv_importance(xgb_sv, kind = "beeswarm") + theme_minimal() + ggtitle("XGB NOT Collap")
-# 
 # # waterfall plot examples to see someone with diff mental pred
-# 
 # (wat1 <- sv_waterfall(tree_sv$.pred_Yes, 
 #                       max_display = 12,
 #                       row_id = 2) + 
 #     theme_minimal() + ggtitle("NO Mental issue"))
-# 
-# (wat2 <- sv_waterfall(tree_sv$.pred_Yes, 
-#                       max_display = 12,
-#                       row_id = 8) + 
-#     theme_minimal() + ggtitle("YES Mental issue"))
-# 
-# combined_width  <- 10 
-# combined_height <- 10
-# 
-# # 3. Save as a single combined PDF file
-# pdf("outputsR/sv_waterfall_combined.pdf", width = combined_width, height = combined_height)
-# # The '+' operator from patchwork places them side-by-side automatically
-# # 'plot_layout(nrow = 1)' forces them into a single row
-# combined_plot <- wat1 + wat2 + plot_layout(nrow = 1)
-# print(combined_plot)
-# dev.off()
-# 
 # 
 
 
@@ -2324,18 +2105,6 @@ for (i in 1:length(xvars)){
 #        map_type = 1) 	   # permutation map
 # 
 # cat("See ", logdir, " for result file.")
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
 # 
 # 
 # ls_ks
@@ -2399,145 +2168,6 @@ for (i in 1:length(xvars)){
 # 
 # 
 # 
-# 
-# 
-# 
-# 
-# 
-# \section{PROC DE AQUI PARA ABAJO}
-# 
-# 
-# 
-# 
-# %\input{tinytables/tt_models_metrics}
-# %\input{tinytables/tt_test_metrics}
-# 
-# \subsection{Classification Tree}
-# \begin{itemize}
-# \item Use rpart classification
-# \item Train/test split 75/25 con strata = mentalissue
-# \item Tuned cost\_complexity, tree\_depth y min\_n via grid de 5 niveles each so 125 models
-# \item Used 10CV on train while strata = mentalissue for imbalance
-# \item Selected best tree based un AUC
-# \item Refit best tree on all of train and tested on test
-# \end{itemize}
-# 
-# Trees are great to visualize but quickly can be impossible to track. In our case we have a depth of 8, with 104 leaves and 207 nodes so we can't plot here. We can on zoomable pdf.
-# 
-# So here we plot a simple version to show it. By trial/error we pruned the tree as cp = 0.003. 
-# 
-# So it's not the final tree, nor correct but gives a really good idea of what is going on. 
-# 
-# \begin{figure}
-# \centering
-# \includegraphics[width=1\linewidth]{plots/pruned_tree.png}
-# \caption{Pruned tree}
-# \label{fig:placeholder}
-# \end{figure}
-# 
-# \subsection{XGBoost}
-# In tidyverse, used engine xgboost and mode classification.  
-# 
-# Train/test split 75/25 con strata = mentalissue.
-# 
-# Tune parameters via grid: trees = 1000, tree\_depth, min\_n, loss\_reduction, sample\_size, mtry and learn\_rate = tune().  
-# 
-# scale\_pos\_weight was put manually on set\_engine() to accomodate for class imbalance.  
-# 
-# XGB requires numbers so all factor variables were recoded using step\_dummy(all\_nominal\_predictors()).  
-# 
-# 10 fold CV was issued with strata = mentalissue to accomodate for class imablance. 
-# 
-# Best model was salected based on AUC; and then refit on all train and test on test.  
-# 
-# \subsection{SHAP}
-# 
-# Models rank top features relatively consistently.
-# 
-# Side to side plots:
-#   
-#   \begin{figure}[H]
-# \centering
-# \includegraphics[width=1\linewidth]{plots/sv_imp_combined.pdf}
-# \caption{Imp Plots SHAP}
-# \label{fig:shaps2s}
-# \end{figure}
-# 
-# A quick average to rank top features based on all results:
-#   
-#   \begin{figure}[H]
-# \centering
-# \includegraphics[width=0.5\linewidth]{plots/image.png}
-# \caption{Enter Caption}
-# \label{fig:shapavg}
-# \end{figure}
-# 
-# Example of why someone is predicted YES vs NO mental issues.
-# 
-# \begin{figure}[H]
-# \centering
-# \includegraphics[width=1\linewidth]{plots/sv_waterfall_combined.pdf}
-# \caption{waterfallcomb}
-# \label{fig:watf}
-# \end{figure}
-# 
-# 
-# 
-# # purgatory wtf
-# # hbsc purgatory / sandbox
-# 
-# # graph for bullied_s sucked cause it's discrete [2,10]
-# # so see in discrete var
-# # it's now on d2 so purgatory
-# d1 %>%
-#   filter(!is.na(bullied_s), !is.na(mental_issue)) %>%
-#   ggplot(aes(x = factor(bullied_s), fill = mental_issue)) +
-#   # position = "fill" converts counts to 100% proportional bars
-#   geom_bar(position = "fill", alpha = 0.85) + 
-#   scale_fill_manual(values = c("No" = "#5DADE2", "Yes" = "#E74C3C")) +
-#   scale_y_continuous(labels = scales::percent) +
-#   theme_minimal()
-# 
-# 
-# 
-# # codigo que use para calculater train metrics
-# # # train metrics a pata
-# # # 2. Generate predictions on the training data (both class and probabilities)
-# # train_results <- predict(final_tree, new_data = d1_train, type = "class") %>% 
-# #   bind_cols(predict(final_tree, new_data = d1_train, type = "prob")) %>% 
-# #   bind_cols(d1_train) # Bind your original data to keep the 'truth' column
-# # 
-# # # 3. Calculate your performance metrics (e.g., accuracy, roc_auc)
-# # # Make sure to specify event_level if your positive class is the second level
-# # metric_results <- metric_set(accuracy, roc_auc, sens, spec)(
-# #   train_results, 
-# #   truth = mental_issue, 
-# #   estimate = .pred_class, 
-# #   .pred_Yes#, # Replace with your actual probability column name for the event
-# #   #event_level = "second" # Change to "first" or "second" depending on your target
-# # )
-# # 
-# # print(metric_results)
-# 
-# # So I will dichotomize like HBSC and keep sum of both as well for SHAP.
-# # replaced when I added talkp
-# dat <- dat %>%
-#   mutate(talkf = factor( 
-#     case_when(talkfather %in% c(1,2) ~ 1,
-#               talkfather %in% c(3,4,5) ~ 0,
-#               TRUE ~ NA),
-#     levels = c(0,1),
-#     labels = c("No", "Yes")
-#   ),
-#   talkm = factor(
-#     case_when(talkmother %in% c(1,2) ~ 1,
-#               talkmother %in% c(3,4,5) ~ 0,
-#               TRUE ~ NA),
-#     levels = c(0,1),
-#     labels = c("No", "Yes")
-#   ),
-#   talkscore = talkfather + talkmother
-#   )
 # 
 # 
 # 
@@ -2765,38 +2395,7 @@ for (i in 1:length(xvars)){
 
 
 
-## LR niez ----------------------------------------------
-# 
-# # keep only the vars that will be modeled
-# hbsc_se <- hbsc_se %>%
-#   select(-c(IOTF4, #MBMI
-#             IRRELFAS, #IRFAS
-#             lifesat, #no evidence
-#             seqno_int #id
-#   )
-#   )
-# 
-# glimpse(hbsc_se)
-# 
-# # relevel since we will predict Yes (base has to be No; in LR at least)
-# hbsc_se$mentalissue <- relevel(hbsc_se$mentalissue, ref = "No")
-# levels(hbsc_se$mentalissue)
-# 
-# # age podria ser #
-# # gender podria ser 0/1
-# # pmsu podria ser 1 2 3
-# 
-# # hacer lr by age, gender pmsu as is
-# # repeat with dummy
-# # repeat with actual #
-# # ver diff en shap 
-# df <- hbsc_se %>% select(age, gender, pmsu, mentalissue)
-# glimpse(df)
-# 
-# lr1 <- glm(mentalissue ~ .,
-#            data = df,
-#            family = "binomial")
-# summary(lr1)
+
 # 
 # xvars <- c("age", "gender", "pmsu")
 # X_bg <- df[xvars] |> slice_sample(n = 100) #100 random for background dataset
