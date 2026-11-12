@@ -1,5 +1,5 @@
 # HBSC 
-# Updated: 2026-11-03
+# Updated: 2026-11-06
 
 # setup ----------------------------------------------
 
@@ -933,6 +933,8 @@ save_tt(tt_tbl_num, output = "./outputsR/tinytables/tt_tbl_num.tex", overwrite =
 
 # mdl data --------------------------------------
 
+## train, test, folds --------------------------
+
 # a bit more cleaning to keep only y and predictors
 hbsc_se <- hbsc_se %>% 
   select(-c(seqno_int,
@@ -962,14 +964,32 @@ table(test$mentalissue) / nrow(test)
 
 
 ## train weighted ------------------
-train_weighted <- train |>
+# it seems not needed anymore so will comment for now; below should do
+# train_weighted <- train |>
+#   mutate(wts = ifelse(mentalissue == "Yes", 2.70, 1.0), # is this right?
+#          wts = importance_weights(wts))
+# 
+# set.seed(67)
+# folds_weighted <- vfold_cv(train_weighted, v = 5, strata = mentalissue)
+
+
+## hbsc_se weighted ----------------
+
+# add weight
+hbsc_se_weighted <- hbsc_se |>
   mutate(wts = ifelse(mentalissue == "Yes", 2.70, 1.0), # is this right?
          wts = importance_weights(wts))
 
+# recreate splits with weight
+set.seed(67)
+hbsc_se_weighted_split  <- initial_split(hbsc_se_weighted, prop = 8/10, strata = mentalissue)
+train_weighted <- training(hbsc_se_weighted_split)
+test_weighted <- testing(hbsc_se_weighted_split)
+
+# recreated folds with weight
 set.seed(67)
 folds_weighted <- vfold_cv(train_weighted, v = 5, strata = mentalissue)
-
-
+  
 
 
 
@@ -1164,7 +1184,7 @@ eval_mdl(tree2)
 eval_test(tree2)
 
 
-# plots ROCS of the 3 trees
+## Trees ROCS -----------------
 tree0_roc <- augment(tree0, new_data = test) %>% 
   roc_curve(truth = mentalissue, .pred_No) %>% 
   mutate(model = "Tree0")
@@ -1184,11 +1204,423 @@ bind_rows(tree0_roc, tree1_roc, tree2_roc) %>%
   coord_equal() +
   labs(
     title = "ROC Curves Trees (test)",
-    #x = "1 - Specificity (False Positive Rate)",
-    #y = "Sensitivity (True Positive Rate)",
     color = "Model"
   ) +
   theme_minimal()
+
+
+# Log Reg --------------------------
+# 3 versions: one with imbalanced dataset and one with dataset with weights
+
+## LR0 (Vanilla) ------------------
+# simple train and test, no folds
+lr0_spec <- logistic_reg() |>   
+  set_engine("glm") |>   
+  set_mode("classification")
+
+lr0_recipe <- recipe(mentalissue ~ ., data = train) |> 
+  step_rm(IRFAS) #not signif
+
+lr0_workflow <- workflow() |>   
+  add_recipe(lr0_recipe) |>   
+  add_model(lr0_spec)
+
+lr0 <- fit(lr0_workflow, data = train)
+
+eval_mdl(lr0)
+eval_test(lr0)
+
+# see fit (takes a min)
+#lr0 |> extract_fit_parsnip() |> tidy(exponentiate = FALSE, conf.int = TRUE)
+
+
+## LR1 (imbalanced) ----------
+lr1_spec <- logistic_reg() |>
+  set_engine("glm") %>%
+  set_mode("classification")
+
+lr1_recipe <- recipe(mentalissue ~ ., data = train)
+
+lr1_workflow <- workflow() |>
+  add_recipe(lr1_recipe) %>%
+  add_model(lr1_spec)
+
+lr1_cv_results <- fit_resamples(
+  lr1_workflow,
+  resamples = folds,
+  metrics = metric_set(bal_accuracy, roc_auc),
+  control = control_resamples(save_pred = TRUE)
+)
+
+# get metrics, overall and for each fold
+lr1_cv_results |> collect_metrics(summarize = FALSE) |> arrange(.metric)
+lr1_cv_results |> collect_metrics()
+
+# final fit and extract the model
+lr1_final_fit <- last_fit(lr1_workflow, hbsc_se_split)
+lr1 <- extract_workflow(lr1_final_fit)
+
+eval_mdl(lr1)
+eval_test(lr1)
+
+# see fit (takes a min)
+#lr1 |> extract_fit_parsnip() |> tidy(exponentiate = FALSE, conf.int = TRUE)
+
+
+## LR2 (weighted) --------------
+lr2_spec <- logistic_reg() |>
+  set_engine("glm") %>%
+  set_mode("classification")
+
+lr2_recipe <- recipe(mentalissue ~ ., data = train_weighted) # |>
+ # update_role(wts, new_role = "case_weights") #ai suggestion won't work
+
+lr2_workflow <- workflow() |>
+  add_recipe(lr2_recipe) |>
+  add_model(lr2_spec) |>
+  add_case_weights(wts)
+
+lr2_cv_results <- fit_resamples(
+  lr2_workflow,
+  resamples = folds_weighted,
+  metrics = metric_set(bal_accuracy, roc_auc),
+  control = control_resamples(save_pred = TRUE)
+)
+
+# get metrics, overall and for each fold
+lr2_cv_results |> collect_metrics(summarize = FALSE) |> arrange(.metric)
+lr2_cv_results |> collect_metrics()
+
+# final fit and extract the model
+lr2_final_fit <- last_fit(lr2_workflow, hbsc_se_weighted_split)
+lr2 <- extract_workflow(lr2_final_fit)
+
+eval_mdl(lr2)
+eval_test(lr2)
+
+# see fit (takes a min)
+#lr2 |> extract_fit_parsnip() |> tidy(exponentiate = FALSE, conf.int = TRUE)
+
+
+## LR ROCS -----------------
+lr1_roc <- augment(lr1, new_data = test) %>% 
+  roc_curve(truth = mentalissue, .pred_No) %>% 
+  mutate(model = "lr1")
+
+lr2_roc <- augment(lr2, new_data = test) %>% 
+  roc_curve(truth = mentalissue, .pred_No) %>% 
+  mutate(model = "lr2")
+
+bind_rows(lr1_roc, lr2_roc) %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_path(linewidth = 1.2, alpha = 0.4) +
+  geom_abline(lty = 3, color = "gray50") +  
+  coord_equal() +
+  labs(
+    title = "LR ROCs (test)",
+    color = "Model"
+  ) +
+  theme_minimal()
+
+
+## LR Coef Tables -------------------------------
+
+library(gtools)
+library(knitr)
+library(kableExtra)
+
+### LR1 Coeffs tbl --------------------------
+
+lr1_coef_tbl <- 
+  lr1 |> 
+  extract_fit_parsnip() |> 
+  tidy() |>
+  mutate(
+    coefficient = round(estimate, 3),
+    odds_ratio  = round(exp(estimate), 3),
+    p.value_short = pvalue(p.value, accuracy = 0.001),
+    p.value_rounded = round(p.value,5),
+    stars = gtools::stars.pval(p.value),
+    coefficient_star = paste0(coefficient, stars)
+  ) |>
+  select(term, coefficient, odds_ratio, p.value_short)
+
+# Generate a clean, Word-friendly HTML table layout
+lr1_coef_tbl |>
+  kbl(
+    align = c("l", "r", "r"), # Left-align terms, right-align numbers
+    escape = FALSE            # Ensures stars (*, **, ***) display cleanly
+  ) |>
+  kable_classic(
+    full_width = FALSE, 
+    html_font = "Calibri" # Matches Word's standard font family
+  ) |>
+  row_spec(0, bold = TRUE) |> # Bold the header row
+  footnote(
+    general = "Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1",
+    general_title = "LR1 Coeff Table"
+  )
+
+
+### LR2 Coeffs tbl --------------------------
+
+lr2_coef_tbl <- 
+lr2 |> 
+  extract_fit_parsnip() |> 
+  tidy() |>
+  mutate(
+    coefficient = round(estimate, 3),
+    odds_ratio  = round(exp(estimate), 3),
+    p.value_short = pvalue(p.value, accuracy = 0.001),
+    p.value_rounded = round(p.value,5),
+    stars = gtools::stars.pval(p.value),
+    coefficient_star = paste0(coefficient, stars)
+  ) |>
+  select(term, coefficient, odds_ratio, p.value_short)
+
+# Generate a clean, Word-friendly HTML table layout
+lr2_coef_tbl |>
+  kbl(
+    align = c("l", "r", "r"), # Left-align terms, right-align numbers
+    escape = FALSE            # Ensures stars (*, **, ***) display cleanly
+  ) |>
+  kable_classic(
+    full_width = FALSE, 
+    html_font = "Calibri" # Matches Word's standard font family
+  ) |>
+  row_spec(0, bold = TRUE) |> # Bold the header row
+  footnote(
+    general = "Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1",
+    general_title = "LR2 Coeff Table"
+  )
+
+
+### LR2 Coeffs plot --------------------------
+# instead of boring table, a nice coef plot?
+library(GGally)
+library(stats)
+
+lr2_extracted <- extract_fit_parsnip(lr2)
+
+ggcoef_model(lr2_extracted, 
+             exponentiate = TRUE,
+             add_reference_rows = FALSE,
+             show_p_values = TRUE,
+             signif_stars = FALSE,
+             intercept = FALSE
+             )
+
+
+
+# Random Forests --------------------------------
+# 4fits
+
+require(ranger)
+
+
+## RF0 vanilla --------------------
+# imbalanced, fit on train, test on test
+rf0_spec <- rand_forest() |> 
+  set_engine("ranger") |> 
+  set_mode("classification")
+
+rf0 <- rf0_spec |> 
+  fit(mentalissue ~ ., data = train)
+
+eval_mdl(rf0)
+eval_test(rf0)
+
+
+## RF1 tuned -------------------
+# imbalanced, tunes the 3 from tidymodels
+rf1_spec <- rand_forest(
+  mtry = tune(),    
+  min_n = tune(),   
+  trees = tune() 
+) |> set_engine("ranger") |> 
+  set_mode("classification") 
+
+rf1_recipe <- recipe(mentalissue ~ ., data = train) 
+
+rf1_wflow <- workflow() |> 
+  add_recipe(rf1_recipe) |> 
+  add_model(rf1_spec)
+
+rf1_params <- extract_parameter_set_dials(rf1_wflow) |> 
+  update(mtry = mtry(c(1, 15)), 
+         trees = trees(c(100, 1000))) |>
+  finalize(train) 
+
+rf1_grid <- grid_regular(rf1_params, levels = 10)
+dim(rf1_grid)
+summary(rf1_grid)
+
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
+
+set.seed(67)
+(start <- Sys.time())
+rf1_res <- tune_grid(
+    rf1_wflow,
+    resamples = folds,
+    grid = rf1_grid,
+    metrics = metric_set(bal_accuracy, accuracy, roc_auc),
+    control = control_grid(verbose = TRUE) # Shows progress bars in the console
+)
+print(Sys.time() - start) #17 hrs
+
+stopCluster(my_cluster)
+registerDoSEQ()
+
+#autoplot(rf_res1)
+
+show_best(rf1_res, metric = "roc_auc")
+
+# finalize wkflow to get final fit
+final_rf1_wflow <- finalize_workflow(
+  rf1_wflow, 
+  select_best(rf1_res, metric = "roc_auc"))
+
+rf1 <- fit(final_rf1_wflow, data = train)
+
+eval_mdl(rf1)
+eval_test(rf1)
+
+
+## RF2 tuned weighted -------------------
+# same as above but on weighted dataset
+
+rf2_recipe <- recipe(mentalissue ~ ., data = train_weighted) 
+
+rf2_wflow <- workflow() |> 
+  add_recipe(rf2_recipe) |> 
+  add_model(rf1_spec) 
+
+rf2_params <- extract_parameter_set_dials(rf2_wflow) |> 
+  update(mtry = mtry(c(1, 15)), 
+         trees = trees(c(100, 1000))) |>
+  finalize(train_weighted) 
+
+rf2_grid <- grid_random(rf2_params, size = 1000)
+dim(rf2_grid)
+#summary(rf_grid)
+
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
+
+set.seed(67)
+(start <- Sys.time())
+rf2_res <- tune_grid(
+    rf2_wflow,
+    resamples = folds_weighted,
+    grid = rf2_grid,
+    metrics = metric_set(bal_accuracy, accuracy, roc_auc),
+    control = control_grid(verbose = TRUE) # Shows progress bars in the console
+  )
+print(Sys.time() - start) #18 hrs
+
+stopCluster(my_cluster)
+registerDoSEQ()
+
+#autoplot(rf_res2)
+
+show_best(rf2_res, metric = "roc_auc")
+
+# finalize wkflow to get final fit
+final_rf2_wflow <- finalize_workflow(
+  rf2_wflow, 
+  select_best(rf2_res, metric = "roc_auc"))
+
+rf2 <- fit(final_rf2_wflow, data = train_weighted)
+
+eval_mdl(rf2)
+eval_test(rf2)
+
+
+## RF3 tuned+1 weighted -------------------------
+# builds on rf2 adding max.depth
+
+rf3_spec <- rand_forest(
+  mtry = tune(),    
+  min_n = tune(),   
+  trees = tune() 
+) |>
+  #|> set_engine("ranger")# |> 
+  set_engine("ranger", 
+           max.depth = tune(),
+           replace = FALSE, # recommended when tuning sample fraction
+           sample.fraction = tune() 
+) |> 
+  set_mode("classification") 
+
+#rf_recipe_weighted <- recipe(mentalissue ~ ., data = train_weighted) 
+# reuse recipe from r2
+
+rf3_wflow <- workflow() |> 
+  add_recipe(rf2_recipe) |> 
+  add_model(rf3_spec) 
+
+# Define a custom quantitative parameter for sample.fraction
+sample_fraction_param <- dials::new_quant_param(
+  type = "double",
+  range = c(0.2, 0.8),
+  inclusive = c(TRUE, TRUE),
+  label = c(sample.fraction = "sample.fraction")
+)
+
+rf3_params <- extract_parameter_set_dials(rf3_wflow) |> 
+  update(mtry = mtry(c(1, 15)), 
+         trees = trees(c(100, 1000)),
+         max.depth = tree_depth(c(3, 15)), #was (3,8)
+         sample.fraction = sample_fraction_param
+  ) |>
+  finalize(train_weighted) 
+
+rf3_grid <- grid_random(rf3_params, size = 1000)
+dim(rf3_grid)
+
+num_cores <- detectCores() - 1 
+my_cluster <- makeCluster(num_cores)
+registerDoParallel(my_cluster)
+print(my_cluster)
+
+set.seed(67)
+(start <- Sys.time())
+rf3_res <- tune_grid(
+    rf3_wflow,
+    resamples = folds_weighted,
+    grid = rf3_grid,
+    metrics = metric_set(bal_accuracy, accuracy, roc_auc),
+    control = control_grid(verbose = TRUE) # Shows progress bars in the console
+)
+print(Sys.time() - start) # 7.5 hrs
+
+stopCluster(my_cluster)
+registerDoSEQ()
+
+#autoplot(rf_res3, rf_params) #wont work
+
+tune_metrics <- collect_metrics(rf3_res)
+View(tune_metrics)
+# can use ggplot to plot but won't
+
+show_best(rf3_res, metric = "roc_auc")
+
+# finalize wkflow to get final fit
+final_rf3_wflow <- finalize_workflow(
+  rf3_wflow, 
+  select_best(rf3_res, metric = "roc_auc"))
+
+rf3 <- fit(final_rf3_wflow, data = train_weighted)
+
+eval_mdl(rf3)
+eval_test(rf3)
+
+
 
 
 # SHAP ------------------------------------------
@@ -1211,12 +1643,23 @@ pf_log_odds <- function(m, X) {
 
 ## SHAP datasets -----------------------
 
-
 (xvars <- train |> select(-mentalissue) |> names())
 
 set.seed(67)
 X_explain <- test[sample(1:nrow(test), 500), xvars] 
 X_background <- train[sample(1:nrow(train), 200), xvars] 
+
+# get IDs of extreme cases of YES to explain with waterfall
+which(X_explain$pmsu == "High" & 
+        X_explain$cyberbullied == "Yes" & 
+        X_explain$talkparent == "No")
+
+# and for NO
+which(X_explain$pmsu == "Low" & 
+        X_explain$cyberbullied == "No" & 
+        X_explain$talkparent == "Yes" &
+        X_explain$frisupp == "High" &
+        X_explain$famsupp == "High")
 
 
 ## SHAP on trees --------------------------
@@ -1286,17 +1729,118 @@ for (i in 1:length(xvars)){
   print(combined_dependence_plots)
 }
 
-
-
 # dim(tree0_sv)
 # head(tree0_sv)
 
+# Compare a YES with all 3 trees
+p0 <- sv_waterfall(tree0_sv, row_id = 277) + theme_minimal() + ggtitle("tree0")
+p1 <- sv_waterfall(tree1_sv, row_id = 277) + theme_minimal() + ggtitle("tree1")
+p2 <- sv_waterfall(tree2_sv, row_id = 277) + theme_minimal() + ggtitle("tree2")
+combined_tree_waterfalls <- p0 + p1 + p2
+combined_tree_waterfalls + plot_annotation(title = "Waterfall of same YES with all trees")
+
+
+# Now with tree2 compare a YES/NO
+p1 <- sv_waterfall(tree2_sv, row_id = 277, max_display = 15) + theme_minimal() + ggtitle("YES")
+p2 <- sv_waterfall(tree2_sv, row_id = 14, max_display = 15) + theme_minimal() + ggtitle("NO")
+combined_sv_lr <- p1 + p2
+combined_sv_lr + plot_annotation(title = "Tree2 Waterfall of YES vs NO")
+
+
+# redo importance plots for all trees
+# to show relative % instead of a shap log-odds
+
+# #voy, repeat for all trees
+# dim(tree2_sv$S)
+# #500 observations explained; 15 features
+# 
+# # for each feature, returns avg of absoluate value to rank
+# tree2_sv_global_imp <- colMeans(abs(tree2_sv$S)) 
+# tree2_sv_global_imp
+# 
+# # return df with feature and relative calcualted sv
+# tree2_rel_sv <- data.frame(
+#   feature = names(tree2_sv_global_imp),
+#   avg_abs_sv = tree2_sv_global_imp) |>
+#   mutate(rel_imp_pct = round(100 * avg_abs_sv / sum(avg_abs_sv),2)) |>
+#   arrange(desc(rel_imp_pct)) 
+# 
+# tree2_rel_sv |> select(feature, rel_imp_pct) |>
+#   ggplot(aes(x=rel_imp_pct, y=reorder(feature, rel_imp_pct))) +
+#   geom_col() +
+#   theme_minimal() +
+#   labs(title = "tree2", x = "relative importance %", y = "")
 
 
 
-# workspace -------------------------------------
 
-img_file <- paste0(prj_fldr, "RData/hbsc_20261103.RData")
+
+
+## SHAP on LRs ------------------------
+
+lr1_ks <- kernelshap(
+  lr1,
+  X = X_explain, 
+  bg_X = X_background, 
+  pred_fun = pf_log_odds #instead of type = link?
+)
+
+lr2_ks <- kernelshap(
+  lr2,
+  X = X_explain, 
+  bg_X = X_background, 
+  pred_fun = pf_log_odds
+)
+
+lr1_sv <- shapviz(lr1_ks)
+lr2_sv <- shapviz(lr2_ks)
+
+p1 <- sv_importance(lr1_sv, show_numbers = TRUE) + theme_minimal() + ggtitle("LR1")
+p2 <- sv_importance(lr2_sv, show_numbers = TRUE) + theme_minimal() + ggtitle("LR2")
+combined_sv_lr <- p1 + p2
+combined_sv_lr + plot_annotation(title = "sv_importance LRs")
+
+p1 <- sv_importance(lr1_sv, kind = "bee", alpha = 0.4) + theme_minimal() + ggtitle("LR1")
+p2 <- sv_importance(lr2_sv, kind = "bee", alpha = 0.4) + theme_minimal() + ggtitle("LR2")
+combined_sv_lr <- p1 + p2
+combined_sv_lr + plot_annotation(title = "bees LRs")
+
+
+# for best tree (2) plot dependence plots
+xvars
+for (i in 1:length(xvars)){
+  print(i)
+  p1 <- sv_dependence(lr2_sv, v = xvars[i], color_var = NULL) + theme_minimal() 
+  p2 <- sv_dependence(lr2_sv, v = xvars[i], alpha = 0.5) + theme_minimal()
+  combined_dependence_plots <- p1 + p2
+  print(combined_dependence_plots)
+}
+
+# YES
+sv_waterfall(lr2_sv, row_id = 277, max_display = 15) 
+sv_waterfall(lr2_sv, row_id = 348, max_display = 15) 
+
+# NO
+sv_waterfall(lr2_sv, row_id = 14, max_display = 15) 
+sv_waterfall(lr2_sv, row_id = 18, max_display = 15) 
+
+p1 <- sv_waterfall(lr2_sv, row_id = 277, max_display = 15) + theme_minimal() + ggtitle("YES")
+p2 <- sv_waterfall(lr2_sv, row_id = 14, max_display = 15) + theme_minimal() + ggtitle("NO")
+combined_sv_lr <- p1 + p2
+combined_sv_lr + plot_annotation(title = "LR Waterfall of YES vs NO")
+
+p1 <- sv_waterfall(lr2_sv, row_id = 348) + theme_minimal() + ggtitle("YES")
+p2 <- sv_waterfall(lr2_sv, row_id = 18) + theme_minimal() + ggtitle("NO")
+combined_sv_lr <- p1 + p2
+combined_sv_lr + plot_annotation(title = "LR Waterfall of YES vs NO")
+
+
+
+#load("./RData/hbsc_20261103.RData")
+save.image("./RData/hbsc_67.RData")
+
+
+#img_file <- paste0(prj_fldr, "RData/hbsc_20261103.RData")
 #load(file = img_file)
-save.image(file = img_file)
+#save.image(file = img_file)
 
